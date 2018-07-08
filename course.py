@@ -4,7 +4,12 @@
 
 import requests
 import os
-import nbgrader
+# import nbgrader
+# For progress bar
+from tqdm import tqdm
+# For setting up autograding
+from crontab import CronTab
+from assignment import Assignment
 
 # We take in the Canvas course ID as an argument and run that
 
@@ -14,8 +19,8 @@ class Course():
   Course object for manipulating Canvas courses
   """
 
-  def __init__(self, id, token_env_name='CANVAS_TOKEN'):
-    self.id = id
+  def __init__(self, course_id, token_env_name='CANVAS_TOKEN'):
+    self.course_id = course_id
     self.canvas_token = self._getToken(token_env_name)
 
   # Get the canvas token from the environment
@@ -28,16 +33,17 @@ class Course():
       raise
 
   def getStudents(self):
+    print('Querying list of students...')
     # List all of the students in the course
     resp = requests.get(
-      url=f"https://ubc.test.instructure.com/api/v1/courses/{self.id}/users",
+      url=f"https://ubc.test.instructure.com/api/v1/courses/{self.course_id}/users",
       headers={
         "Authorization": f"Bearer {self.canvas_token}",
         "Accept": "application/json+canvas-string-ids"
       },
       json={
-        # NOTE: student and teacher here just for the time being
-        # Canvas API is being funky, so using both for the moment, for testing
+        #! NOTE: student AND teacher here just for the time being. The Canvas
+        #! API is being funky, so using both for the moment for testing
         "enrollment_type": ["student", "teacher"]
       },
     )
@@ -50,7 +56,11 @@ class Course():
       # to the student object passed in and returns the entire object, we can
       # simply pass in our students and get the modified object back.
       # Reassigning to the students object here... is this frowned upon?
-      students = list(map(self._getStudentLTI, students))
+      # Use `tqdm` progress bar
+      print('Querying student IDs...')
+      students = list(map(self._getStudentLTI, tqdm(students)))
+      num_with_id = sum(1 for stu in students if 'lti_user_id' in stu)
+      print(f"{num_with_id}/{len(students)} students have an LTI user ID.")
       self.students = students
       return self
 
@@ -87,3 +97,23 @@ class Course():
 
     # Then return the students object
     return student
+
+  def getAssignments(self):
+    resp = requests.get(
+      url=f"https://ubc.test.instructure.com/api/v1/courses/{self.course_id}/assignments",
+      headers={
+        "Authorization": f"Bearer {self.canvas_token}",
+        "Accept": "application/json+canvas-string-ids"
+      }
+    )
+
+    if (resp.status_code != 200):
+      print("There was an error querying the Canvas API.", resp.json())
+    else:
+      # pull out the response JSON
+      self.assignments = resp.json()
+
+    return self
+
+  def scheduleGrading(self):
+    print('Grading scheduled!')
