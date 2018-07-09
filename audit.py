@@ -5,5 +5,5 @@ course = Course(5394)
 
 # course.getStudents().autograde('Alpha Romeo Tango Niner')
 
-# course.getAssignments().scheduleGrading()
-course.getAssignments()
+course.getAssignments().scheduleGrading()
+# course.getAssignments()
