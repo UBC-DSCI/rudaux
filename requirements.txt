@@ -1,0 +1,9 @@
+certifi==2018.4.16
+chardet==3.0.4
+idna==2.7
+python-crontab==2.3.4
+python-dateutil==2.7.3
+requests==2.19.1
+six==1.11.0
+tqdm==4.23.4
+urllib3==1.23
