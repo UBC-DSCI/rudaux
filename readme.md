@@ -1,8 +1,10 @@
-# Canvas Course Manager
+# Rudaux
 
-This course manager is designed to help you programmatically interface your JupyterHub installation with your Canvas Learning Management System (LMS).
+Rudaux is a course management module to interface the Canvas Learning Management System (LMS) with JupyterHub. Rudaux helps you programmatially administer a course being taught in JupyterHub
 
-This will allow for:
+Rudaux assists in:
 
-- autograding
-- creating assignments in Canvas
+- true autograding - scheduling `cron` events to kick off [`nbgrader`](https://github.com/jupyter/nbgrader) autograding
+- creating assignments in Canvas with links to your JupyterHub notebooks using [`nbgitpuller`](https://github.com/data-8/nbgitpuller)
+
+Rudaux is named after the French artist and astronomer Lucien Rudaux who was a pioneer in space artistry and one of the first artists to paint Jupiter.
