@@ -4,6 +4,7 @@
 
 import requests
 import os
+import re
 # import nbgrader
 # For progress bar
 from tqdm import tqdm
@@ -22,8 +23,13 @@ class Course:
   Course object for manipulating Canvas courses
   """
 
-  def __init__(self, course_id, token_env_name='CANVAS_TOKEN'):
+  def __init__(self, course_id, canvas_url, token_env_name='CANVAS_TOKEN'):
+    # remove trailing slashes from url
+    cleaned_canvas_url = re.sub(r"\/$", "", canvas_url)
+    # remove http(s)://
+    cleaned_canvas_url = re.sub(r"^https{0,1}://", "", cleaned_canvas_url)
     self.course_id = course_id
+    self.canvas_url = cleaned_canvas_url
     self.canvas_token = self._getToken(token_env_name)
     self.course = self._getCourse()
     self.cron = CronTab(user=True)
@@ -45,7 +51,7 @@ class Course:
     Get your course information
     """
     resp = requests.get(
-      url=f"https://ubc.test.instructure.com/api/v1/courses/{self.course_id}",
+      url=f"{self.canvas_url}/api/v1/courses/{self.course_id}",
       headers={
         "Authorization": f"Bearer {self.canvas_token}",
         "Accept": "application/json+canvas-string-ids"
@@ -67,7 +73,7 @@ class Course:
     print('Querying list of students...')
     # List all of the students in the course
     resp = requests.get(
-      url=f"https://ubc.test.instructure.com/api/v1/courses/{self.course_id}/users",
+      url=f"{self.canvas_url}/api/v1/courses/{self.course_id}/users",
       headers={
         "Authorization": f"Bearer {self.canvas_token}",
         "Accept": "application/json+canvas-string-ids"
@@ -101,7 +107,7 @@ class Course:
     the student object passed in and return the student object.
     """
     resp = requests.get(
-      url=f"https://ubc.test.instructure.com/api/v1/users/{student['id']}/profile",
+      url=f"{self.canvas_url}/api/v1/users/{student['id']}/profile",
       headers={
         "Authorization": f"Bearer {self.canvas_token}",
         "Accept": "application/json+canvas-string-ids"
@@ -134,7 +140,7 @@ class Course:
     Get all assignments for a course.
     """
     resp = requests.get(
-      url=f"https://ubc.test.instructure.com/api/v1/courses/{self.course_id}/assignments",
+      url=f"{self.canvas_url}/api/v1/courses/{self.course_id}/assignments",
       headers={
         "Authorization": f"Bearer {self.canvas_token}",
         "Accept": "application/json+canvas-string-ids"
