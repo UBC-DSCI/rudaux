@@ -8,6 +8,8 @@ import re
 # import nbgrader
 # For progress bar
 from tqdm import tqdm
+from weir import zfs
+from github import Github
 # For setting up autograding
 from crontab import CronTab
 from assignment import Assignment

@@ -1,10 +1,10 @@
 # import unittest
 from course import Course
 
-course = Course(5394)
+course = Course(5394, 'https://ubc.test.instructure.com/')
 
-course.getStudents()
-# course.getStudents().autograde('Alpha Romeo Tango Niner')
+# course.get_students()
+# course.get_students().autograde('Alpha Romeo Tango Niner')
 
-# course.getAssignments()
-# course.getAssignments().scheduleGrading()
+course.get_assignments_from_canvas()
+# course.getAssignments().schedule_grading()
