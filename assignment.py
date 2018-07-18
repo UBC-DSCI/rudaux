@@ -43,6 +43,72 @@ class Assignment:
     self.filename = filename
     self.path = path
 
+    # clean url
+    github_url = self._strip_url(github_url)
+
+    # If we're not using ssh access, get the username and PAT for access
+    if not ssh:
+      self.github_pat = self._get_token(pat_name)
+
+      # instantiate our github api object
+      self.gh_api = Github(
+        base_url=f"https://{github_url}", login_or_token=self.github_pat
+      )
+
+      # get the git tree for our repository
+      self.github_user = self.gh_api.get_user().login
+
+  # Get the github token from the environment
+  def _get_token(self, token_name: str):
+    """
+    Get an API token from an environment variable.
+    """
+    try:
+      token = os.environ[token_name]
+      return token
+    except KeyError as e:
+      print(f"You do not seem to have the '{token_name}' environment variable present:")
+      raise e
+
+  def _strip_url(self, url: str):
+    """
+    Remove protocol ("http(s)://") and trailing slashes ("/") from a URL. 
+
+    :param url: a URL to strip
+
+    :returns: A URL without protocol or trailing /
+    """
+    new_url = self._strip_slash(url, 'trailing')
+    new_url = self._strip_http(new_url)
+    return (new_url)
+
+  def _strip_slash(self, string: str, position='trailing'):
+    """
+    Remove protocol ("http(s)://") and trailing slashes ("/") from a URL. 
+
+    :param string: a string to strip a slash from 
+    :param position: where to strip the string from ('preceding' or 'trailing')
+
+    :returns: A string without a '/'
+    """
+    if position == 'trailing':
+      return (re.sub(r"/$", "", string))
+    elif position == 'preceding':
+      return (re.sub(r"^/", "", string))
+    else:
+      print('Position not recognized, stripping trailing slashes.')
+      return (re.sub(r"/$", "", string))
+
+  def _strip_http(self, url: str):
+    """
+    Remove protocol ("http(s)://") and trailing slashes ("/") from a URL. 
+
+    :param url: a URL to strip
+
+    :returns: A URL without protocol or trailing /
+    """
+    return (re.sub(r"^https{0,1}://", "", url))
+
   def autograde(self):
     """
     Initiate automated grading with nbgrader.
