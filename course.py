@@ -268,6 +268,28 @@ class Course:
     self.assignments_to_create = assignments
     return (self)
 
+  def get_assignments_from_csv(self, path: str):
+    """
+    Bring in assignments from a CSV file. 
+    CSV file should contain the following columns: 
+    
+    [required]
+    - name (str): the name of the assignment
+    - due_at (str): due date for the assignment
+    - notebook_path (str): github URL at which the jupyter notebook lives
+    - points_possible (int): the number of possible points
+
+    [optional]
+    - published (bool): whether the assignment should be published
+    - description (str): a description of the assignment
+    - unlock_at (str): a date at which the assignment becomes available
+    - lock_at (str): date after the due date to which students can submit their assignment for partial credit
+
+    :param path: Path to the CSV file. 
+    """
+    assignments = pd.read_csv(path)
+    print(assignments)
+
   def create_assignments(self):
     """
     Create assignments for a course.
