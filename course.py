@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 # This will be called by cron and run after assignment closes
 
 import requests
@@ -213,7 +211,7 @@ class Course:
   def get_assignments_from_github(
     self,
     repo: str,
-    path='source',
+    dir='source',
     hostname='api.github.com',
     token_name='GITHUB_PAT',
     exclude=[]
@@ -223,10 +221,11 @@ class Course:
 
     :param repo: The name of the repository containing your assignments.
     :param exclude: Python nodebooks to exclude from assignment creation. A list of notebook names such as ['header.ipynb', footer.ipynb']
-    :param path: The directory containing your assignments. Should be relative to repo root, defaults to 'source'.
+    :param dir: The directory containing your assignments. Should be relative to repo root, defaults to 'source'.
     :param hostname: The hostname for your GitHub instance. Defaults to github.com, but you can specify your GitHub Enterprise instance.
     :param token_name: The name of the environment variable storing your GitHub Personal Access Token. Your PAT must have the "repos" permission.
     """
+
     # remove trailing slashes from url
     github_url = re.sub(r"\/$", "", hostname)
     # remove http(s)://
@@ -234,7 +233,9 @@ class Course:
     github_token = self._get_token(token_name)
 
     # strip any preceding `/` or `./` from path provided
-    clean_path = re.sub(r"^\.{0,1}/", "", path)
+    clean_dir = re.sub(r"^\.{0,1}/", "", dir)
+    # strip any trailing `/` from path provided
+    clean_dir = re.sub(r"/$", "", clean_dir)
 
     # Make sure the exclusion array has '.ipynb' file extensions
     clean_exclude = list(
@@ -255,7 +256,7 @@ class Course:
     print("Searching for jupyter notebooks...")
     for tree_element in tqdm(repo_tree):
       # If the tree element is in our path and is a jupyter notebook
-      if tree_element.path.startswith(clean_path) & tree_element.path.endswith('.ipynb'):
+      if tree_element.path.startswith(clean_dir) & tree_element.path.endswith('.ipynb'):
         # get the filename (excluding the path)
         file_search = re.search(r"[\w-]+\.ipynb$", tree_element.path)
         # and make sure we got a hit (redundant, but error-averse)
@@ -266,14 +267,17 @@ class Course:
           if filename not in clean_exclude:
             # strip the file extension
             name = re.sub(r".ipynb$", "", filename)
+
+            # Get the contents of the file
+            # file = gh_api.get_user().get_repo(repo).get_contents(tree_element.path)
+            # file_contents = b64decode(file.content)
+            # https://pygithub.readthedocs.io/en/latest/github_objects/ContentFile.html#github.ContentFile.ContentFile
+
             # add the assignment name, filename, and path to our list of assignments.
             assignment = Assignment(
               name=name, 
               filename=filename, 
-              path=path, 
-              canvas_url=self.canvas_url, 
-              canvas_token = self.canvas_token, 
-              course_id=self.course_id
+              path=tree_element.path
             )
             assignments.append(assignment)
 
@@ -301,6 +305,20 @@ class Course:
   #   """
   #   assignments = pd.read_csv(path)
   #   print(assignments)
+
+  def init_nbgrader(self): 
+    """
+    Enter information into the nbgrader gradebook database about the assignments and the students.
+    """
+
+    # nbgrader API docs: https://nbgrader.readthedocs.io/en/stable/api/gradebook.html#nbgrader.api.Gradebook
+    # 1. Make sure we have all of the course assignments
+    # 2. Make sure we have all of the course students
+    # 3. Make sure we know where the nbgrader database is: nbgrader.api.Gradebook(db_url)
+    # 4. Add assignments: `update_or_create_assignment(name, **kwargs)`
+    # 5. Add students: `find_student(student_id)`, then `add_student(student_id, **kwargs)``
+
+    return(False)
 
   def create_assignments(self):
     """
