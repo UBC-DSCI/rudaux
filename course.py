@@ -3,11 +3,10 @@
 # This will be called by cron and run after assignment closes
 
 import requests
-import os
+from os import environ
 import re
+# For parsing assignments from CSV
 import pandas as pd
-import urllib.parse
-# import nbgrader
 # For progress bar
 from tqdm import tqdm
 from weir import zfs
@@ -16,9 +15,14 @@ from github import Github
 from crontab import CronTab
 from assignment import Assignment
 from dateutil.parser import parse
+# For decoding base64-encoded files from GitHub API
+from base64 import b64decode
+# for urlencoding query strings to persist through user-redirect
+import urllib.parse
+# import nbgrader
 
 #* All internal _methods() return an object
-#* All external  methods() return self (are chainable), and mutate object state
+#* All external  methods() return self (are chainable), and mutate object state or initiate other side-effects
 
 
 # Must be instantiated with a course ID
@@ -70,7 +74,7 @@ class Course:
     Get an API token from an environment variable.
     """
     try:
-      token = os.environ[token_name]
+      token = environ[token_name]
       return token
     except KeyError as e:
       print(f"You do not seem to have the '{token_name}' environment variable present:")
@@ -194,9 +198,14 @@ class Course:
     resp.raise_for_status()
 
     # pull out the response JSON
-    assignments = resp.json()
-    print(type(assignments))
-    print(assignments)
+    canvas_assignments = resp.json()
+
+    # Create an assignment object from each assignment
+    # `canvas_assignments` is a list of objects (dicts) so `**` is like the object spread operator (`...` in JS)
+    assignments = map(
+      lambda assignment: Assignment(**assignment),
+      canvas_assignments
+    )
     self.assignments = assignments
 
     return self
@@ -258,37 +267,40 @@ class Course:
             # strip the file extension
             name = re.sub(r".ipynb$", "", filename)
             # add the assignment name, filename, and path to our list of assignments.
-            assignments.append(
-              {
-                'name': name,
-                'filename': filename,
-                'path': tree_element.path
-              }
+            assignment = Assignment(
+              name=name, 
+              filename=filename, 
+              path=path, 
+              canvas_url=self.canvas_url, 
+              canvas_token = self.canvas_token, 
+              course_id=self.course_id
             )
+            assignments.append(assignment)
+
     self.assignments_to_create = assignments
     return (self)
 
-  def get_assignments_from_csv(self, path: str):
-    """
-    Bring in assignments from a CSV file. 
-    CSV file should contain the following columns: 
+  # def get_assignments_from_csv(self, path: str):
+  #   """
+  #   Bring in assignments from a CSV file. 
+  #   CSV file should contain the following columns: 
     
-    [required]
-    - name (str): the name of the assignment
-    - due_at (str): due date for the assignment
-    - notebook_path (str): github URL at which the jupyter notebook lives
-    - points_possible (int): the number of possible points
+  #   [required]
+  #   - name (str): the name of the assignment
+  #   - due_at (str): due date for the assignment
+  #   - notebook_path (str): github URL at which the jupyter notebook lives
+  #   - points_possible (int): the number of possible points
 
-    [optional]
-    - published (bool): whether the assignment should be published
-    - description (str): a description of the assignment
-    - unlock_at (str): a date at which the assignment becomes available
-    - lock_at (str): date after the due date to which students can submit their assignment for partial credit
+  #   [optional]
+  #   - published (bool): whether the assignment should be published
+  #   - description (str): a description of the assignment
+  #   - unlock_at (str): a date at which the assignment becomes available
+  #   - lock_at (str): date after the due date to which students can submit their assignment for partial credit
 
-    :param path: Path to the CSV file. 
-    """
-    assignments = pd.read_csv(path)
-    print(assignments)
+  #   :param path: Path to the CSV file. 
+  #   """
+  #   assignments = pd.read_csv(path)
+  #   print(assignments)
 
   def create_assignments(self):
     """
@@ -308,6 +320,7 @@ class Course:
       # and join it to the previously constructed launch URL (hub + nbgitpuller language)
       full_path = gitpuller_url + subpath
       # FIRST check if an assignment with that name already exists.
+
       existing_assigments = requests.get(
         url=f"https://{self.canvas_url}/api/v1/courses/{self.course_id}/assignments",
         headers={
@@ -343,12 +356,12 @@ class Course:
 
         # Make sure our request didn't fail silently
         resp.raise_for_status()
-        
+
       # Otherwise, we should update our existing assignment (and update the url)
       else:
         # extract our first hit
         existing_assignment = existing_assigments.json()[0]
-        requests.put(
+        resp = requests.put(
           url=f"https://{self.canvas_url}/api/v1/courses/{self.course_id}/assignments/{existing_assignment['id']}",
           headers={
             "Authorization": f"Bearer {self.canvas_token}",
@@ -363,6 +376,9 @@ class Course:
             }
           }
         )
+        # Make sure our request didn't fail silently
+        resp.raise_for_status()
+    return(self)
 
 
   def schedule_grading(self):
