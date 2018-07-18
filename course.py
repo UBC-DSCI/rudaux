@@ -1,7 +1,7 @@
 # This will be called by cron and run after assignment closes
 
 import requests
-from os import environ
+import os
 import re
 # For parsing assignments from CSV
 import pandas as pd
@@ -42,17 +42,14 @@ class Course:
 
     :returns: A Course object for performing operations on an entire course at once.
     """
-    # remove trailing slashes from urls
-    canvas_url = re.sub(r"\/$", "", canvas_url)
-    hub_url = re.sub(r"\/$", "", hub_url)
-    student_repo = re.sub(r"\/$", "", student_repo)
-    # remove http(s):// from urls
-    canvas_url = re.sub(r"^https{0,1}://", "", canvas_url)
-    hub_url = re.sub(r"^https{0,1}://", "", hub_url)
-    student_repo = re.sub(r"^https{0,1}://", "", student_repo)
+    # clean urls
+    canvas_url = self._strip_url(canvas_url)
+    hub_url = self._strip_url(hub_url)
+    student_repo = self._strip_url(student_repo)
 
-    # For the hub prefix, it must have a preceding slash and no trailing slash
-    hub_prefix = re.sub(r"\/$", "", hub_prefix)
+    # For the hub prefix, it must have no trailing slash
+    hub_prefix = _strip_slash(hub_prefix, 'trailing')
+    # ...but have a preceding slash
     if re.search(r"^/", hub_prefix) is None:
       hub_prefix = fr"/{hub_prefix}"
 
@@ -251,8 +248,8 @@ class Course:
     self,
     repo: str,
     dir='source',
-    hostname='api.github.com',
-    token_name='GITHUB_PAT',
+    github_url='api.github.com',
+    pat_name='GITHUB_PAT',
     exclude=[]
   ):
     """
@@ -261,20 +258,18 @@ class Course:
     :param repo: The name of the repository containing your assignments.
     :param exclude: Python nodebooks to exclude from assignment creation. A list of notebook names such as ['header.ipynb', footer.ipynb']
     :param dir: The directory containing your assignments. Should be relative to repo root, defaults to 'source'.
-    :param hostname: The hostname for your GitHub instance. Defaults to github.com, but you can specify your GitHub Enterprise instance.
+    :param github_url: The hostname for your GitHub API. Defaults to api.github.com, but you can specify a GitHub Enterprise instance (e.g. github.institution.edu/api/v3/)
     :param token_name: The name of the environment variable storing your GitHub Personal Access Token. Your PAT must have the "repos" permission.
     """
 
-    # remove trailing slashes from url
-    github_url = re.sub(r"\/$", "", hostname)
-    # remove http(s)://
-    github_url = re.sub(r"^https{0,1}://", "", github_url)
-    github_token = self._get_token(token_name)
+    # clean url
+    github_url = self._strip_url(github_url)
+    github_token = self._get_token(pat_name)
 
     # strip any preceding `/` or `./` from path provided
     clean_dir = re.sub(r"^\.{0,1}/", "", dir)
     # strip any trailing `/` from path provided
-    clean_dir = re.sub(r"/$", "", clean_dir)
+    clean_dir = self._strip_slash(clean_dir, 'trailing')
 
     # Make sure the exclusion array has '.ipynb' file extensions
     clean_exclude = list(
@@ -282,7 +277,7 @@ class Course:
     )
 
     # instantiate our github api object
-    gh_api = Github(base_url=f"https://{github_url}/api/v3", login_or_token=github_token)
+    gh_api = Github(base_url=f"https://{github_url}", login_or_token=github_token)
 
     # get the git tree for our repository
     repo_tree = gh_api.get_user().get_repo(repo).get_git_tree(

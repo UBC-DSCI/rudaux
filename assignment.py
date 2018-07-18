@@ -1,7 +1,10 @@
 import requests
 import re
 import nbgrader
-from os import environ
+import os
+import subprocess
+from github import Github
+from pathlib import Path
 from typing import Union, List, Optional
 
 # from nbgrader.apps import NbGraderAPI
@@ -23,17 +26,24 @@ class Assignment:
   It only has operations for working on things locally (nbgrader functions). 
   """
 
-  def __init__(self, name: str, filename=None, path=None, **kwargs):
+  def __init__(
+    self,
+    name: str,
+    filename=None,
+    path=None,
+    github_url='api.github.com',
+    pat_name='GITHUB_PAT',
+    ssh=False,
+    **kwargs
+  ):
     """
-    Users must specify a course ID, but if the assignment is not yet in Canvas, 
-    it will not have an assignment ID (which is therefore optional).
+    Assignment object for manipulating Assignments.
 
-    :param course_id: The (numeric) Canvas Course ID. 
-    :param canvas_url: Base URL to your Canvas deployment. Probably something like "canvas.institution.edu".
-    :param token_env_name: The name of your Canvas Token environment variable. 
-
-    For a full list of possible kwargs, please see the Canvas API docs:
-    https://canvas.instructure.com/doc/api/assignments.html#Assignment
+    :param name: The name of the assignment.
+    :param filename: The filename of the Jupyter Notebook containing the assignment. 
+    :param path: The path to the notebook (in the instructors repo).
+    :param pat_name: The name of your GitHub personal access token environment variable.
+    :param ssh: Whether or not you will be authenticating via SSH.
 
     :returns: An assignment object for performing different operations on a given assignment.
     """
@@ -180,18 +190,6 @@ class CanvasAssignment(Assignment):
       self.exists_in_canvas = False
 
     print(self.__dict__)
-
-  # Get the canvas token from the environment
-  def _get_token(self, token_name: str):
-    """
-    Get an API token from an environment variable.
-    """
-    try:
-      token = environ[token_name]
-      return token
-    except KeyError as e:
-      print(f"You do not seem to have the '{token_name}' environment variable present:")
-      raise e
 
   def _search_canvas_course(self, name):
     # Here, match the course by the name if no ID supplied
