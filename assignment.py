@@ -126,10 +126,33 @@ class Assignment:
 
     return False
 
-  def assign(self):
+  def assign(
+    self,
+    ins_repo: str,
+    stu_repo: str,
+    tmp_dir=os.path.join(Path.home(), 'tmp', 'rudaux')
+  ):
     """
-    Assign assignment to students (generate student copy from instructors repository and push to public repository).
+    Assign assignment to students (generate student copy from instructors repository and push to public repository). Only provide SSH URLs if you have an SSH-key within sshd on this machine. Otherwise we will use your Github Personal Access Token.
+
+    :param ins_repo: The remote URL to your instructors' repository. 
+    :param stu_repo: The remote URL to your students' repository.
+    :param tmp_dir: A temporary directory to clone your instructors repo to. The default dir is located within the users directory so as to ensure write permissions. 
     """
+
+    # First things first, make the temporary directories necessary.
+    if not os.path.exists(tmp_dir):
+      os.makedirs(tmp_dir)
+
+    if ins_repo.startswith('git@'):
+      print('this')
+      # run command as is, ssh key should be accessible
+    elif ins_repo.startswith('https'):
+      ins_repo_coded = re.sub(r"^https{0,1}://", "", ins_repo)
+      subprocess.run(
+        'git clone https://username:password@github.com/username/repository.git',
+        check=True
+      )
 
     return False
 
