@@ -80,6 +80,9 @@ class Assignment:
     permissions. 
     """
 
+    self.github_pat = None
+    self.pat_name = pat_name
+
     #=======================================#
     #                                       #
     #       Set up Parameters & Config      #
@@ -125,15 +128,11 @@ class Assignment:
     #                                       #
     #=======================================#
 
-    # If you use `urlparse` on a github ssh string, the entire result gets put
-    # in 'path', leaving 'netloc' an empty string. We can check for that.
-    if not ins_repo_url.netloc:
-      # SO, if using ssh, go ahead and clone.
-      print('SSH URL detected, assuming SSH keys are accounted for...')
-      Repo.clone_from(urllib.parse.urlunsplit(ins_repo_url), ins_repo_dir)
-
-    # Otherwise, we need to get the github username from the API
-    else:
+    try:
+      self._clone_repo(ins_repo_url, ins_repo_dir)
+    except Exception as e:
+      print("There was an error cloning your instructors repository")
+      raise e
 
       # If we're trying to clone from github.com...
       if ins_repo_url.netloc == 'github.com':
@@ -175,6 +174,27 @@ class Assignment:
     # assign the given assignment!
     nb_api.assign(self.name)
 
+    # make sure we assigned properly
+    if not os.path.exists(os.path.join(ins_repo_dir, 'release', self.name)):
+      exit(
+        f"nbgrader failed to assign {self.name}, please make sure your directory structure is set up properly in nbgrader"
+      )
+
+    #=======================================#
+    #                                       #
+    #   Move Assignment to Students Repo    #
+    #                                       #
+    #=======================================#
+
+    try:
+      self._clone_repo(stu_repo_url, stu_repo_dir)
+    except Exception as e:
+      print("There was an error cloning your students repository")
+      raise e
+
+    
+    ## Copy ins/release/self.name to stu/self.name?
+
     return False
 
   def collect(self):
@@ -184,6 +204,48 @@ class Assignment:
     """
 
     return False
+
+  def _clone_repo(self, repo_url: str, target_dir: str):
+    """Clone a repository
+    
+    :param repo_url: The ssh or https url for the repository you wish to clone.
+    :type repo_url: str
+    :param target_dir: The directory you wish to clone your repository to.
+    :type target_dir: str
+    """
+
+    split_url = urlparse.urlsplit(repo_url)
+
+    # If at least one of the URLs provided is an HTTPS url, get the personal
+    # access token
+    if (split_url.netloc):
+      print(f"Checking for the PAT named {self.pat_name}...")
+      self.github_pat = self._get_token(self.pat_name)
+
+    print(f"Cloning from {repo_url}...")
+    # If you use `urlparse` on a github ssh string, the entire result gets put
+    # in 'path', leaving 'netloc' an empty string. We can check for that.
+    if not split_url.netloc:
+      # SO, if using ssh, go ahead and clone.
+      print('SSH URL detected, assuming SSH keys are accounted for...')
+      Repo.clone_from(repo_url, target_dir)
+
+    # Otherwise, we need to get the github username from the API
+    else:
+
+      # If we're trying to clone from github.com...
+      if split_url.netloc == 'github.com':
+        # Github() default is api.github.com
+        self.github_username = Github(self.github_pat).get_user().login
+      # Otherwise, use the GHE Domain
+      else:
+        self.github_username = Github(
+          base_url=urlparse.urljoin(repo_url, "/api/v3"), login_or_token=self.github_pat
+        ).get_user().login
+
+      # Finally, clone the repository!!
+      repo_url_auth = f"https://{self.github_username}:{self.github_pat}@{split_url.netloc}{split_url.path}.git"
+      Repo.clone_from(repo_url_auth, target_dir)
 
 
 class CanvasAssignment(Assignment):
