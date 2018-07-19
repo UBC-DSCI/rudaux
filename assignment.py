@@ -4,7 +4,9 @@ import nbgrader
 import os
 import subprocess
 from github import Github
+from git import Repo
 from pathlib import Path
+import urllib.parse
 from typing import Union, List, Optional
 
 # from nbgrader.apps import NbGraderAPI
@@ -26,16 +28,7 @@ class Assignment:
   It only has operations for working on things locally (nbgrader functions). 
   """
 
-  def __init__(
-    self,
-    name: str,
-    filename=None,
-    path=None,
-    github_url='api.github.com',
-    pat_name='GITHUB_PAT',
-    ssh=False,
-    **kwargs
-  ):
+  def __init__(self, name: str, filename=None, path=None, **kwargs):
     """
     Assignment object for manipulating Assignments.
 
@@ -53,21 +46,6 @@ class Assignment:
     self.filename = filename
     self.path = path
 
-    # clean url
-    github_url = self._strip_url(github_url)
-
-    # If we're not using ssh access, get the username and PAT for access
-    if not ssh:
-      self.github_pat = self._get_token(pat_name)
-
-      # instantiate our github api object
-      self.gh_api = Github(
-        base_url=f"https://{github_url}", login_or_token=self.github_pat
-      )
-
-      # get the git tree for our repository
-      self.github_user = self.gh_api.get_user().login
-
   # Get the github token from the environment
   def _get_token(self, token_name: str):
     """
@@ -80,45 +58,6 @@ class Assignment:
       print(f"You do not seem to have the '{token_name}' environment variable present:")
       raise e
 
-  def _strip_url(self, url: str):
-    """
-    Remove protocol ("http(s)://") and trailing slashes ("/") from a URL. 
-
-    :param url: a URL to strip
-
-    :returns: A URL without protocol or trailing /
-    """
-    new_url = self._strip_slash(url, 'trailing')
-    new_url = self._strip_http(new_url)
-    return (new_url)
-
-  def _strip_slash(self, string: str, position='trailing'):
-    """
-    Remove protocol ("http(s)://") and trailing slashes ("/") from a URL. 
-
-    :param string: a string to strip a slash from 
-    :param position: where to strip the string from ('preceding' or 'trailing')
-
-    :returns: A string without a '/'
-    """
-    if position == 'trailing':
-      return (re.sub(r"/$", "", string))
-    elif position == 'preceding':
-      return (re.sub(r"^/", "", string))
-    else:
-      print('Position not recognized, stripping trailing slashes.')
-      return (re.sub(r"/$", "", string))
-
-  def _strip_http(self, url: str):
-    """
-    Remove protocol ("http(s)://") and trailing slashes ("/") from a URL. 
-
-    :param url: a URL to strip
-
-    :returns: A URL without protocol or trailing /
-    """
-    return (re.sub(r"^https{0,1}://", "", url))
-
   def autograde(self):
     """
     Initiate automated grading with nbgrader.
@@ -128,31 +67,53 @@ class Assignment:
 
   def assign(
     self,
-    ins_repo: str,
-    stu_repo: str,
-    tmp_dir=os.path.join(Path.home(), 'tmp', 'rudaux')
+    ins_repo_url: str,
+    stu_repo_url: str,
+    tmp_dir=os.path.join(Path.home(), 'tmp'),
+    pat_name='GITHUB_PAT'
   ):
     """
     Assign assignment to students (generate student copy from instructors repository and push to public repository). Only provide SSH URLs if you have an SSH-key within sshd on this machine. Otherwise we will use your Github Personal Access Token.
 
-    :param ins_repo: The remote URL to your instructors' repository. 
-    :param stu_repo: The remote URL to your students' repository.
+    :param ins_repo_url: The remote URL to your instructors' repository. 
+    :param stu_repo_url: The remote URL to your students' repository.
     :param tmp_dir: A temporary directory to clone your instructors repo to. The default dir is located within the users directory so as to ensure write permissions. 
     """
 
-    # First things first, make the temporary directories necessary.
-    if not os.path.exists(tmp_dir):
-      os.makedirs(tmp_dir)
+    self.github_pat = self._get_token(pat_name)
 
-    if ins_repo.startswith('git@'):
-      print('this')
-      # run command as is, ssh key should be accessible
-    elif ins_repo.startswith('https'):
-      ins_repo_coded = re.sub(r"^https{0,1}://", "", ins_repo)
-      subprocess.run(
-        'git clone https://username:password@github.com/username/repository.git',
-        check=True
-      )
+    # First things first, make the temporary directories
+    ins_repo_dir = os.path.join(tmp_dir, 'instructors')
+    stu_repo_dir = os.path.join(tmp_dir, 'students')
+    os.makedirs(ins_repo_dir)
+    os.makedirs(stu_repo_dir)
+
+    ins_repo_url = urllib.parse.urlsplit(ins_repo_url)
+    stu_repo_url = urllib.parse.urlsplit(stu_repo_url)
+
+    # If you use `urlparse` on a github ssh string, the entire result gets put
+    # in 'path', leaving 'netloc' an empty string. We can check for that.
+    if not ins_repo_url.netloc:
+      # SO, if using ssh, go ahead and clone.
+      print('SSH URL detected, assuming SSH keys are accounted for...')
+      Repo.clone_from(urllib.parse.urlunsplit(ins_repo_url), ins_repo_dir)
+    # Otherwise, we need to get the github username from the API
+    else:
+      # If we're trying to clone from github.com...
+      if ins_repo_url.netloc == 'github.com':
+        self.github_username = Github(
+          base_url="https://api.github.com", login_or_token=self.github_pat
+        ).get_user().login
+      # Otherwise, use the GHE Domain
+      else:
+        self.github_username = Github(
+          base_url=urllib.parse.urljoin(urllib.parse.urlunsplit(ins_repo_url), "/api/v3"),
+          login_or_token=self.github_pat
+        ).get_user().login
+      # Finally, clone the repository!!
+
+      ins_repo_coded = f"https://{self.github_username}:{self.github_pat}@{urllib.parse.urljoin(ins_repo_url.netloc, ins_repo_url.path)}.git"
+      Repo.clone_from(ins_repo_coded, tmp_dir)
 
     return False
 

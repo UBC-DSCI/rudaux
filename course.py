@@ -16,7 +16,7 @@ from dateutil.parser import parse
 # For decoding base64-encoded files from GitHub API
 from base64 import b64decode
 # for urlencoding query strings to persist through user-redirect
-import urllib.parse
+from urllib.parse import urlsplit, urlunsplit, urljoin, quote_plus
 # import nbgrader
 
 #* All internal _methods() return an object
@@ -43,12 +43,12 @@ class Course:
     :returns: A Course object for performing operations on an entire course at once.
     """
     # clean urls
-    canvas_url = self._strip_url(canvas_url)
-    hub_url = self._strip_url(hub_url)
-    student_repo = self._strip_url(student_repo)
+    # canvas_url = urlsplit(canvas_url)
+    # hub_url = urlsplit(hub_url)
+    # student_repo = urlsplit(student_repo)
 
     # For the hub prefix, it must have no trailing slash
-    hub_prefix = _strip_slash(hub_prefix, 'trailing')
+    hub_prefix = re.sub(r"/$", "", hub_prefix)
     # ...but have a preceding slash
     if re.search(r"^/", hub_prefix) is None:
       hub_prefix = fr"/{hub_prefix}"
@@ -75,51 +75,12 @@ class Course:
       print(f"You do not seem to have the '{token_name}' environment variable present:")
       raise e
 
-  def _strip_url(self, url: str): 
-    """
-    Remove protocol ("http(s)://") and trailing slashes ("/") from a URL. 
-
-    :param url: a URL to strip
-
-    :returns: A URL without protocol or trailing /
-    """
-    new_url = self._strip_slash(url, 'trailing')
-    new_url = self._strip_http(new_url)
-    return(new_url)
-
-  def _strip_slash(self, string: str, position='trailing'): 
-    """
-    Remove protocol ("http(s)://") and trailing slashes ("/") from a URL. 
-
-    :param string: a string to strip a slash from 
-    :param position: where to strip the string from ('preceding' or 'trailing')
-
-    :returns: A string without a '/'
-    """
-    if position == 'trailing':
-      return(re.sub(r"/$", "", string))
-    elif position == 'preceding': 
-      return(re.sub(r"^/", "", string))
-    else:
-      print('Position not recognized, stripping trailing slashes.')
-      return(re.sub(r"/$", "", string))
-
-  def _strip_http(self, url: str): 
-    """
-    Remove protocol ("http(s)://") and trailing slashes ("/") from a URL. 
-
-    :param url: a URL to strip
-
-    :returns: A URL without protocol or trailing /
-    """
-    return(re.sub(r"^https{0,1}://", "", url))
-
   def _get_course(self):
     """
     Get the basic course information from Canvas
     """
     resp = requests.get(
-      url=f"https://{self.canvas_url}/api/v1/courses/{self.course_id}",
+      url=urljoin(self.canvas_url, f"/api/v1/courses/{self.course_id}"),
       headers={
         "Authorization": f"Bearer {self.canvas_token}",
         "Accept": "application/json+canvas-string-ids"
@@ -142,7 +103,7 @@ class Course:
     print('Querying list of students...')
     # List all of the students in the course
     resp = requests.get(
-      url=f"https://{self.canvas_url}/api/v1/courses/{self.course_id}/users",
+      url=urljoin(self.canvas_url, f"/api/v1/courses/{self.course_id}/users"),
       headers={
         "Authorization": f"Bearer {self.canvas_token}",
         "Accept": "application/json+canvas-string-ids"
@@ -221,7 +182,7 @@ class Course:
     Get all assignments for a course.
     """
     resp = requests.get(
-      url=f"https://{self.canvas_url}/api/v1/courses/{self.course_id}/assignments",
+      url=urljoin(self.canvas_url, f"/api/v1/courses/{self.course_id}/assignments"),
       headers={
         "Authorization": f"Bearer {self.canvas_token}",
         "Accept": "application/json+canvas-string-ids"
@@ -262,14 +223,12 @@ class Course:
     :param token_name: The name of the environment variable storing your GitHub Personal Access Token. Your PAT must have the "repos" permission.
     """
 
-    # clean url
-    github_url = self._strip_url(github_url)
     github_token = self._get_token(pat_name)
 
     # strip any preceding `/` or `./` from path provided
     clean_dir = re.sub(r"^\.{0,1}/", "", dir)
     # strip any trailing `/` from path provided
-    clean_dir = self._strip_slash(clean_dir, 'trailing')
+    clean_dir = re.sub(r"/$", "", clean_dir)
 
     # Make sure the exclusion array has '.ipynb' file extensions
     clean_exclude = list(
@@ -277,7 +236,8 @@ class Course:
     )
 
     # instantiate our github api object
-    gh_api = Github(base_url=f"https://{github_url}", login_or_token=github_token)
+    gh_domain = urlsplit(github_url).netloc
+    gh_api = Github(base_url=urljoin("https://", gh_domain), login_or_token=github_token)
 
     # get the git tree for our repository
     repo_tree = gh_api.get_user().get_repo(repo).get_git_tree(
@@ -340,7 +300,7 @@ class Course:
   #   assignments = pd.read_csv(path)
   #   print(assignments)
 
-  def init_nbgrader(self): 
+  def init_nbgrader(self):
     """
     Enter information into the nbgrader gradebook database about the assignments and the students.
     """
@@ -361,20 +321,28 @@ class Course:
     :param public_repo: The students repo that the student version of each assignment will be published to.
     """
     # Construct launch url for nbgitpuller
-    # First urlencode our github repo URL
-    repo_encoded_url = urllib.parse.quote_plus(self.student_repo)
-    # Then concatenate it with our launch URL (unencoded) and nbgitpuller command.
-    gitpuller_url = fr"{self.hub_url}{self.hub_prefix}/hub/lti/launch?custom_next={self.hub_prefix}/hub/user-redirect/git-pull%3Frepo%3Dhttps%3A%2F%2F{repo_encoded_url}%26subPath%3D"
+    # First join our hub url, hub prefix, and launch url
+    launch_url = urljoin(urljoin(self.hub_url, self.hub_prefix), '/hub/lti/launch')
+    # Then construct our nbgirpuller custom next parameter
+    gitpuller_url = urljoin(self.hub_prefix, "/hub/user-redirect/git-pull")
+    # Finally, urlencode our repository and add that
+    repo_encoded_url = quote_plus(self.student_repo)
+
+    # Finally glue this all together!! Now we just need to add the subpath for each assignment
+    full_assignment_url = fr"{launch_url}?custom_next={gitpuller_url}%3Frepo%3Dhttps%3A%2F%2F{repo_encoded_url}%26subPath%3D"
+
     print("Creating assignments (preexisting assignments with the same name will be updated)...")
+
     for assignment in tqdm(self.assignments_to_create):
       # urlencode the assignment's subpath
-      subpath = urllib.parse.quote_plus(assignment["path"])
+      subpath = quote_plus(assignment["path"])
       # and join it to the previously constructed launch URL (hub + nbgitpuller language)
-      full_path = gitpuller_url + subpath
+      full_path = full_assignment_url + subpath
       # FIRST check if an assignment with that name already exists.
 
       existing_assigments = requests.get(
-        url=f"https://{self.canvas_url}/api/v1/courses/{self.course_id}/assignments",
+        
+        url=urljoin(self.canvas_url, f"/api/v1/courses/{self.course_id}/assignments"),
         headers={
           "Authorization": f"Bearer {self.canvas_token}",
           "Accept": "application/json+canvas-string-ids"
@@ -390,7 +358,7 @@ class Course:
       # Otherwise, check to see if we got any hits on our assignment search
       if len(existing_assigments.json()) == 0:
         resp = requests.post(
-          url=f"https://{self.canvas_url}/api/v1/courses/{self.course_id}/assignments",
+          url=urljoin(self.canvas_url, f"/api/v1/courses/{self.course_id}/assignments"),
           headers={
             "Authorization": f"Bearer {self.canvas_token}",
             "Accept": "application/json+canvas-string-ids"
@@ -414,7 +382,7 @@ class Course:
         # extract our first hit
         existing_assignment = existing_assigments.json()[0]
         resp = requests.put(
-          url=f"https://{self.canvas_url}/api/v1/courses/{self.course_id}/assignments/{existing_assignment['id']}",
+          url=urljoin(self.canvas_url, f"/api/v1/courses/{self.course_id}/assignments/{existing_assignment['id']}"),
           headers={
             "Authorization": f"Bearer {self.canvas_token}",
             "Accept": "application/json+canvas-string-ids"
