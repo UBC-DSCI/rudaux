@@ -26,8 +26,18 @@ from assignment import Assignment
 # course.get_assignments_from_canvas()
 # course.get_assignments_from_github()
 
-assignment = Assignment(name='homework_1').assign(
+# homework1 = Assignment(name='homework_1')
+
+# homework1.assign(
+#   pat_name='GHE_PAT',
+#   ins_repo_url='https://github.ubc.ca/hinshaws/DSCI_100_instructors',
+#   stu_repo_url='https://github.ubc.ca/hinshaws/DSCI_100_students',
+#   overwrite=True
+# )
+
+Assignment(name='homework_1').assign(
   pat_name='GHE_PAT',
   ins_repo_url='https://github.ubc.ca/hinshaws/DSCI_100_instructors',
-  stu_repo_url='https://github.ubc.ca/hinshaws/DSCI_100_students'
+  stu_repo_url='https://github.ubc.ca/hinshaws/DSCI_100_students',
+  overwrite=True
 )
