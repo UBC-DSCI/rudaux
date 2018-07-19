@@ -65,7 +65,8 @@ class Assignment:
     stu_repo_url: str,
     tmp_dir=os.path.join(Path.home(), 'tmp'),
     pat_name='GITHUB_PAT',
-    overwrite=False
+    overwrite=False,
+    # course=None #? What is the best way to have certain parts of this be abstracted if it's being called from the course object?
   ):
     """
     Assign assignment to students (generate student copy from instructors
