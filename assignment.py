@@ -65,7 +65,7 @@ class Assignment:
     stu_repo_url: str,
     tmp_dir=os.path.join(Path.home(), 'tmp'),
     pat_name='GITHUB_PAT',
-    course_name=None
+    overwrite=False
   ):
     """
     Assign assignment to students (generate student copy from instructors
@@ -82,6 +82,7 @@ class Assignment:
 
     self.github_pat = None
     self.pat_name = pat_name
+    self.overwrite = overwrite
 
     #=======================================#
     #                                       #
@@ -92,35 +93,6 @@ class Assignment:
     # First things first, make the temporary directories
     ins_repo_dir = os.path.join(tmp_dir, 'instructors')
     stu_repo_dir = os.path.join(tmp_dir, 'students')
-
-    if os.path.exists(ins_repo_dir):
-      overwrite_ins_dir = input(
-        f"{ins_repo_dir} is not empty, would you like to overwrite? [y/n]: "
-      )
-      if overwrite_ins_dir.lower() == 'y':
-        shutil.rmtree(ins_repo_dir)
-        os.makedirs(ins_repo_dir)
-      else:
-        sys.exit("Please try again with an alternative temporary directory.")
-
-    if os.path.exists(stu_repo_dir):
-      overwrite_ins_dir = input(
-        f"{stu_repo_dir} is not empty, would you like to overwrite? [y/n]: "
-      )
-      if overwrite_ins_dir.lower() == 'y':
-        shutil.rmtree(stu_repo_dir)
-        os.makedirs(stu_repo_dir)
-      else:
-        sys.exit("Please specify an alternative temporary directory.")
-
-    ins_repo_url = urllib.parse.urlsplit(ins_repo_url)
-    stu_repo_url = urllib.parse.urlsplit(stu_repo_url)
-
-    # If at least one of the URLs provided is an HTTPS url, get the personal
-    # access token
-    if (ins_repo_url.netloc) or (stu_repo_url.netloc):
-      print(f"Checking for the PAT named {pat_name}...")
-      self.github_pat = self._get_token(pat_name)
 
     #=======================================#
     #                                       #
@@ -214,17 +186,28 @@ class Assignment:
     :type target_dir: str
     """
 
+    # If the path exists...
     if os.path.exists(target_dir):
+      # If we allowed for overwriting, just go ahead and remove the directory
+      if self.overwrite:
+        rmtree(target_dir)
+      # Otherwise, ask first
+      else:
       overwrite_target_dir = input(
         f"{target_dir} is not empty, would you like to overwrite? [y/n]: "
       )
+        # if they said yes, remove the directory
       if overwrite_target_dir.lower() == 'y':
         rmtree(target_dir)
-        os.makedirs(target_dir)
+        # otherwise, exit
       else:
         exit(
           "Will not overwrite specified directory, please specify an alternative directory.\nExiting..."
         )
+
+    # Finally, make the directory, as we've removed any preexisting ones or
+    # exited if we didn't want to
+    os.makedirs(target_dir)
 
     split_url = urlparse.urlsplit(repo_url)
 
