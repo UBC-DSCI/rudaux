@@ -259,6 +259,8 @@ class Course:
           filename = file_search.group(0)
           # check that this isn't an excluded file
           if filename not in clean_exclude:
+            #! TODO: Use the directory name as the assignment name, not the filename
+            #! This matches nbgrader's directory structure
             # strip the file extension
             name = re.sub(r".ipynb$", "", filename)
 
