@@ -2,13 +2,13 @@ import requests
 import re
 import nbgrader
 import os
+import sys
 import subprocess
+from shutil import rmtree, copytree
 from github import Github
 from git import Repo
 from pathlib import Path
-import urllib.parse
-import shutil
-import sys
+import urllib.parse as urlparse
 from typing import Union, List, Optional
 
 from nbgrader.apps import NbGraderAPI
@@ -19,7 +19,7 @@ from traitlets.config.application import Application
 class Assignment:
   """
   Assignment object for maniuplating assignment. This base class is blind to Canvas. 
-  It only has operations for working on things locally (nbgrader functions). 
+  It only has operations for working with nbgrader. 
   """
 
   def __init__(self, name: str, filename=None, path=None, **kwargs):
@@ -106,21 +106,6 @@ class Assignment:
       print("There was an error cloning your instructors repository")
       raise e
 
-      # If we're trying to clone from github.com...
-      if ins_repo_url.netloc == 'github.com':
-        # Github() default is api.github.com
-        self.github_username = Github(self.github_pat).get_user().login
-      # Otherwise, use the GHE Domain
-      else:
-        self.github_username = Github(
-          base_url=urllib.parse.urljoin(urllib.parse.urlunsplit(ins_repo_url), "/api/v3"),
-          login_or_token=self.github_pat
-        ).get_user().login
-
-      # Finally, clone the repository!!
-      ins_repo_auth = f"https://{self.github_username}:{self.github_pat}@{ins_repo_url.netloc}{ins_repo_url.path}.git"
-      Repo.clone_from(ins_repo_auth, ins_repo_dir)
-
     #=======================================#
     #                                       #
     #          Make Student Version         #
@@ -146,9 +131,11 @@ class Assignment:
     # assign the given assignment!
     nb_api.assign(self.name)
 
+    generated_assignment_dir = os.path.join(ins_repo_dir, 'release', self.name)
+    student_assignment_dir = os.path.join(stu_repo_dir, self.name)
     # make sure we assigned properly
-    if not os.path.exists(os.path.join(ins_repo_dir, 'release', self.name)):
-      exit(
+    if not os.path.exists(generated_assignment_dir):
+      sys.exit(
         f"nbgrader failed to assign {self.name}, please make sure your directory structure is set up properly in nbgrader"
       )
 
@@ -164,10 +151,63 @@ class Assignment:
       print("There was an error cloning your students repository")
       raise e
 
-    
-    ## Copy ins/release/self.name to stu/self.name?
+    # If the path exists...
+    if os.path.exists(student_assignment_dir):
+      # If we allowed for overwriting, just go ahead and remove the directory
+      if self.overwrite:
+        rmtree(student_assignment_dir)
+      # Otherwise, ask first
+      else:
+        overwrite_target_dir = input(
+          f"{student_assignment_dir} is not empty, would you like to overwrite? [y/n]: "
+        )
+        # if they said yes, remove the directory
+        if overwrite_target_dir.lower() == 'y':
+          rmtree(student_assignment_dir)
+        # otherwise, exit
+        else:
+          sys.exit("Will not overwrite specified directory.\nExiting...")
+
+    # Finally, copy to the directory, as we've removed any preexisting ones or
+    # exited if we didn't want to
+    copytree(generated_assignment_dir, student_assignment_dir)
+
+    #=======================================#
+    #                                       #
+    #      Push Changes to Students Repo    #
+    #                                       #
+    #=======================================#
+
+    self._push_repo(stu_repo_dir)
 
     return False
+
+  def _push_repo(self, repo_dir: str, branch='master', remote='origin'):
+    """Commit changes and push a specific repository to its remote.
+    
+    :param repo_dir: The location of the repository on the disk you wish to commit changes to and push to its remote.
+    :type repo_dir: str
+    :param branch: The branch you wish to commit changes to.
+    :type branch: str
+    :param remote: The remote you with to push changes to.
+    :type remote: str
+    """
+
+    # instantiate our repository
+    repo = Repo(repo_dir)
+    # add all changes
+    repo.git.add("--all")  # or A=True
+    # get repo status with frontmatter removed. We can use regex for this
+    # because the output will be consistent as we are always adding ALL changes
+    repo_status = re.sub(r"(.*\n)+.+to unstage\)", "", repo.git.status())
+    # Strip the whitespace at the beginning of the lines
+    whitespace = re.compile(r"^\s*", re.MULTILINE)
+    repo_status = re.sub(whitespace, "", repo_status)
+    # And strip any preceding or trailing whitespace
+    print(repo_status.strip())
+    repo.git.commit("-m", f"Assigning {self.name}")
+    print(f"Pushing changes on {branch} to {remote}...")
+    repo.git.push(remote, branch)
 
   def collect(self):
     """
@@ -193,17 +233,17 @@ class Assignment:
         rmtree(target_dir)
       # Otherwise, ask first
       else:
-      overwrite_target_dir = input(
-        f"{target_dir} is not empty, would you like to overwrite? [y/n]: "
-      )
-        # if they said yes, remove the directory
-      if overwrite_target_dir.lower() == 'y':
-        rmtree(target_dir)
-        # otherwise, exit
-      else:
-        exit(
-          "Will not overwrite specified directory, please specify an alternative directory.\nExiting..."
+        overwrite_target_dir = input(
+          f"{target_dir} is not empty, would you like to overwrite? [y/n]: "
         )
+        # if they said yes, remove the directory
+        if overwrite_target_dir.lower() == 'y':
+          rmtree(target_dir)
+        # otherwise, exit
+        else:
+          sys.exit(
+            "Will not overwrite specified directory, please specify an alternative directory.\nExiting..."
+          )
 
     # Finally, make the directory, as we've removed any preexisting ones or
     # exited if we didn't want to
