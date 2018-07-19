@@ -26,6 +26,8 @@ from assignment import Assignment
 # course.get_assignments_from_canvas()
 # course.get_assignments_from_github()
 
-assignment = Assignment(
-  name='homework 1', course_id=5394, canvas_url='https://ubc.test.instructure.com'
+assignment = Assignment(name='homework_1').assign(
+  pat_name='GHE_PAT',
+  ins_repo_url='https://github.ubc.ca/hinshaws/DSCI_100_instructors',
+  stu_repo_url='https://github.ubc.ca/hinshaws/DSCI_100_students'
 )

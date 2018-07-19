@@ -7,19 +7,13 @@ from github import Github
 from git import Repo
 from pathlib import Path
 import urllib.parse
+import shutil
+import sys
 from typing import Union, List, Optional
 
-# from nbgrader.apps import NbGraderAPI
-# from traitlets.config import Config
-
-# # create a custom config object to specify options for nbgrader
-# config = Config()
-# config.Exchange.course_id = "course101"
-
-# nb_api = NbGraderAPI(config=config)
-
-# # assuming source/ps1 exists
-# nb_api.assign("ps1")
+from nbgrader.apps import NbGraderAPI
+from traitlets.config import Config
+from traitlets.config.application import Application
 
 
 class Assignment:
@@ -70,26 +64,66 @@ class Assignment:
     ins_repo_url: str,
     stu_repo_url: str,
     tmp_dir=os.path.join(Path.home(), 'tmp'),
-    pat_name='GITHUB_PAT'
+    pat_name='GITHUB_PAT',
+    course_name=None
   ):
     """
-    Assign assignment to students (generate student copy from instructors repository and push to public repository). Only provide SSH URLs if you have an SSH-key within sshd on this machine. Otherwise we will use your Github Personal Access Token.
+    Assign assignment to students (generate student copy from instructors
+    repository and push to public repository). Only provide SSH URLs if you have
+    an SSH-key within sshd on this machine. Otherwise we will use your Github
+    Personal Access Token.
 
     :param ins_repo_url: The remote URL to your instructors' repository. 
     :param stu_repo_url: The remote URL to your students' repository.
-    :param tmp_dir: A temporary directory to clone your instructors repo to. The default dir is located within the users directory so as to ensure write permissions. 
+    :param tmp_dir: A temporary directory to clone your instructors repo to. 
+    The default dir is located within the users directory so as to ensure write 
+    permissions. 
     """
 
-    self.github_pat = self._get_token(pat_name)
+    #=======================================#
+    #                                       #
+    #       Set up Parameters & Config      #
+    #                                       #
+    #=======================================#
 
     # First things first, make the temporary directories
     ins_repo_dir = os.path.join(tmp_dir, 'instructors')
     stu_repo_dir = os.path.join(tmp_dir, 'students')
-    os.makedirs(ins_repo_dir)
-    os.makedirs(stu_repo_dir)
+
+    if os.path.exists(ins_repo_dir):
+      overwrite_ins_dir = input(
+        f"{ins_repo_dir} is not empty, would you like to overwrite? [y/n]: "
+      )
+      if overwrite_ins_dir.lower() == 'y':
+        shutil.rmtree(ins_repo_dir)
+        os.makedirs(ins_repo_dir)
+      else:
+        sys.exit("Please try again with an alternative temporary directory.")
+
+    if os.path.exists(stu_repo_dir):
+      overwrite_ins_dir = input(
+        f"{stu_repo_dir} is not empty, would you like to overwrite? [y/n]: "
+      )
+      if overwrite_ins_dir.lower() == 'y':
+        shutil.rmtree(stu_repo_dir)
+        os.makedirs(stu_repo_dir)
+      else:
+        sys.exit("Please specify an alternative temporary directory.")
 
     ins_repo_url = urllib.parse.urlsplit(ins_repo_url)
     stu_repo_url = urllib.parse.urlsplit(stu_repo_url)
+
+    # If at least one of the URLs provided is an HTTPS url, get the personal
+    # access token
+    if (ins_repo_url.netloc) or (stu_repo_url.netloc):
+      print(f"Checking for the PAT named {pat_name}...")
+      self.github_pat = self._get_token(pat_name)
+
+    #=======================================#
+    #                                       #
+    #       Clone from Instructors Repo     #
+    #                                       #
+    #=======================================#
 
     # If you use `urlparse` on a github ssh string, the entire result gets put
     # in 'path', leaving 'netloc' an empty string. We can check for that.
@@ -97,29 +131,56 @@ class Assignment:
       # SO, if using ssh, go ahead and clone.
       print('SSH URL detected, assuming SSH keys are accounted for...')
       Repo.clone_from(urllib.parse.urlunsplit(ins_repo_url), ins_repo_dir)
+
     # Otherwise, we need to get the github username from the API
     else:
+
       # If we're trying to clone from github.com...
       if ins_repo_url.netloc == 'github.com':
-        self.github_username = Github(
-          base_url="https://api.github.com", login_or_token=self.github_pat
-        ).get_user().login
+        # Github() default is api.github.com
+        self.github_username = Github(self.github_pat).get_user().login
       # Otherwise, use the GHE Domain
       else:
         self.github_username = Github(
           base_url=urllib.parse.urljoin(urllib.parse.urlunsplit(ins_repo_url), "/api/v3"),
           login_or_token=self.github_pat
         ).get_user().login
-      # Finally, clone the repository!!
 
-      ins_repo_coded = f"https://{self.github_username}:{self.github_pat}@{urllib.parse.urljoin(ins_repo_url.netloc, ins_repo_url.path)}.git"
-      Repo.clone_from(ins_repo_coded, tmp_dir)
+      # Finally, clone the repository!!
+      ins_repo_auth = f"https://{self.github_username}:{self.github_pat}@{ins_repo_url.netloc}{ins_repo_url.path}.git"
+      Repo.clone_from(ins_repo_auth, ins_repo_dir)
+
+    #=======================================#
+    #                                       #
+    #          Make Student Version         #
+    #                                       #
+    #=======================================#
+
+    # Make sure we're running our nbgrader commands within our instructors repo.
+    # this will contain our gradebook database, our source directory, and other
+    # things.
+    custom_config = Config()
+    custom_config.CourseDirectory.root = ins_repo_dir
+
+    # use the traitlets Application class directly to load nbgrader config file.
+    # reference:
+    # https://github.com/jupyter/nbgrader/blob/41f52873c690af716c796a6003d861e493d45fea/nbgrader/server_extensions/validate_assignment/handlers.py#L35-L37
+    for config in Application._load_config_files('nbgrader_config', path=ins_repo_dir):
+      # merge it with our custom config
+      custom_config.merge(config)
+
+    # set up the nbgrader api with our merged config files
+    nb_api = NbGraderAPI(config=custom_config)
+
+    # assign the given assignment!
+    nb_api.assign(self.name)
 
     return False
 
   def collect(self):
     """
-    Collect an assignment. Snapshot the ZFS filesystem and copy the notebooks to a docker volume for sandboxed grading.
+    Collect an assignment. Snapshot the ZFS filesystem and copy the notebooks to
+    a docker volume for sandboxed grading.
     """
 
     return False
@@ -166,8 +227,8 @@ class CanvasAssignment(Assignment):
       self.exists_in_canvas = True
       # self assign canvas attributes
       #! NOTE:
-      #! MAKE SURE THERE ARE NO NAMEING CONFLICTS WITH THIS
-      #! NOTE:
+      #! MAKE SURE THERE ARE NO NAMESPACE CONFLICTS WITH THIS
+      #!
       self.__dict__.update(matched_assignment)
     else:
       self.id = None
