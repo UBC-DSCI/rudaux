@@ -214,11 +214,23 @@ class Assignment:
     :type target_dir: str
     """
 
+    if os.path.exists(target_dir):
+      overwrite_target_dir = input(
+        f"{target_dir} is not empty, would you like to overwrite? [y/n]: "
+      )
+      if overwrite_target_dir.lower() == 'y':
+        rmtree(target_dir)
+        os.makedirs(target_dir)
+      else:
+        exit(
+          "Will not overwrite specified directory, please specify an alternative directory.\nExiting..."
+        )
+
     split_url = urlparse.urlsplit(repo_url)
 
     # If at least one of the URLs provided is an HTTPS url, get the personal
     # access token
-    if (split_url.netloc):
+    if (split_url.netloc) and (self.github_pat is None):
       print(f"Checking for the PAT named {self.pat_name}...")
       self.github_pat = self._get_token(self.pat_name)
 
