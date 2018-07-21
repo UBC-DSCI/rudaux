@@ -2,6 +2,7 @@
 
 import requests
 import os
+import sys
 import re
 # For parsing assignments from CSV
 import pandas as pd
@@ -41,6 +42,7 @@ class Course:
     :param hub_prefix: If your jupyterhub installation has a prefix (c.JupyterHub.base_url), it must be included. Ex: "/jupyter"
 
     :returns: A Course object for performing operations on an entire course at once.
+    :rtype: Course
     """
     # clean urls
     # canvas_url = urlsplit(canvas_url)
@@ -59,6 +61,7 @@ class Course:
     self.hub_url = hub_url
     self.hub_prefix = hub_prefix
     self.student_repo = student_repo
+    self.token_name = token_name
     self.canvas_token = self._get_token(token_name)
     self.course = self._get_course()
     self.cron = CronTab(user=True)
@@ -207,21 +210,31 @@ class Course:
 
   def get_assignments_from_github(
     self,
-    repo: str,
-    dir='source',
-    github_url='api.github.com',
+    repo_url: str,
     pat_name='GITHUB_PAT',
+    dir='source',
     exclude=[]
   ):
     """
-    Get assignments from a GitHub repository. An assignment for each jupyter notebook will be created in Canvas with the name of the notebook as the assignment name. The link to the external tool will be automatically generated. NOTE: this method is currently not smart enough to name identical notebooks based on the paths they are in, so make sure you name your notebooks appropriately.
+    Get assignments from a GitHub repository which follows the nbgrader directory structure convention.
 
-    :param repo: The name of the repository containing your assignments.
+    :param repo_url: The name of the repository containing your assignments.
+    :type repo_url: str
     :param exclude: Python nodebooks to exclude from assignment creation. A list of notebook names such as ['header.ipynb', footer.ipynb']
+    :type exclude: list
     :param dir: The directory containing your assignments. Should be relative to repo root, defaults to 'source'.
-    :param github_url: The hostname for your GitHub API. Defaults to api.github.com, but you can specify a GitHub Enterprise instance (e.g. github.institution.edu/api/v3/)
+    :type dir: str
     :param token_name: The name of the environment variable storing your GitHub Personal Access Token. Your PAT must have the "repos" permission.
+    :type token_name: str
     """
+
+    if repo_url.startswith('git@'):
+      sys.exit("Please supply the HTTPS url to your repository.")
+    elif not repo_url.startswith('http'):
+      sys.exit("Please specify the scheme for your urls (i.e. \"https://\")")
+      
+    repo_info = self._generate_sections_of_url(repo_url)
+    gh_domain = urlsplit(repo_url).netloc
 
     github_token = self._get_token(pat_name)
 
@@ -235,13 +248,16 @@ class Course:
       map(lambda name: name if re.search(r".ipynb$", name) else f"{name}.ipynb", exclude)
     )
 
-    # instantiate our github api object
-    gh_domain = urlsplit(github_url).netloc
-    gh_api = Github(base_url=urljoin("https://", gh_domain), login_or_token=github_token)
+    if gh_domain == "github.com":
+      # use default, api.github.com
+      gh_api = Github(login_or_token=github_token)
+    else:
+      # use github enterprise endpoint
+      gh_api = Github(base_url=f"https://{gh_domain}/api/v3", login_or_token=github_token)
 
     # get the git tree for our repository
-    repo_tree = gh_api.get_user().get_repo(repo).get_git_tree(
-      'master', recursive=True
+    repo_tree = gh_api.get_user(repo_info[0]).get_repo(repo_info[1]).get_git_tree(
+      "master", recursive=True
     ).tree
     # create an empty list of assignments to push to
     assignments = []
@@ -272,13 +288,24 @@ class Course:
             # add the assignment name, filename, and path to our list of assignments.
             assignment = Assignment(
               name=name, 
-              filename=filename, 
-              path=tree_element.path
+              path=tree_element.path,
+              github={
+                "ins_repo_url": repo_url,
+                "pat_name": pat_name
+              },
+              # Pass down necessary parameters
+              canvas={
+                "url": self.canvas_url,
+                "course_id": self.course_id,
+                "token_name": self.token_name
+              }
             )
             assignments.append(assignment)
 
-    self.assignments_to_create = assignments
-    return (self)
+    names = list(map(lambda assn: assn.name, assignments))
+    print(f"Found the following assignments: {sorted(names)}")
+    self.assignments = assignments
+    return self
 
   # def get_assignments_from_csv(self, path: str):
   #   """
@@ -315,13 +342,37 @@ class Course:
     # 5. Add students: `find_student(student_id)`, then `add_student(student_id, **kwargs)``
 
     return(False)
-
-  def create_assignments(self):
+    
+  # courtesy of https://stackoverflow.com/questions/7894384/python-get-url-path-sections
+  def _generate_sections_of_url(self, url: str):
+    """Generate Sections of a URL's path
+    
+    :param url: The URL you wish to split
+    :type url: str
+    :return: A list of url paths
+    :rtype: list
     """
-    Create assignments for a course.
 
-    :param public_repo: The students repo that the student version of each assignment will be published to.
+    path = urlsplit(url).path
+    sections = []
+    temp = ""
+    while (path != '/'):
+      temp = os.path.split(path)
+      if temp[0] == '':
+        break
+      path = temp[0]
+      # Insert at the beginning to keep the proper url order
+      sections.insert(0, temp[1])
+    if len(sections) > 2:
+      sys.exit(
+        'We could not properly parse the URL you supplied. Make sure your URL points to a repository. Ex: https://github.com/jupyter/jupyter'
+      )
+    return sections
+
+  def create_assignments_in_canvas(self) -> None:
+    """Create assignments for a course.
     """
+
     # Construct launch url for nbgitpuller
     # First join our hub url, hub prefix, and launch url
     launch_url = urljoin(urljoin(self.hub_url, self.hub_prefix), '/hub/lti/launch')
@@ -335,72 +386,38 @@ class Course:
 
     print("Creating assignments (preexisting assignments with the same name will be updated)...")
 
-    for assignment in tqdm(self.assignments_to_create):
+    for assignment in tqdm(self.assignments):
       # urlencode the assignment's subpath
-      subpath = quote_plus(assignment["path"])
+      subpath = quote_plus(assignment.path)
       # and join it to the previously constructed launch URL (hub + nbgitpuller language)
       full_path = full_assignment_url + subpath
+
       # FIRST check if an assignment with that name already exists.
+      # Method mutates state, so no return necessary, but done for clarity
+      assignment = assignment.search_canvas_assignment()
 
-      existing_assigments = requests.get(
-        
-        url=urljoin(self.canvas_url, f"/api/v1/courses/{self.course_id}/assignments"),
-        headers={
-          "Authorization": f"Bearer {self.canvas_token}",
-          "Accept": "application/json+canvas-string-ids"
-        },
-        params={
-          "search_term": assignment["name"]
-        }
-      )
-
-      # Make sure our request didn't fail silently
-      existing_assigments.raise_for_status()
-
-      # Otherwise, check to see if we got any hits on our assignment search
-      if len(existing_assigments.json()) == 0:
-        resp = requests.post(
-          url=urljoin(self.canvas_url, f"/api/v1/courses/{self.course_id}/assignments"),
-          headers={
-            "Authorization": f"Bearer {self.canvas_token}",
-            "Accept": "application/json+canvas-string-ids"
-          },
-          json={
-            "assignment": {
-              "name": assignment["name"],
-              "external_tool_tag_attributes": {
-                "url": full_path,
-                "new_tab": True
-              }
+      # If we already have an assignment with this name in Canvas, update it!
+      if assignment.canvas_assignment:
+        # Then the assignment ID would be in the canvas_assignment dict
+        assignment_id = assignment.canvas_assignment.get('id')
+        assignment.update_canvas_assignment(
+          assignment_id, 
+          external_tool_tag_attributes={
+            "url": full_path,
+            "new_tab": True
             }
-          }
+        )
+      # otherwise create a new assignment
+      else: 
+        assignment.create_canvas_assignment(
+          name=assignment.name, 
+          external_tool_tag_attributes={
+            "url": full_path,
+            "new_tab": True
+            }
         )
 
-        # Make sure our request didn't fail silently
-        resp.raise_for_status()
-
-      # Otherwise, we should update our existing assignment (and update the url)
-      else:
-        # extract our first hit
-        existing_assignment = existing_assigments.json()[0]
-        resp = requests.put(
-          url=urljoin(self.canvas_url, f"/api/v1/courses/{self.course_id}/assignments/{existing_assignment['id']}"),
-          headers={
-            "Authorization": f"Bearer {self.canvas_token}",
-            "Accept": "application/json+canvas-string-ids"
-          },
-          json={
-            "assignment": {
-              "external_tool_tag_attributes": {
-                "url": full_path,
-                "new_tab": True
-              }
-            }
-          }
-        )
-        # Make sure our request didn't fail silently
-        resp.raise_for_status()
-    return(self)
+    return self
 
 
   def schedule_grading(self):

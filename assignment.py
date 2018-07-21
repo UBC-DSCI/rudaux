@@ -9,11 +9,13 @@ from github import Github
 from git import Repo
 from pathlib import Path
 import urllib.parse as urlparse
-from typing import Union, List, Optional
+from typing import Union, List, Optional, Dict
 
 from nbgrader.apps import NbGraderAPI
 from traitlets.config import Config
 from traitlets.config.application import Application
+
+# from course import Course
 
 
 class Assignment:
@@ -22,7 +24,26 @@ class Assignment:
   It only has operations for working with nbgrader. 
   """
 
-  def __init__(self, name: str, filename=None, path=None, **kwargs):
+  def __init__(
+    self,
+    name: str,
+    path: str,
+    github={
+      "ins_repo_url": None,
+      "stu_repo_url": None,
+      "pat_name": "GITHUB_PAT"
+    },
+    canvas={
+      "url": None,
+      "course_id": None,
+      "assignment": {},
+      "token_name": "CANVAS_TOKEN"
+      # hub_url='https://c7l1-timberst.stat.ubc.ca',
+      # student_repo='https://github.ubc.ca/hinshaws/dsci_100_students',
+      # hub_prefix='/jupyter'
+    },
+    course=None
+  ) -> 'self':
     """
     Assignment object for manipulating Assignments.
 
@@ -37,8 +58,24 @@ class Assignment:
 
     # First self assign user specified parameters
     self.name = name
-    self.filename = filename
     self.path = path
+
+    self.canvas_url = canvas.get('url')
+    self.course_id = canvas.get('course_id')
+    self.canvas_assignment = canvas.get('assignment')
+    self.canvas_token_name = canvas.get('token_name')
+
+    self.ins_repo_url = github.get('ins_repo_url')
+    self.stu_repo_url = github.get('stu_repo_url')
+    self.github_token_name = github.get('pat_name')
+
+    # If we're initializing with a Canvas URL, get the Canvas Token
+    if self.canvas_url is not None:
+      self.canvas_token = self._get_token(canvas.get('token_name'))
+
+    # If we're initializing with a GitHub URL, get the GitHub PAT
+    if (self.ins_repo_url is not None) or (self.stu_repo_url is not None):
+      self.github_pat = self._get_token(github.get('pat_name'))
 
   # Get the github token from the environment
   def _get_token(self, token_name: str):
@@ -61,13 +98,10 @@ class Assignment:
 
   def assign(
     self,
-    ins_repo_url: str,
-    stu_repo_url: str,
     tmp_dir=os.path.join(Path.home(), 'tmp'),
-    pat_name='GITHUB_PAT',
     overwrite=False,
     # course=None #? What is the best way to have certain parts of this be abstracted if it's being called from the course object?
-  ):
+  ) -> 'None':
     """
     Assign assignment to students (generate student copy from instructors
     repository and push to public repository). Only provide SSH URLs if you have
@@ -81,8 +115,6 @@ class Assignment:
     permissions. 
     """
 
-    self.github_pat = None
-    self.pat_name = pat_name
     self.overwrite = overwrite
 
     #=======================================#
@@ -102,7 +134,7 @@ class Assignment:
     #=======================================#
 
     try:
-      self._clone_repo(ins_repo_url, ins_repo_dir)
+      self._clone_repo(self.ins_repo_url, ins_repo_dir)
     except Exception as e:
       print("There was an error cloning your instructors repository")
       raise e
@@ -147,7 +179,7 @@ class Assignment:
     #=======================================#
 
     try:
-      self._clone_repo(stu_repo_url, stu_repo_dir)
+      self._clone_repo(self.stu_repo_url, stu_repo_dir)
     except Exception as e:
       print("There was an error cloning your students repository")
       raise e
@@ -179,19 +211,25 @@ class Assignment:
     #                                       #
     #=======================================#
 
-    self._push_repo(stu_repo_dir)
+    self._push_repo(stu_repo_dir, self.stu_repo_url)
 
-    return False
+    return None
 
-  def _push_repo(self, repo_dir: str, branch='master', remote='origin'):
+  def _push_repo(
+    self, repo_dir: str, repo_url: str, branch='master', remote='origin'
+  ) -> 'None':
     """Commit changes and push a specific repository to its remote.
     
     :param repo_dir: The location of the repository on the disk you wish to commit changes to and push to its remote.
     :type repo_dir: str
+    :param repo_url: The remote url of the location you're pushing to.
+    :type repo_url: str
     :param branch: The branch you wish to commit changes to.
     :type branch: str
     :param remote: The remote you with to push changes to.
     :type remote: str
+    :returns: Nothing, side effects performed.
+    :rtype: None
     """
 
     # instantiate our repository
@@ -207,8 +245,21 @@ class Assignment:
     # And strip any preceding or trailing whitespace
     print(repo_status.strip())
     repo.git.commit("-m", f"Assigning {self.name}")
-    print(f"Pushing changes on {branch} to {remote}...")
-    repo.git.push(remote, branch)
+
+    split_url = urlparse.urlsplit(repo_url)
+    if not split_url.netloc:
+      # If using ssh, go ahead and clone.
+      print('SSH URL detected, assuming SSH keys are accounted for.')
+      print(f"Pushing changes on {branch} to {remote}...")
+      repo.git.push(remote, branch)
+    else:
+      # Otherwise, use https url
+      github_username = self._find_github_username(repo_url, self.github_pat)
+      repo_url_auth = f"https://{github_username}:{self.github_pat}@{split_url.netloc}{split_url.path}.git"
+      print(f"Pushing changes on {branch} to {repo_url}...")
+      repo.git.push(repo_url_auth, branch)
+
+    return None
 
   def collect(self):
     """
@@ -252,12 +303,6 @@ class Assignment:
 
     split_url = urlparse.urlsplit(repo_url)
 
-    # If at least one of the URLs provided is an HTTPS url, get the personal
-    # access token
-    if (split_url.netloc) and (self.github_pat is None):
-      print(f"Checking for the PAT named {self.pat_name}...")
-      self.github_pat = self._get_token(self.pat_name)
-
     print(f"Cloning from {repo_url}...")
     # If you use `urlparse` on a github ssh string, the entire result gets put
     # in 'path', leaving 'netloc' an empty string. We can check for that.
@@ -268,106 +313,83 @@ class Assignment:
 
     # Otherwise, we need to get the github username from the API
     else:
-
-      # If we're trying to clone from github.com...
-      if split_url.netloc == 'github.com':
-        # Github() default is api.github.com
-        self.github_username = Github(self.github_pat).get_user().login
-      # Otherwise, use the GHE Domain
-      else:
-        self.github_username = Github(
-          base_url=urlparse.urljoin(repo_url, "/api/v3"), login_or_token=self.github_pat
-        ).get_user().login
-
-      # Finally, clone the repository!!
-      repo_url_auth = f"https://{self.github_username}:{self.github_pat}@{split_url.netloc}{split_url.path}.git"
+      github_username = self._find_github_username(repo_url, self.github_pat)
+      repo_url_auth = f"https://{github_username}:{self.github_pat}@{split_url.netloc}{split_url.path}.git"
       Repo.clone_from(repo_url_auth, target_dir)
 
+  def _find_github_username(self, url: str, pat: str) -> 'str':
+    """Find a github username through the github api.
+    
+    :param url: Any github or github enterprise url.
+    :type url: str
+    :param pat: A personal access token for the account in question.
+    :type pat: str
+    :return: The username of the PAT holder.
+    :rtype: str
+    """
 
-class CanvasAssignment(Assignment):
-  """
-  Assignment object for maniuplating Canvas assignments. This extended class can:
-    - submit grades
-    - check due dates
-    - update assignments given new information
-  """
-
-  def __init__(
-    self,
-    name: str,
-    canvas_url: str,
-    course_id: int,
-    assignment_id=None,
-    canvas_token=None,
-    token_name='CANVAS_TOKEN',
-    exists_in_canvas=False
-  ):
-    if (assignment_id is None) and (name is None):
-      raise ValueError('You must supply either an assignment id or name.')
-
-    self.name = name
-
-    canvas_url = re.sub(r"\/$", "", canvas_url)
-    canvas_url = re.sub(r"^https{0,1}://", "", canvas_url)
-    self.canvas_url = canvas_url
-
-    self.course_id = course_id
-
-    if canvas_token is None:
-      self.canvas_token = self._get_token(token_name)
-
-    if assignment_id is not None:
-      matched_assignment = self._get_canvas_course(assignment_id)
+    split_url = urlparse.urlsplit(url)
+    # If we're trying to clone from github.com...
+    if split_url.netloc == 'github.com':
+      # Github() default is api.github.com
+      github_username = Github(pat).get_user().login
+    # Otherwise, use the GHE Domain
     else:
-      matched_assignment = self._search_canvas_course(name)
+      github_username = Github(
+        base_url=urlparse.urljoin(url, "/api/v3"), login_or_token=pat
+      ).get_user().login
 
-    if matched_assignment is not None:
-      self.exists_in_canvas = True
-      # self assign canvas attributes
-      #! NOTE:
-      #! MAKE SURE THERE ARE NO NAMESPACE CONFLICTS WITH THIS
-      #!
-      self.__dict__.update(matched_assignment)
-    else:
-      self.id = None
-      self.exists_in_canvas = False
+    return github_username
 
-    print(self.__dict__)
+  def search_canvas_assignment(self) -> 'Dict[str, str]':
+    """Find a Canvas assignment by its name.
+    
+    :param name: The name of the canvas assignment
+    :type name: str
+    :return: The canvas assignment object
+    :rtype: Dict[str, str]
+    """
+    # Quick check to make sure we have the necessary parameters.
+    if None in [self.canvas_url, self.course_id, self.canvas_token]:
+      sys.exit('You must provide a canvas_url, course_id, and canvas_token.')
 
-  def _search_canvas_course(self, name):
-    # Here, match the course by the name if no ID supplied
     existing_assignments = requests.get(
-      url=f"https://{self.canvas_url}/api/v1/courses/{self.course_id}/assignments",
+      url=urlparse.urljoin(
+        self.canvas_url, f"/api/v1/courses/{self.course_id}/assignments"
+      ),
       headers={
         "Authorization": f"Bearer {self.canvas_token}",
         "Accept": "application/json+canvas-string-ids"
       },
-      params={"search_term": name}
+      params={"search_term": self.name}
     )
+
     # Make sure our request didn't fail silently
     existing_assignments.raise_for_status()
-    if len(existing_assignments.json()) == 0:
-      return None
-    else:
-      return existing_assignments.json()[0]
+    if len(existing_assignments.json()) > 0:
+      self.canvas_assignment = existing_assignments.json()[0]
 
-  def _get_canvas_course(self, id):
-    # Here, match the course by the name if no ID supplied
-    existing_assignment = requests.get(
-      url=f"https://{self.canvas_url}/api/v1/courses/{self.course_id}/assignments/{id}",
-      headers={
-        "Authorization": f"Bearer {self.canvas_token}",
-        "Accept": "application/json+canvas-string-ids"
-      }
-    )
-    # Make sure our request didn't fail silently
-    existing_assignment.raise_for_status()
+    return self
 
-    return existing_assignment.json()
+  def create_canvas_assignment(self, **kwargs) -> 'None':
+    """Create an assignment in Canvas.
+    
+    :param name: The name of the assignment
+    :type name: str
+    **kwargs: any parameters you wish to update on the assignment. 
+      see: https://canvas.instructure.com/doc/api/assignments.html#method.assignments_api.update
+    :return: None: called for side-effects.
+    :rtype: None
+    """
 
-  def create_canvas_assignment(self, name, **kwargs):
+    # Quick check to make sure we have the necessary parameters.
+    if None in [self.canvas_url, self.course_id, self.canvas_token]:
+      sys.exit('You must provide a canvas_url, course_id, and canvas_token.')
+
     resp = requests.post(
-      url=f"https://{self.canvas_url}/api/v1/courses/{self.course_id}/assignments",
+      url=urlparse.urljoin(
+        self.canvas_url, f"/api/v1/courses/{self.course_id}/assignments"
+      ),
       headers={
         "Authorization": f"Bearer {self.canvas_token}",
         "Accept": "application/json+canvas-string-ids"
@@ -377,18 +399,26 @@ class CanvasAssignment(Assignment):
     # Make sure our request didn't fail silently
     resp.raise_for_status()
 
-  def update_canvas_assignment(self, assignment_id, **kwargs):
+  def update_canvas_assignment(self, assignment_id: int, **kwargs) -> 'None':
     """
     Update an assignment.
 
     :param assignment_id: The Canvas ID of the assignment.
-    
+    :type assignment_id: int
+    :return: None: called for side-effects.
+    :rtype: None
     **kwargs: any parameters you wish to update on the assignment. 
       see: https://canvas.instructure.com/doc/api/assignments.html#method.assignments_api.update
     """
+
+    # Quick check to make sure we have the necessary parameters.
+    if None in [self.canvas_url, self.course_id, self.canvas_token]:
+      sys.exit('You must provide a canvas_url, course_id, and canvas_token.')
+
     resp = requests.put(
-      url=
-      f"https://{self.canvas_url}/api/v1/courses/{self.course_id}/assignments/{assignment_id}",
+      url=urlparse.urljoin(
+        self.canvas_url, f"/api/v1/courses/{self.course_id}/assignments/{assignment_id}"
+      ),
       headers={
         "Authorization": f"Bearer {self.canvas_token}",
         "Accept": "application/json+canvas-string-ids"
@@ -397,3 +427,54 @@ class CanvasAssignment(Assignment):
     )
     # Make sure our request didn't fail silently
     resp.raise_for_status()
+
+
+# class CanvasAssignment(Assignment):
+#   """
+#   Assignment object for maniuplating Canvas assignments. This extended class can:
+#     - submit grades
+#     - check due dates
+#     - update assignments given new information
+#   """
+
+#   def __init__(
+#     self,
+#     name: str,
+#     canvas_url: str,
+#     course_id: int,
+#     assignment_id=None,
+#     canvas_token=None,
+#     token_name='CANVAS_TOKEN',
+#     exists_in_canvas=False
+#   ):
+#     if (assignment_id is None) and (name is None):
+#       raise ValueError('You must supply either an assignment id or name.')
+
+#     self.name = name
+
+#     canvas_url = re.sub(r"\/$", "", canvas_url)
+#     canvas_url = re.sub(r"^https{0,1}://", "", canvas_url)
+#     self.canvas_url = canvas_url
+
+#     self.course_id = course_id
+
+#     if canvas_token is None:
+#       self.canvas_token = self._get_token(token_name)
+
+#     if assignment_id is not None:
+#       matched_assignment = self._get_canvas_course(assignment_id)
+#     else:
+#       matched_assignment = self._search_canvas_course(name)
+
+#     if matched_assignment is not None:
+#       self.exists_in_canvas = True
+#       # self assign canvas attributes
+#       #! NOTE:
+#       #! MAKE SURE THERE ARE NO NAMESPACE CONFLICTS WITH THIS
+#       #!
+#       self.__dict__.update(matched_assignment)
+#     else:
+#       self.id = None
+#       self.exists_in_canvas = False
+
+#     print(self.__dict__)
