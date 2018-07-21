@@ -5,6 +5,7 @@ import shutil
 import urllib.parse as urlparse
 from github import Github
 from git import Repo
+from typing import List
 
 
 def safely_delete(path: str, overwrite: bool) -> 'None':
@@ -69,7 +70,7 @@ def clone_repo(
 
 
 def push_repo(
-  name: str,
+  names: List[str],
   repo_dir: str,
   repo_url: str,
   github_pat: str,
@@ -78,6 +79,8 @@ def push_repo(
 ) -> 'None':
   """Commit changes and push a specific repository to its remote.
   
+  :param names: The names of the assignments you are pushing
+  :type names: list
   :param repo_dir: The location of the repository on the disk you wish to commit changes to and push to its remote.
   :type repo_dir: str
   :param repo_url: The remote url of the location you're pushing to.
@@ -102,7 +105,8 @@ def push_repo(
   repo_status = re.sub(whitespace, "", repo_status)
   # And strip any preceding or trailing whitespace
   print(repo_status.strip())
-  repo.git.commit("-m", f"Assigning {name}")
+  print(f"assignment names: {' '.join(names)}")
+  repo.git.commit("-m", f"Assigning {' '.join(names)}")
 
   split_url = urlparse.urlsplit(repo_url)
   if not split_url.netloc:

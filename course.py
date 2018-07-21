@@ -4,7 +4,9 @@ import requests
 import os
 import sys
 import re
+import shutil
 import textwrap
+from pathlib import Path
 # Import my custom utiliy functions
 import utils
 # For parsing assignments from CSV
@@ -22,7 +24,9 @@ from terminaltables import AsciiTable, SingleTable
 from base64 import b64decode
 # for urlencoding query strings to persist through user-redirect
 from urllib.parse import urlsplit, urlunsplit, quote_plus
-# import nbgrader
+from nbgrader.apps import NbGraderAPI
+from traitlets.config import Config
+from traitlets.config.application import Application
 
 #* All internal _methods() return an object
 #* All external  methods() return self (are chainable), and mutate object state or initiate other side-effects
@@ -34,14 +38,22 @@ class Course:
   """
 
   def __init__(
-    self, course_id: int, canvas_url: str, hub_url: str, student_repo: str, token_name='CANVAS_TOKEN', hub_prefix=''
+    self, 
+    course_id: int, 
+    canvas_url: str,
+    hub_url: str, 
+    stu_repo_url: None, 
+    ins_repo_url: None, 
+    canvas_token_name='CANVAS_TOKEN', 
+    github_token_name='GITHUB_PAT',
+    hub_prefix='',
   ):
     """
     :param course_id: The (numeric) Canvas Course ID. 
     :param canvas_url: Base URL to your Canvas deployment. Ex: "canvas.institution.edu".
     :param token_name: The name of your Canvas Token environment variable. Default: "CANVAS_TOKEN"
     :param hub_url: The launch url for your JupyterHub. Ex: "example.com/hub/lti/launch?custom_next=/hub/user-redirect/git-pull"
-    :param student_repo: The full url for the public github repository you will be pulling your students' notebooks from. Ex: "github.com/course/student_repo"
+    :param stu_repo_url: The full url for the public github repository you will be pulling your students' notebooks from. Ex: "github.com/course/stu_repo_url"
     :param hub_prefix: If your jupyterhub installation has a prefix (c.JupyterHub.base_url), it must be included. Ex: "/jupyter"
 
     :returns: A Course object for performing operations on an entire course at once.
@@ -61,10 +73,14 @@ class Course:
     self.canvas_url = canvas_url
     self.hub_url = hub_url
     self.hub_prefix = hub_prefix
-    self.student_repo = student_repo
-    self.token_name = token_name
-    self.canvas_token = self._get_token(token_name)
-    self.course = self._get_course()
+    self.stu_repo_url = stu_repo_url
+    self.ins_repo_url = ins_repo_url
+    self.canvas_token_name = canvas_token_name
+    self.github_token_name = github_token_name
+    self.canvas_token = None
+    self.github_pat = None
+    # self.canvas_token = self._get_token(canvas_token_name)
+    # self.course = self._get_course()
     self.cron = CronTab(user=True)
 
   # Get the canvas token from the environment
@@ -79,24 +95,24 @@ class Course:
       print(f"You do not seem to have the '{token_name}' environment variable present:")
       raise e
 
-  def _get_course(self):
-    """
-    Get the basic course information from Canvas
-    """
-    resp = requests.get(
-      url=f"{self.canvas_url}/api/v1/courses/{self.course_id}",
-      headers={
-        "Authorization": f"Bearer {self.canvas_token}",
-        "Accept": "application/json+canvas-string-ids"
-      }
-    )
+  # def _get_course(self):
+  #   """
+  #   Get the basic course information from Canvas
+  #   """
+  #   resp = requests.get(
+  #     url=f"{self.canvas_url}/api/v1/courses/{self.course_id}",
+  #     headers={
+  #       "Authorization": f"Bearer {self.canvas_token}",
+  #       "Accept": "application/json+canvas-string-ids"
+  #     }
+  #   )
 
-    # Make sure our request didn't fail silently
-    resp.raise_for_status()
+  #   # Make sure our request didn't fail silently
+  #   resp.raise_for_status()
     
-    # pull out the response JSON
-    course = resp.json()
-    return course
+  #   # pull out the response JSON
+  #   course = resp.json()
+  #   return course
 
   def get_students(self):
     """
@@ -104,6 +120,10 @@ class Course:
     Get the student list for a course. 
     DEBUG NOTE: CURRENTLY INCLUDING TEACHERS TOO
     """
+
+    if self.canvas_token is None:
+      self.canvas_token = self._get_token(self.canvas_token_name)
+
     print('Querying list of students...')
     # List all of the students in the course
     resp = requests.get(
@@ -209,13 +229,147 @@ class Course:
 
   #   return self
 
-  def assign_all(self):
-    print('Assigning assignments...')
+  def assign(
+    self, 
+    stu_repo_url=None, 
+    ins_repo_url=None, 
+    stu_assignment_path='assignments',
+    assignments=[], 
+    tmp_dir=os.path.join(Path.home(), 'tmp'),
+    overwrite=False,
+  ):
+    """Assign assignments for a course
+
+    :param stu_repo_url: The remote URL to your students' repository. You can also provide this during course instantiation, and it will not be required here.
+    :type stu_repo_url: str
+    :param ins_repo_url: The remote URL to your instructors' repository. You can also provide this during course instantiation, and it will not be required here.
+    :type stu_repo_url: str
+    :param assignments: An optional list of assignments
+    :type assignments: list
+    """
+
+    #=======================================#
+    #       Set up Parameters & Config      #
+    #=======================================#
+
+    # Check for preexisting self values
+    stu_repo_url = stu_repo_url if stu_repo_url is not None else self.stu_repo_url
+    ins_repo_url = ins_repo_url if ins_repo_url is not None else self.ins_repo_url
+
+    if self.canvas_token is None:
+      self.canvas_token = self._get_token(self.canvas_token_name)
+
+    if self.github_pat is None:
+      self.github_pat = self._get_token(self.github_token_name)
+
+    # Double check for repo URLs, exit.
+    if (stu_repo_url is None) or (ins_repo_url is None):
+      sys.exit("You must supply the url to both your students and instructors repositories.")
+
+    # Also check for assignment names that were passed in.
+    if not assignments and not self.assignments:
+      print(
+      """
+      No assignments detected. Please chain this command to a
+      "get_assignments_from_*()" command in order to fetch assignment names or
+      pass in assignment names manually via the "assignments" argument.
+      """
+      )
+
+    # Now use object assignments if no new ones passed in
+    # Note slightly different logic to denote empty list, rather than None
+    if not assignments: 
+      assignments = self.assignments
+
+    # First things first, make the temporary directories
+    ins_repo_dir = os.path.join(tmp_dir, 'instructors')
+    stu_repo_dir = os.path.join(tmp_dir, 'students')
+
+    #=======================================#
+    #               Clone Repos             #
+    #=======================================#
+
+    try:
+      utils.clone_repo(ins_repo_url, ins_repo_dir, overwrite, self.github_pat)
+    except Exception as e:
+      print("There was an error cloning your instructors repository")
+      raise e
+
+    try:
+      utils.clone_repo(self.stu_repo_url, stu_repo_dir, overwrite, self.github_pat)
+    except Exception as e:
+      print("There was an error cloning your students repository")
+      raise e
+
+    #=======================================#
+    #          Make Student Version         #
+    #=======================================#
+
+    # Make sure we're running our nbgrader commands within our instructors repo.
+    # this will contain our gradebook database, our source directory, and other
+    # things.
+    custom_config = Config()
+    custom_config.CourseDirectory.root = ins_repo_dir
+    # use the traitlets Application class directly to load nbgrader config file.
+    # reference:
+    # https://github.com/jupyter/nbgrader/blob/41f52873c690af716c796a6003d861e493d45fea/nbgrader/server_extensions/validate_assignment/handlers.py#L35-L37
+    for config in Application._load_config_files('nbgrader_config', path=ins_repo_dir):
+      # merge it with our custom config
+      custom_config.merge(config)
+
+    # set up the nbgrader api with our merged config files
+    nb_api = NbGraderAPI(config=custom_config)
+
+    assignment_names = []
+
+    ### FOR LOOP - ASSIGN ASSIGNMENTS ###
+
+    # For each assignment, assign!!
+    print('Assigning assignments with nbgrader...')
+    print(assignments)
+    for assignment in tqdm(assignments): 
+
+      # quick check to see if we're passing in full assignment objects or just
+      # the names of assignments
+      if not assignment.name:
+        name = assignment
+      else: 
+        name = assignment.name
+
+      assignment_names.append(name)
+
+      # assign the given assignment!
+      nb_api.assign(name)
+
+    ### END LOOP ###
+
+    generated_assignment_dir = os.path.join(ins_repo_dir, 'release')
+    student_assignment_dir = os.path.join(stu_repo_dir, stu_assignment_path)
+    if not os.path.exists(student_assignment_dir):
+      os.makedirs(student_assignment_dir)
+
+    #========================================#
+    #   Move Assignments to Students Repo    #
+    #========================================#
+
+    utils.safely_delete(student_assignment_dir, overwrite)
+
+    # Finally, copy to the directory, as we've removed any preexisting ones or
+    # exited if we didn't want to
+    shutil.copytree(generated_assignment_dir, student_assignment_dir)
+
+    #=======================================#
+    #      Push Changes to Students Repo    #
+    #=======================================#
+
+    utils.push_repo(assignment_names, stu_repo_dir, self.stu_repo_url, self.github_pat)
+
+    return None
 
   def get_assignments_from_github(
     self,
     repo_url: str,
-    pat_name='GITHUB_PAT',
+    github_token_name=None,
     dir='source',
     exclude=[]
   ):
@@ -232,19 +386,36 @@ class Course:
     :type token_name: str
     """
 
+    # Check for preexisting self values
+    github_token_name = github_token_name if github_token_name is not None else self.github_token_name
+
+    if self.canvas_token is None:
+      self.canvas_token = self._get_token(self.canvas_token_name)
+
+    if self.github_pat is None:
+      self.github_pat = self._get_token(self.github_token_name)
+
     if repo_url.startswith('git@'):
+      #! Note, there is logic for the git handling that could work with ssh repositories
+      #! However, this requires parsing logic to keep both URLs and manage them separately
       sys.exit("Please supply the HTTPS url to your repository.")
+      # ssh_url = repo_url
+      # https_url = repo_url # parse logic would go here
     elif not repo_url.startswith('http'):
       sys.exit("Please specify the scheme for your urls (i.e. \"https://\")")
       
+    # split user/repo url in to user & repo
     repo_info = self._generate_sections_of_url(repo_url)
-    if len(repo_info) > 2:
+    # Make sure we got back the expected result
+    if len(repo_info) != 2:
       sys.exit(
         'We could not properly parse the URL you supplied. Make sure your URL points to a repository. Ex: https://github.com/jupyter/jupyter'
       )
+    
+    # Get the domain name for the github site
     gh_domain = urlsplit(repo_url).netloc
-
-    github_token = self._get_token(pat_name)
+    # if we've gotten this far, check for the personal access token
+    github_token = self._get_token(github_token_name)
 
     # strip any preceding `/` or `./` from path provided
     clean_dir = re.sub(r"^\.{0,1}/", "", dir)
@@ -256,7 +427,7 @@ class Course:
       map(lambda name: name if re.search(r".ipynb$", name) else f"{name}.ipynb", exclude)
     )
 
-    if gh_domain == "github.com":
+    if "github.com" in gh_domain:
       # use default, api.github.com
       gh_api = Github(login_or_token=github_token)
     else:
@@ -305,13 +476,13 @@ class Course:
               path=tree_element.path,
               github={
                 "ins_repo_url": repo_url,
-                "pat_name": pat_name
+                "github_token_name": github_token_name
               },
               # Pass down necessary parameters
               canvas={
                 "url": self.canvas_url,
                 "course_id": self.course_id,
-                "token_name": self.token_name
+                "token_name": self.canvas_token_name
               }
             )
             assignments.append(assignment)
@@ -379,9 +550,17 @@ class Course:
       sections.insert(0, temp[1])
     return sections
 
-  def create_assignments_in_canvas(self) -> 'None':
+  def create_assignments_in_canvas(self, overwrite=False, stu_repo_url=None) -> 'None':
     """Create assignments for a course.
+
+    :param overwrite: Whether or not you wish to overwrite preexisting assignments.
+    :type overwrite: bool
+    :param stu_repo_url: The URL of your student repository. If this was provided when instantiating the course, this parameter can be left out. 
+    :type stu_repo_url: str
     """
+
+    # Check for preexisting value
+    stu_repo_url = stu_repo_url if stu_repo_url is not None else self.stu_repo_url
 
     # Construct launch url for nbgitpuller
     # First join our hub url, hub prefix, and launch url
@@ -389,7 +568,7 @@ class Course:
     # Then construct our nbgirpuller custom next parameter
     gitpuller_url = f"{self.hub_prefix}/hub/user-redirect/git-pull"
     # Finally, urlencode our repository and add that
-    repo_encoded_url = quote_plus(self.student_repo)
+    repo_encoded_url = quote_plus(stu_repo_url)
 
     # Finally glue this all together!! Now we just need to add the subpath for each assignment
     full_assignment_url = fr"{launch_url}?custom_next={gitpuller_url}%3Frepo%3Dhttps%3A%2F%2F{repo_encoded_url}%26subPath%3D"
@@ -403,17 +582,28 @@ class Course:
 
     for assignment in tqdm(self.assignments):
       # urlencode the assignment's subpath
+      #! TO-DO: replace instructors/source path with student path
+      #! Maybe we should be pulling from nbgrader_config.py for this!!!!
       subpath = quote_plus(assignment.path)
       # and join it to the previously constructed launch URL (hub + nbgitpuller language)
       full_path = full_assignment_url + subpath
 
       # FIRST check if an assignment with that name already exists.
-      # Method mutates state, so no return necessary
-      #! Make this return T/F
-      assignment.search_canvas_assignment()
+      # Method mutates state, so no return *necessary* (but we have anyways)
+      existing_assigmnents = assignment.search_canvas_assignment()
 
       # If we already have an assignment with this name in Canvas, update it!
-      if assignment.canvas_assignment:
+      # We assigned to self, so could also check `if assignment.canvas_assignment`
+      if existing_assigmnents['found'] > 0:
+        existing_assignment_name = existing_assigmnents.get('assignment').get('name')
+        # First, check to see if the user specified overwriting:
+        if not overwrite:
+          overwrite_target_dir = input(
+            f"{existing_assignment_name} already exists, would you like to overwrite? [y/n]: "
+          )
+          # if they said yes, remove the directory
+          if overwrite_target_dir.lower() != 'y':
+            sys.exit("Will not overwrite preexisting assignment.\nExiting...")
         # Then the assignment ID would be in the canvas_assignment dict
         assignment_id = assignment.canvas_assignment.get('id')
         result = assignment.update_canvas_assignment(
@@ -462,52 +652,53 @@ class Course:
     return self
 
 
-  def schedule_grading(self):
-    """
-    Schedule assignment grading tasks in crontab. 
-    It would probably make more sense to use `at` instead of `cron` except that:
-      1. CentOS has `cron` by default, but not `at`
-      2. The python CronTab module exists to make this process quite easy.
-    """
-    # If there is no 'lock at' time, then the due date is the time to grade.
-    # Otherwise, grade at the 'lock at' time. This is to allow partial credit
-    # for late assignments.
-    # Reference: https://community.canvaslms.com/docs/DOC-10327-415273044
-    for assignment in tqdm(self.assignments):
-      self._schedule_assignment_grading(assignment)
-    print('Grading scheduled!')
+  # def schedule_grading(self):
+  #   """
+  #   Schedule assignment grading tasks in crontab. 
+  #   It would probably make more sense to use `at` instead of `cron` except that:
+  #     1. CentOS has `cron` by default, but not `at`
+  #     2. The python CronTab module exists to make this process quite easy.
+  #   """
+  #   # If there is no 'lock at' time, then the due date is the time to grade.
+  #   # Otherwise, grade at the 'lock at' time. This is to allow partial credit
+  #   # for late assignments.
+  #   # Reference: https://community.canvaslms.com/docs/DOC-10327-415273044
+  #   for assignment in tqdm(self.assignments):
+  #     self._schedule_assignment_grading(assignment)
+  #   print('Grading scheduled!')
 
-  def _schedule_assignment_grading(self, assignment):
-    job = self.cron.new(
-      command=f"nbgrader collect {assignment.get('name')}",
-      comment=f"Autograde {assignment.get('name')}"
-    )
+  # def _schedule_assignment_grading(self, assignment):
+  #   job = self.cron.new(
+  #     command=f"nbgrader collect {assignment.get('name')}",
+  #     comment=f"Autograde {assignment.get('name')}"
+  #   )
 
-    if assignment.get('lock_at') is not None:
-      close_time = parse(assignment['lock_at'])
+  #   if assignment.get('lock_at') is not None:
+  #     close_time = parse(assignment['lock_at'])
 
-    elif assignment.get('due_at') is not None:
-      close_time = parse(assignment['due_at'])
+  #   elif assignment.get('due_at') is not None:
+  #     close_time = parse(assignment['due_at'])
 
-    elif self.course.get('end_at') is not None:
-      close_time = parse(self.course['end_at'])
+  #   # Will need course info here
+  #   elif self.course.get('end_at') is not None:
+  #     close_time = parse(self.course['end_at'])
 
-    else:
-      close_time: None
-      print(
-        'Could not find an end date for your course in Canvas, automatic grading will not be scheduled.'
-      )
+  #   else:
+  #     close_time: None
+  #     print(
+  #       'Could not find an end date for your course in Canvas, automatic grading will not be scheduled.'
+  #     )
 
-    # * Make sure we don't have a job for this already, and then set it if it's valid
-    existing_jobs = self.cron.find_command(f"nbgrader collect {assignment.get('name')}")
+  #   # * Make sure we don't have a job for this already, and then set it if it's valid
+  #   existing_jobs = self.cron.find_command(f"nbgrader collect {assignment.get('name')}")
 
-    # wonky syntax because find_command & find_comment return *generators*
-    if (len(list(existing_jobs)) > 0) & job.is_valid():
-      # Set job
-      job.setall(close_time)
-      self.cron.write()
-    else:
-      # delete previous command here
-      # then set job
-      job.setall(close_time)
-      self.cron.write()
+  #   # wonky syntax because find_command & find_comment return *generators*
+  #   if (len(list(existing_jobs)) > 0) & job.is_valid():
+  #     # Set job
+  #     job.setall(close_time)
+  #     self.cron.write()
+  #   else:
+  #     # delete previous command here
+  #     # then set job
+  #     job.setall(close_time)
+  #     self.cron.write()
