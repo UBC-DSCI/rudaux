@@ -20,8 +20,17 @@ course.get_assignments_from_github(
   repo_url='https://github.ubc.ca/hinshaws/dsci_100_instructors',
   dir='source',
   pat_name='GHE_PAT',
-  exclude=['header.ipynb']
-).create_assignments_in_canvas()
+  exclude=['header.ipynb', 'scale_fruit_data.ipynb']
+).create_assignments_in_canvas(
+  # overwrite=True
+)
+
+# course.get_assignments_from_canvas(
+#   repo_url='https://github.ubc.ca/hinshaws/dsci_100_instructors',
+#   dir='source',
+#   pat_name='GHE_PAT',
+#   exclude=['header.ipynb', 'scale_fruit_data.ipynb']
+# ).create_assignments_in_canvas()
 # course.get_assignments_from_canvas()
 # course.get_assignments_from_github()
 

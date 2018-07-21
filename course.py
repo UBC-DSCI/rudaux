@@ -4,6 +4,9 @@ import requests
 import os
 import sys
 import re
+import textwrap
+# Import my custom utiliy functions
+import utils
 # For parsing assignments from CSV
 import pandas as pd
 # For progress bar
@@ -14,15 +17,15 @@ from github import Github
 from crontab import CronTab
 from assignment import Assignment
 from dateutil.parser import parse
+from terminaltables import AsciiTable, SingleTable
 # For decoding base64-encoded files from GitHub API
 from base64 import b64decode
 # for urlencoding query strings to persist through user-redirect
-from urllib.parse import urlsplit, urlunsplit, urljoin, quote_plus
+from urllib.parse import urlsplit, urlunsplit, quote_plus
 # import nbgrader
 
 #* All internal _methods() return an object
 #* All external  methods() return self (are chainable), and mutate object state or initiate other side-effects
-
 
 # Must be instantiated with a course ID
 class Course:
@@ -44,14 +47,12 @@ class Course:
     :returns: A Course object for performing operations on an entire course at once.
     :rtype: Course
     """
-    # clean urls
-    # canvas_url = urlsplit(canvas_url)
-    # hub_url = urlsplit(hub_url)
-    # student_repo = urlsplit(student_repo)
 
-    # For the hub prefix, it must have no trailing slash
+    # The hub prefix and urls should have no trailing slash
+    hub_url = re.sub(r"/$", "", hub_url)
+    canvas_url = re.sub(r"/$", "", canvas_url)
     hub_prefix = re.sub(r"/$", "", hub_prefix)
-    # ...but have a preceding slash
+    # ...but the hub prefix should have a preceding slash
     if re.search(r"^/", hub_prefix) is None:
       hub_prefix = fr"/{hub_prefix}"
 
@@ -83,7 +84,7 @@ class Course:
     Get the basic course information from Canvas
     """
     resp = requests.get(
-      url=urljoin(self.canvas_url, f"/api/v1/courses/{self.course_id}"),
+      url=f"{self.canvas_url}/api/v1/courses/{self.course_id}",
       headers={
         "Authorization": f"Bearer {self.canvas_token}",
         "Accept": "application/json+canvas-string-ids"
@@ -106,7 +107,7 @@ class Course:
     print('Querying list of students...')
     # List all of the students in the course
     resp = requests.get(
-      url=urljoin(self.canvas_url, f"/api/v1/courses/{self.course_id}/users"),
+      url=f"{self.canvas_url}/api/v1/courses/{self.course_id}/users",
       headers={
         "Authorization": f"Bearer {self.canvas_token}",
         "Accept": "application/json+canvas-string-ids"
@@ -180,33 +181,36 @@ class Course:
   #   # Then return the students object
   #   return student
 
-  def get_assignments_from_canvas(self):
-    """
-    Get all assignments for a course.
-    """
-    resp = requests.get(
-      url=urljoin(self.canvas_url, f"/api/v1/courses/{self.course_id}/assignments"),
-      headers={
-        "Authorization": f"Bearer {self.canvas_token}",
-        "Accept": "application/json+canvas-string-ids"
-      }
-    )
+  # def get_assignments_from_canvas(self):
+  #   """
+  #   Get all assignments for a course.
+  #   """
+  #   resp = requests.get(
+  #     url=f"{self.canvas_url}/api/v1/courses/{self.course_id}/assignments",
+  #     headers={
+  #       "Authorization": f"Bearer {self.canvas_token}",
+  #       "Accept": "application/json+canvas-string-ids"
+  #     }
+  #   )
 
-    # Make sure our request didn't fail silently
-    resp.raise_for_status()
+  #   # Make sure our request didn't fail silently
+  #   resp.raise_for_status()
 
-    # pull out the response JSON
-    canvas_assignments = resp.json()
+  #   # pull out the response JSON
+  #   canvas_assignments = resp.json()
 
-    # Create an assignment object from each assignment
-    # `canvas_assignments` is a list of objects (dicts) so `**` is like the object spread operator (`...` in JS)
-    assignments = map(
-      lambda assignment: Assignment(**assignment),
-      canvas_assignments
-    )
-    self.assignments = assignments
+  #   # Create an assignment object from each assignment
+  #   # `canvas_assignments` is a list of objects (dicts) so `**` is like the object spread operator (`...` in JS)
+  #   assignments = map(
+  #     lambda assignment: Assignment(**assignment),
+  #     canvas_assignments
+  #   )
+  #   self.assignments = assignments
 
-    return self
+  #   return self
+
+  def assign_all(self):
+    print('Assigning assignments...')
 
   def get_assignments_from_github(
     self,
@@ -234,6 +238,10 @@ class Course:
       sys.exit("Please specify the scheme for your urls (i.e. \"https://\")")
       
     repo_info = self._generate_sections_of_url(repo_url)
+    if len(repo_info) > 2:
+      sys.exit(
+        'We could not properly parse the URL you supplied. Make sure your URL points to a repository. Ex: https://github.com/jupyter/jupyter'
+      )
     gh_domain = urlsplit(repo_url).netloc
 
     github_token = self._get_token(pat_name)
@@ -263,7 +271,7 @@ class Course:
     assignments = []
 
     # iterate through our tree
-    print("Searching for jupyter notebooks...")
+    print("\nSearching for jupyter notebooks...")
     for tree_element in tqdm(repo_tree):
       # If the tree element is in our path and is a jupyter notebook
       if tree_element.path.startswith(clean_dir) & tree_element.path.endswith('.ipynb'):
@@ -275,11 +283,17 @@ class Course:
           filename = file_search.group(0)
           # check that this isn't an excluded file
           if filename not in clean_exclude:
-            #! TODO: Use the directory name as the assignment name, not the filename
-            #! This matches nbgrader's directory structure
             # strip the file extension
-            name = re.sub(r".ipynb$", "", filename)
+            # name = re.sub(r".ipynb$", "", filename)
 
+            # Get the folder containing the notebook
+            split_path = os.path.split(tree_element.path)
+            # split_path[1] will be the notebook
+            # split_path[0] will be the rest of the path
+            split_path = os.path.split(split_path[0])
+            # Now, split_path[1] is the name of the folder containing the notebook
+            # and split_path[0] is the rest of the upsteam path
+            name = split_path[1]
             # Get the contents of the file
             # file = gh_api.get_user().get_repo(repo).get_contents(tree_element.path)
             # file_contents = b64decode(file.content)
@@ -302,8 +316,8 @@ class Course:
             )
             assignments.append(assignment)
 
-    names = list(map(lambda assn: assn.name, assignments))
-    print(f"Found the following assignments: {sorted(names)}")
+    # names = list(map(lambda assn: assn.name, assignments))
+    # print(f"Found the following assignments: {sorted(names)}")
     self.assignments = assignments
     return self
 
@@ -363,28 +377,29 @@ class Course:
       path = temp[0]
       # Insert at the beginning to keep the proper url order
       sections.insert(0, temp[1])
-    if len(sections) > 2:
-      sys.exit(
-        'We could not properly parse the URL you supplied. Make sure your URL points to a repository. Ex: https://github.com/jupyter/jupyter'
-      )
     return sections
 
-  def create_assignments_in_canvas(self) -> None:
+  def create_assignments_in_canvas(self) -> 'None':
     """Create assignments for a course.
     """
 
     # Construct launch url for nbgitpuller
     # First join our hub url, hub prefix, and launch url
-    launch_url = urljoin(urljoin(self.hub_url, self.hub_prefix), '/hub/lti/launch')
+    launch_url = f"{self.hub_url}{self.hub_prefix}/hub/lti/launch"
     # Then construct our nbgirpuller custom next parameter
-    gitpuller_url = urljoin(self.hub_prefix, "/hub/user-redirect/git-pull")
+    gitpuller_url = f"{self.hub_prefix}/hub/user-redirect/git-pull"
     # Finally, urlencode our repository and add that
     repo_encoded_url = quote_plus(self.student_repo)
 
     # Finally glue this all together!! Now we just need to add the subpath for each assignment
     full_assignment_url = fr"{launch_url}?custom_next={gitpuller_url}%3Frepo%3Dhttps%3A%2F%2F{repo_encoded_url}%26subPath%3D"
 
-    print("Creating assignments (preexisting assignments with the same name will be updated)...")
+    print("\nCreating assignments (preexisting assignments with the same name will be updated)...")
+
+    # Initialize status table that we can push to as we go
+    assignment_status = [
+      ['Assignment', 'Action', 'Status', 'Message']
+    ]
 
     for assignment in tqdm(self.assignments):
       # urlencode the assignment's subpath
@@ -393,30 +408,57 @@ class Course:
       full_path = full_assignment_url + subpath
 
       # FIRST check if an assignment with that name already exists.
-      # Method mutates state, so no return necessary, but done for clarity
-      assignment = assignment.search_canvas_assignment()
+      # Method mutates state, so no return necessary
+      #! Make this return T/F
+      assignment.search_canvas_assignment()
 
       # If we already have an assignment with this name in Canvas, update it!
       if assignment.canvas_assignment:
         # Then the assignment ID would be in the canvas_assignment dict
         assignment_id = assignment.canvas_assignment.get('id')
-        assignment.update_canvas_assignment(
+        result = assignment.update_canvas_assignment(
           assignment_id, 
+          submission_types=['external_tool'],
           external_tool_tag_attributes={
             "url": full_path,
             "new_tab": True
             }
         )
+        assignment_status.append([assignment.name, 'update', result.get('status'), result.get('message')])
       # otherwise create a new assignment
       else: 
         assignment.create_canvas_assignment(
           name=assignment.name, 
+          submission_types=['external_tool'],
           external_tool_tag_attributes={
             "url": full_path,
             "new_tab": True
             }
         )
+        assignment_status.append([assignment.name, 'create', result.get('status'), result.get('message')])
 
+    ## Print status for reporting:
+    table = SingleTable(assignment_status)
+    table.title = 'Summary'
+    print("\n")
+    print(table.table)
+    print("\n")
+    notice = f"""
+    {utils.color.BOLD}Notice:{utils.color.END} Unfortunately, the Canvas API currently has a limitation where it
+    cannot link your external tool to the assignment. Therefore, as it stands,
+    your launch requests are likely being sent without the LTI Consumer & Secret
+    Keys. Therefore, you need to go into each assignment that was just created
+    and link the tool by clicking "Find" under the "Submission" section, and
+    then clicking the tool your institution created (such as "Jupyter"). This
+    will change the URLs of your assignments. After that, re-run this command
+    and the URLs will be re-updated.
+
+    {utils.color.UNDERLINE}{self.canvas_url}/courses/{self.course_id}/assignments{utils.color.END}
+
+    Unfortunately, there is no way to tell if the assignment is properly linked
+    via the API, so you'll have to manually check that as well.
+    """
+    print(notice)
     return self
 
 
