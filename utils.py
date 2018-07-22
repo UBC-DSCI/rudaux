@@ -65,7 +65,8 @@ def clone_repo(
   # Otherwise, we need to get the github username from the API
   else:
     github_username = find_github_username(repo_url, github_pat)
-    repo_url_auth = f"https://{github_username}:{github_pat}@{split_url.netloc}{split_url.path}.git"
+    repo_url_auth = f"https://{split_url.netloc}{split_url.path}.git"
+    # repo_url_auth = f"https://{github_username}:{github_pat}@{split_url.netloc}{split_url.path}.git"
     Repo.clone_from(repo_url_auth, target_dir)
 
 
@@ -117,7 +118,8 @@ def push_repo(
   else:
     # Otherwise, use https url
     github_username = find_github_username(repo_url, github_pat)
-    repo_url_auth = f"https://{github_username}:{github_pat}@{split_url.netloc}{split_url.path}.git"
+    repo_url_auth = f"https://{split_url.netloc}{split_url.path}.git"
+    # repo_url_auth = f"https://{github_username}:{github_pat}@{split_url.netloc}{split_url.path}.git"
     print(f"Pushing changes on {branch} to {repo_url}...")
     repo.git.push(repo_url_auth, branch)
 

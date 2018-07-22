@@ -229,7 +229,7 @@ class Course:
 
   #   return self
 
-  def assign(
+  def assign_all(
     self, 
     stu_repo_url=None, 
     ins_repo_url=None, 
@@ -368,7 +368,7 @@ class Course:
 
   def get_assignments_from_github(
     self,
-    repo_url: str,
+    repo_url=None,
     github_token_name=None,
     dir='source',
     exclude=[]
@@ -388,6 +388,18 @@ class Course:
 
     # Check for preexisting self values
     github_token_name = github_token_name if github_token_name is not None else self.github_token_name
+    # If repo_url was provided, use that. Otherwise use instructors' repo url from init.
+    repo_url = repo_url if repo_url is not None else self.ins_repo_url
+
+    if repo_url is None:
+      sys.exit(
+        """
+        No repository URL was provided. You must provide a repo_url when calling
+        get_assignments_from_github(), or an ins_repo_url() when instantiating
+        the course.
+        """
+
+      )
 
     if self.canvas_token is None:
       self.canvas_token = self._get_token(self.canvas_token_name)
