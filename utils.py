@@ -36,7 +36,7 @@ def safely_delete(path: str, overwrite: bool) -> 'None':
 
 
 def clone_repo(
-  repo_url: str, target_dir: str, overwrite: bool, github_pat: str
+  repo_url: str, target_dir: str, overwrite: bool, github_pat=None
 ) -> 'None':
   """Clone a repository
     
@@ -62,19 +62,24 @@ def clone_repo(
     print('SSH URL detected, assuming SSH keys are accounted for...')
     Repo.clone_from(repo_url, target_dir)
 
-  # Otherwise, we need to get the github username from the API
-  else:
+  # Otherwise, we can get the github username from the API and use username/PAT
+  # combo to authenticate.
+  elif github_pat is not None:
     github_username = find_github_username(repo_url, github_pat)
+    repo_url_auth = f"https://{github_username}:{github_pat}@{split_url.netloc}{split_url.path}.git"
+  # Otherwise we can just prompt for user/pass
+  else:
     repo_url_auth = f"https://{split_url.netloc}{split_url.path}.git"
-    # repo_url_auth = f"https://{github_username}:{github_pat}@{split_url.netloc}{split_url.path}.git"
     Repo.clone_from(repo_url_auth, target_dir)
+
+  return None
 
 
 def push_repo(
   names: List[str],
   repo_dir: str,
   repo_url: str,
-  github_pat: str,
+  github_pat=None,
   branch='master',
   remote='origin',
 ) -> 'None':
@@ -115,12 +120,17 @@ def push_repo(
     print('SSH URL detected, assuming SSH keys are accounted for.')
     print(f"Pushing changes on {branch} to {remote}...")
     repo.git.push(remote, branch)
-  else:
-    # Otherwise, use https url
+  # Otherwise, we can get the github username from the API and use username/PAT
+  # combo to authenticate.
+  elif github_pat is not None:
     github_username = find_github_username(repo_url, github_pat)
-    repo_url_auth = f"https://{split_url.netloc}{split_url.path}.git"
-    # repo_url_auth = f"https://{github_username}:{github_pat}@{split_url.netloc}{split_url.path}.git"
+    repo_url_auth = f"https://{github_username}:{github_pat}@{split_url.netloc}{split_url.path}.git"
     print(f"Pushing changes on {branch} to {repo_url}...")
+    repo.git.push(repo_url_auth, branch)
+  # Otherwise we can just prompt for user/pass
+  else:
+    print(f"Pushing changes on {branch} to {repo_url}...")
+    repo_url_auth = f"https://{split_url.netloc}{split_url.path}.git"
     repo.git.push(repo_url_auth, branch)
 
   return None

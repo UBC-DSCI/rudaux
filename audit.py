@@ -16,6 +16,8 @@ dsci100.get_assignments_from_github().assign_all(
   stu_assignment_path='homeworks', overwrite=True
 )
 
+dsci100.create_assignments_in_canvas()
+
 # dsci100.add_assignments_to_nbgrader()
 
 # dsci100 = Course(
