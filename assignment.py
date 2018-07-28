@@ -23,29 +23,23 @@ import utils
 
 class Assignment:
   """
-  Assignment object for maniuplating assignment. This base class is blind to Canvas. 
-  It only has operations for working with nbgrader. 
+  Assignment object for maniuplating assignments. 
   """
 
   def __init__(
     self,
     name: str,
     path: str,
-    github={
-      "stu_repo_url": None,
-      "ins_repo_url": None,
-      "github_token_name": "GITHUB_PAT"
-    },
-    canvas={
-      "url": None,
-      "course_id": None,
-      "assignment": {},
-      "token_name": "CANVAS_TOKEN"
-      # hub_url='https://c7l1-timberst.stat.ubc.ca',
-      # student_repo='https://github.ubc.ca/hinshaws/dsci_100_students',
-      # hub_prefix='/jupyter'
-    },
-    course=None
+    stu_repo_url=None,
+    ins_repo_url=None,
+    github_token=None,
+    canvas_url=None,
+    course_id=None,
+    assignment={},
+    canvas_token=None
+    # hub_url='https://c7l1-timberst.stat.ubc.ca',
+    # student_repo='https://github.ubc.ca/hinshaws/dsci_100_students',
+    # hub_prefix='/jupyter'
   ) -> 'self':
     """
     Assignment object for manipulating Assignments.
@@ -62,34 +56,27 @@ class Assignment:
     self.name = name
     self.path = path
 
-    self.canvas_url = canvas.get('url')
-    self.course_id = canvas.get('course_id')
-    self.canvas_assignment = canvas.get('assignment')
-    self.canvas_token_name = canvas.get('token_name')
+    self.canvas_url = canvas_url
+    self.course_id = course_id
+    self.canvas_assignment = assignment
+    self.canvas_token = canvas_token
 
-    self.stu_repo_url = github.get('stu_repo_url')
-    self.ins_repo_url = github.get('ins_repo_url')
-    self.github_token_name = github.get('github_token_name')
+    self.stu_repo_url = stu_repo_url
+    self.ins_repo_url = ins_repo_url
+    self.github_token = github_token
+    # self.github_token_name = github_token_name
 
-    # If we're initializing with a Canvas URL, get the Canvas Token
-    if self.canvas_url is not None:
-      self.canvas_token = self._get_token(canvas.get('token_name'))
-
-    # If we're initializing with a GitHub URL, get the GitHub PAT
-    if (self.ins_repo_url is not None) or (self.stu_repo_url is not None):
-      self.github_pat = self._get_token(github.get('github_token_name'))
-
-  # Get the github token from the environment
-  def _get_token(self, token_name: str):
-    """
-    Get an API token from an environment variable.
-    """
-    try:
-      token = os.environ[token_name]
-      return token
-    except KeyError as e:
-      print(f"You do not seem to have the '{token_name}' environment variable present:")
-      raise e
+  # # Get the github token from the environment
+  # def _get_token(self, token_name: str):
+  #   """
+  #   Get an API token from an environment variable.
+  #   """
+  #   try:
+  #     token = os.environ[token_name]
+  #     return token
+  #   except KeyError as e:
+  #     print(f"You do not seem to have the '{token_name}' environment variable present:")
+  #     raise e
 
   def autograde(self):
     """
@@ -179,7 +166,7 @@ class Assignment:
     #=======================================#
 
     try:
-      utils.clone_repo(self.stu_repo_url, stu_repo_dir, self.overwrite, self.github_pat)
+      utils.clone_repo(self.stu_repo_url, stu_repo_dir, self.overwrite, self.github_token)
     except Exception as e:
       print("There was an error cloning your students repository")
       raise e
