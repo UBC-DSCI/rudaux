@@ -1,22 +1,17 @@
 # import unittest
+import time
 from course import Course
 from assignment import Assignment
 
-dsci100 = Course(
-  course_id=5394,
-  canvas_url='https://ubc.test.instructure.com',
-  stu_repo_url='https://github.ubc.ca/hinshaws/dsci_100_students',
-  ins_repo_url='https://github.ubc.ca/hinshaws/dsci_100_instructors',
-  hub_url='https://c7l1-timberst.stat.ubc.ca',
-  hub_prefix='/jupyter',
-  github_token_name='GHE_PAT'
-)
+start = time.time()
+dsci100 = Course(course_dir='/Users/samhinshaw/projects/dsci100/DSCI_100_instructors')
+end = time.time()
+dsci100.generate_assignment_links()
+print(f"{round(end - start, 2)} seconds elapsed")
 
-dsci100.get_assignments_from_github().assign_all(
-  stu_assignment_path='homeworks', overwrite=True
-)
+# dsci100.get_assignments_from_github().assign_all(overwrite=True)
 
-dsci100.create_assignments_in_canvas()
+# dsci100.create_assignments_in_canvas()
 
 # dsci100.add_assignments_to_nbgrader()
 
