@@ -75,26 +75,26 @@ def clone_repo(
   return None
 
 
-def push_repo(
-  names: List[str],
+def pull_repo(repo_dir: str, branch='master', remote='origin') -> 'None':
+  """Pull a repository
+
+  :return: None
+  :rtype: None
+  """
+  repo = Repo(repo_dir)
+  repo.git.pull(remote, branch)
+
+
+def commit_repo(
   repo_dir: str,
-  repo_url: str,
-  github_pat=None,
-  branch='master',
-  remote='origin',
-) -> 'None':
-  """Commit changes and push a specific repository to its remote.
+  names: List[str],
+):
+  """Commit all changes to a specified repository.
   
-  :param names: The names of the assignments you are pushing
-  :type names: list
   :param repo_dir: The location of the repository on the disk you wish to commit changes to and push to its remote.
   :type repo_dir: str
-  :param repo_url: The remote url of the location you're pushing to.
-  :type repo_url: str
-  :param branch: The branch you wish to commit changes to.
-  :type branch: str
-  :param remote: The remote you with to push changes to.
-  :type remote: str
+  :param names: The names of the assignments you are pushing
+  :type names: list
   :returns: Nothing, side effects performed.
   :rtype: None
   """
@@ -114,24 +114,51 @@ def push_repo(
   print(f"assignment names: {' '.join(names)}")
   repo.git.commit("-m", f"Assigning {' '.join(names)}")
 
-  split_url = urlparse.urlsplit(repo_url)
-  if not split_url.netloc:
-    # If using ssh, go ahead and clone.
-    print('SSH URL detected, assuming SSH keys are accounted for.')
-    print(f"Pushing changes on {branch} to {remote}...")
-    repo.git.push(remote, branch)
-  # Otherwise, we can get the github username from the API and use username/PAT
-  # combo to authenticate.
-  elif github_pat is not None:
-    github_username = find_github_username(repo_url, github_pat)
-    repo_url_auth = f"https://{github_username}:{github_pat}@{split_url.netloc}{split_url.path}.git"
-    print(f"Pushing changes on {branch} to {repo_url}...")
-    repo.git.push(repo_url_auth, branch)
-  # Otherwise we can just prompt for user/pass
-  else:
-    print(f"Pushing changes on {branch} to {repo_url}...")
-    repo_url_auth = f"https://{split_url.netloc}{split_url.path}.git"
-    repo.git.push(repo_url_auth, branch)
+
+def push_repo(
+  repo_dir: str,
+  repo_url: str,
+  # github_pat=None,
+  branch='master',
+  remote='origin',
+) -> 'None':
+  """Commit changes and push a specific repository to its remote.
+  
+  :param repo_dir: The location of the repository on the disk you wish to commit changes to and push to its remote.
+  :type repo_dir: str
+  :param repo_url: The remote url of the location you're pushing to.
+  :type repo_url: str
+  :param branch: The branch you wish to commit changes to.
+  :type branch: str
+  :param remote: The remote you with to push changes to.
+  :type remote: str
+  :returns: Nothing, side effects performed.
+  :rtype: None
+  """
+
+  # instantiate our repository
+  repo = Repo(repo_dir)
+  print(f"Pushing changes on {branch} to {remote}...")
+  repo.git.push(remote, branch)
+
+  # split_url = urlparse.urlsplit(repo_url)
+  # if not split_url.netloc:
+  #   # If using ssh, go ahead and clone.
+  #   print('SSH URL detected, assuming SSH keys are accounted for.')
+  #   print(f"Pushing changes on {branch} to {remote}...")
+  #   repo.git.push(remote, branch)
+  # # Otherwise, we can get the github username from the API and use username/PAT
+  # # combo to authenticate.
+  # elif github_pat is not None:
+  #   github_username = find_github_username(repo_url, github_pat)
+  #   repo_url_auth = f"https://{github_username}:{github_pat}@{split_url.netloc}{split_url.path}.git"
+  #   print(f"Pushing changes on {branch} to {repo_url}...")
+  #   repo.git.push(repo_url_auth, branch)
+  # # Otherwise we can just prompt for user/pass
+  # else:
+  #   print(f"Pushing changes on {branch} to {repo_url}...")
+  #   repo_url_auth = f"https://{split_url.netloc}{split_url.path}.git"
+  #   repo.git.push(repo_url_auth, branch)
 
   return None
 
