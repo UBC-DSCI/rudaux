@@ -39,12 +39,12 @@ def clone_repo(
   repo_url: str, target_dir: str, overwrite: bool, github_pat=None
 ) -> 'None':
   """Clone a repository
-    
-    :param repo_url: The ssh or https url for the repository you wish to clone.
-    :type repo_url: str
-    :param target_dir: The directory you wish to clone your repository to.
-    :type target_dir: str
-    """
+  
+  :param repo_url: The ssh or https url for the repository you wish to clone.
+  :type repo_url: str
+  :param target_dir: The directory you wish to clone your repository to.
+  :type target_dir: str
+  """
 
   safely_delete(target_dir, overwrite)
 
@@ -117,7 +117,7 @@ def commit_repo(
 
 def push_repo(
   repo_dir: str,
-  repo_url: str,
+  # repo_url: str,
   # github_pat=None,
   branch='master',
   remote='origin',
@@ -199,3 +199,26 @@ class color:
   BOLD = '\033[1m'
   UNDERLINE = '\033[4m'
   END = '\033[0m'
+
+
+# courtesy of https://stackoverflow.com/questions/7894384/python-get-url-path-sections
+def _generate_sections_of_url(url: str):
+  """Generate Sections of a URL's path
+  
+  :param url: The URL you wish to split
+  :type url: str
+  :return: A list of url paths
+  :rtype: list
+  """
+
+  path = urlparse.urlsplit(url).path
+  sections = []
+  temp = ""
+  while (path != '/'):
+    temp = os.path.split(path)
+    if temp[0] == '':
+      break
+    path = temp[0]
+    # Insert at the beginning to keep the proper url order
+    sections.insert(0, temp[1])
+  return sections

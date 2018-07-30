@@ -218,46 +218,49 @@ class Course:
         setattr(self, key, param.get('default'))
         print(f"\"{param.get('config_name')}\" is missing, using default parameter of \"{getattr(self, key)}\"")
 
-    # # check for tokens
-    # github_token_name = config.get('GitHub').get('github_token_name')
-    # token_names = config.get('GitHub').get('token_names')
+    # check for tokens
+    github_token_name = config.get('GitHub').get('github_token_name')
+    token_names = config.get('GitHub').get('token_names')
         
-    # #=======================================#
-    # #           Set GitHub Token            #
-    # #=======================================#
+    #=======================================#
+    #           Set GitHub Token            #
+    #=======================================#
 
-    # # If the config file specifies multiple tokens, use those
-    # if token_names is not None:
-    #   # instantiate our token object as empty
-    #   self.tokens = []
-    #   # Then for each token specified...
-    #   for token_name in token_names:
-    #     # Create a token object with the domain and token necessary
-    #     self.tokens.append({
-    #       "domain": token_name.get('domain'),
-    #       "token": self._get_token(token_name.get('token_name'))
-    #     })
-    # # otherwise we'll use the same token for both github domains
-    # else:
-    #   # if the user didn't specify a token_name, use 'GITHUB_PAT'
-    #   if github_token_name is None:
-    #     print("Searching for default GitHub token, GITHUB_PAT...")
-    #     github_token_name = 'GITHUB_PAT'
+    # If the config file specifies multiple tokens, use those
+    if token_names is not None:
+      # instantiate our token object as empty
+      self.tokens = []
+      # Then for each token specified...
+      for token_name in token_names:
+        # Create a token object with the domain and token necessary
+        self.tokens.append({
+          "domain": token_name.get('domain'),
+          "token": self._get_token(token_name.get('token_name'))
+        })
+    # otherwise we'll use the same token for both github domains
+    else:
+      if github_token_name is None:
+        self.github_tokens = None
+        # Only look for PAT if it is specified by the user
+        # This way we can prompt for user/pass if no token is available
+          # if the user didn't specify a token_name, use 'GITHUB_PAT'
+          # print("Searching for default GitHub token, GITHUB_PAT...")
+          # github_token_name = 'GITHUB_PAT'
+      else: 
+        # get the single token we'll be using
+        token = self._get_token(github_token_name)
 
-    #   # get the single token we'll be using
-    #   token = self._get_token(github_token_name)
-
-    #   # Then specify that we're using the same token for each domain
-    #   self.github_tokens = [
-    #     {
-    #       "domain": urlsplit(self.stu_repo_url).netloc,
-    #       "token": token
-    #     }, 
-    #     {
-    #       "domain": urlsplit(self.ins_repo_url).netloc,
-    #       "token": token
-    #     }
-    #   ]
+        # Then specify that we're using the same token for each domain
+        self.github_tokens = [
+          {
+            "domain": urlsplit(self.stu_repo_url).netloc,
+            "token": token
+          }, 
+          {
+            "domain": urlsplit(self.ins_repo_url).netloc,
+            "token": token
+          }
+        ]
 
     #=======================================#
     #           Set Canvas Token            #
@@ -266,7 +269,7 @@ class Course:
     canvas_token_name = config.get('Canvas').get('token_name')
 
     if canvas_token_name is None:
-      print("Searching for default GitHub token, CANVAS_TOKEN...")
+      print("Searching for default Canvas token, CANVAS_TOKEN...")
       canvas_token_name = 'CANVAS_TOKEN'
 
     self.canvas_token = self._get_token(canvas_token_name)
@@ -594,8 +597,8 @@ class Course:
           name=assignment_name, 
           path=notebook_path,
           ins_repo_url=self.ins_repo_url,
-          github_token=self.github_token,
-          url=self.canvas_url,
+          github_tokens=self.github_tokens,
+          canvas_url=self.canvas_url,
           course_id=self.course_id,
           canvas_token=self.canvas_token
         )
@@ -621,28 +624,6 @@ class Course:
     # 5. Add students: `find_student(student_id)`, then `add_student(student_id, **kwargs)``
 
     return False
-    
-  # courtesy of https://stackoverflow.com/questions/7894384/python-get-url-path-sections
-  def _generate_sections_of_url(self, url: str):
-    """Generate Sections of a URL's path
-    
-    :param url: The URL you wish to split
-    :type url: str
-    :return: A list of url paths
-    :rtype: list
-    """
-
-    path = urlsplit(url).path
-    sections = []
-    temp = ""
-    while (path != '/'):
-      temp = os.path.split(path)
-      if temp[0] == '':
-        break
-      path = temp[0]
-      # Insert at the beginning to keep the proper url order
-      sections.insert(0, temp[1])
-    return sections
 
   def create_assignments_in_canvas(self, overwrite=False, stu_repo_url=None) -> 'None':
     """Create assignments for a course.
@@ -689,7 +670,7 @@ class Course:
       # If we already have an assignment with this name in Canvas, update it!
       # We assigned to self, so could also check `if assignment.canvas_assignment`
       if existing_assigmnents['found'] > 0:
-        existing_assignment_name = existing_assigmnents.get('assignment').get('name')
+        existing_assignment_name = existing_assigmnents.get('assignment', {}).get('name')
         # First, check to see if the user specified overwriting:
         if not overwrite:
           overwrite_target_dir = input(
@@ -796,105 +777,3 @@ class Course:
   #     # then set job
   #     job.setall(close_time)
   #     self.cron.write()
-
-  def get_assignments_from_github_api(self):
-    """
-    Get assignments from a GitHub repository which follows the nbgrader directory structure convention.
-    """
-
-    if self.ins_repo_url.startswith('git@'):
-      #! Note, there is logic for the git handling that could work with ssh repositories
-      #! However, this requires parsing logic to keep both URLs and manage them separately
-      sys.exit("Please supply the HTTPS url to your repository.")
-      # ssh_url = repo_url
-      # https_url = repo_url # parse logic would go here
-    elif not self.ins_repo_url.startswith('http'):
-      sys.exit("Please specify the scheme for your urls (i.e. \"https://\")")
-      
-    # split user/repo url in to user & repo
-    repo_info = self._generate_sections_of_url(self.ins_repo_url)
-    # Make sure we got back the expected result
-    if len(repo_info) != 2:
-      sys.exit(
-        'We could not properly parse the URL you supplied. Make sure your URL points to a repository. Ex: https://github.com/jupyter/jupyter'
-      )
-    
-    # Get the domain name for the github site
-    gh_domain = urlsplit(self.ins_repo_url).netloc
-    # if we've gotten this far, check for the personal access token
-    # github_token = self.github_tokens()
-
-    # strip any preceding `/` or `./` from path provided
-    clean_dir = re.sub(r"^\.{0,1}/", "", dir)
-    # strip any trailing `/` from path provided
-    clean_dir = re.sub(r"/$", "", clean_dir)
-
-    # Make sure the exclusion array has '.ipynb' file extensions
-    clean_exclude = list(
-      map(lambda name: name if re.search(r".ipynb$", name) else f"{name}.ipynb", exclude)
-    )
-
-    if "github.com" in gh_domain:
-      # use default, api.github.com
-      gh_api = Github(login_or_token=github_token)
-    else:
-      # use github enterprise endpoint
-      gh_api = Github(base_url=f"https://{gh_domain}/api/v3", login_or_token=github_token)
-
-    # get the git tree for our repository
-    repo_tree = gh_api.get_user(repo_info[0]).get_repo(repo_info[1]).get_git_tree(
-      "master", recursive=True
-    ).tree
-    # create an empty list of assignments to push to
-    assignments = []
-
-    # iterate through our tree
-    print("\nSearching for jupyter notebooks...")
-    for tree_element in tqdm(repo_tree):
-      # If the tree element is in our path and is a jupyter notebook
-      if tree_element.path.startswith(clean_dir) & tree_element.path.endswith('.ipynb'):
-        # get the filename (excluding the path)
-        file_search = re.search(r"[\w-]+\.ipynb$", tree_element.path)
-        # and make sure we got a hit (redundant, but error-averse)
-        if file_search is not None:
-          # extract the first hit from re.search
-          filename = file_search.group(0)
-          # check that this isn't an excluded file
-          if filename not in clean_exclude:
-            # strip the file extension
-            # name = re.sub(r".ipynb$", "", filename)
-
-            # Get the folder containing the notebook
-            split_path = os.path.split(tree_element.path)
-            # split_path[1] will be the notebook
-            # split_path[0] will be the rest of the path
-            split_path = os.path.split(split_path[0])
-            # Now, split_path[1] is the name of the folder containing the notebook
-            # and split_path[0] is the rest of the upsteam path
-            name = split_path[1]
-            # Get the contents of the file
-            # file = gh_api.get_user().get_repo(repo).get_contents(tree_element.path)
-            # file_contents = b64decode(file.content)
-            # https://pygithub.readthedocs.io/en/latest/github_objects/ContentFile.html#github.ContentFile.ContentFile
-
-            # add the assignment name, filename, and path to our list of assignments.
-            assignment = Assignment(
-              name=name, 
-              path=tree_element.path,
-              github={
-                "ins_repo_url": repo_url,
-                "github_token_name": github_token_name
-              },
-              # Pass down necessary parameters
-              canvas={
-                "url": self.canvas_url,
-                "course_id": self.course_id,
-                "token_name": self.canvas_token_name
-              }
-            )
-            assignments.append(assignment)
-
-    # names = list(map(lambda assn: assn.name, assignments))
-    # print(f"Found the following assignments: {sorted(names)}")
-    self.assignments = assignments
-    return self

@@ -32,7 +32,7 @@ class Assignment:
     path: str,
     stu_repo_url=None,
     ins_repo_url=None,
-    github_token=None,
+    github_tokens=None,
     canvas_url=None,
     course_id=None,
     assignment={},
@@ -63,7 +63,7 @@ class Assignment:
 
     self.stu_repo_url = stu_repo_url
     self.ins_repo_url = ins_repo_url
-    self.github_token = github_token
+    self.github_tokens = github_tokens
     # self.github_token_name = github_token_name
 
   # # Get the github token from the environment
@@ -121,7 +121,9 @@ class Assignment:
     #=======================================#
 
     try:
-      utils.clone_repo(self.ins_repo_url, ins_repo_dir, self.overwrite, self.github_pat)
+      utils.clone_repo(
+        self.ins_repo_url, ins_repo_dir, self.overwrite, self.github_tokens
+      )
     except Exception as e:
       print("There was an error cloning your instructors repository")
       raise e
@@ -166,7 +168,9 @@ class Assignment:
     #=======================================#
 
     try:
-      utils.clone_repo(self.stu_repo_url, stu_repo_dir, self.overwrite, self.github_token)
+      utils.clone_repo(
+        self.stu_repo_url, stu_repo_dir, self.overwrite, self.github_tokens
+      )
     except Exception as e:
       print("There was an error cloning your students repository")
       raise e
@@ -183,7 +187,7 @@ class Assignment:
     #                                       #
     #=======================================#
 
-    utils.push_repo(self.name, stu_repo_dir, self.stu_repo_url, self.github_pat)
+    utils.push_repo(stu_repo_dir)
 
     return None
 
