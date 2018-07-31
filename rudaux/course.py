@@ -8,7 +8,6 @@ import shutil
 import textwrap
 from pathlib import Path
 # Import my custom utiliy functions
-import utils
 # For parsing assignments from CSV
 import pandas as pd
 # For progress bar
@@ -32,9 +31,12 @@ from nbgrader import utils as nbutils
 # Bring in Traitlet Configuration methods
 from traitlets.config import Config
 from traitlets.config.application import Application
+from rudaux import utils
 
 #* All internal _methods() return an object
-#* All external  methods() return self (are chainable), and mutate object state or initiate other side-effects
+
+#* All external  methods() return self (are chainable), and mutate object state
+#* or initiate other side-effects
 
 # Must be instantiated with a course ID
 class Course:
@@ -117,10 +119,6 @@ class Course:
     #=======================================#
     #           Set Config Params           #
     #=======================================#
-
-    # The try/except blocks below check to see if no c.Option.____ was specified
-    # at all, because the first .get() returns None, and then we try to do
-    # None.get(), which raises an AttributeError
 
     ## CANVAS PARAMS
 
@@ -287,7 +285,8 @@ class Course:
     self.cron = CronTab(user=True)
 
   # Get the canvas token from the environment
-  def _get_token(self, token_name: str):
+  @staticmethod
+  def _get_token(token_name: str):
     """
     Get an API token from an environment variable.
     """
@@ -333,9 +332,7 @@ class Course:
         "Accept": "application/json+canvas-string-ids"
       },
       json={
-        #! NOTE: student AND teacher here just for the time being. The Canvas
-        #! API is being funky, so using both for the moment for testing
-        "enrollment_type": ["student", "teacher"]
+        "enrollment_type": ["student"]
       },
     )
 
@@ -344,62 +341,9 @@ class Course:
 
     # pull out the response JSON
     students = resp.json()
-    # This chunk is unnecessary, see comment above `_get_student_lti()` def.
-
-    # And get the LTI ID for each. Because the map object appends the LTI ID
-    # to the student object passed in and returns the entire object, we can
-    # simply pass in our students and get the modified object back.
-    # Use `tqdm` progress bar
-    # print('Querying student IDs...')
-    # students = list(map(self._getStudentLTI, tqdm(students)))
-
-    # debug statements:
-    # num_with_id = sum(1 for stu in students if 'lti_user_id' in stu)
-    # print(f"{num_with_id}/{len(students)} students have an LTI user ID.")
 
     self.students = students
     return self
-
-  # `_get_student_lti()` actually only works if you have the permission to
-  # masquerade as another user. This is potentially even less secure than
-  # running your external tool in public mode, and UBC locks down this
-  # permission. Therefore, we will run our tool in public mode and update
-  # `ltiauthenticator` to be able to use the `custom_canvas_id` parameter if it
-  # exists.
-
-  # def _get_student_lti(self, student):
-  #   """
-  #   Take in a student object, find the student's LTI ID. Then append that ID to
-  #   the student object passed in and return the student object.
-  #   """
-  #   resp = requests.get(
-  #     url=f"https://{self.canvas_url}/api/v1/users/{student['id']}/profile",
-  #     headers={
-  #       "Authorization": f"Bearer {self.canvas_token}",
-  #       "Accept": "application/json+canvas-string-ids"
-  #     }
-  #   )
-  #   # If we didn't run into an unauthorized error, then we can check the object
-  #   # for an LTI ID. UNFORTUNATELY, we are getting an error for Tiffany's
-  #   # profile. This likely indicates that an LTI ID is not generated for a user
-  #   # unless an LTI Launch link has been clicked by the student. HOWEVER, this
-  #   # should not be a problem as by the time we will be running this autograde
-  #   # script, we would expect all the students to have launched (and hopefully
-  #   # completed!) an assignment.
-  #   if (resp.status_code == 200):
-  #     # Get the response content--the student's profile
-  #     student_profile = resp.json()
-  #     # Then check for the key
-  #     if 'lti_user_id' in student_profile:
-  #       # And append it to our students object
-  #       student['lti_user_id'] = student_profile['lti_user_id']
-
-  #   # Here we have elected to simply not append the lti_user_id if we didn't
-  #   # find one. We could also decide to append our own value if not found (i.e.
-  #   # None, 0, 'not_found', etc.).
-
-  #   # Then return the students object
-  #   return student
 
   # def get_assignments_from_canvas(self):
   #   """
@@ -625,28 +569,12 @@ class Course:
 
     return False
 
-  def create_assignments_in_canvas(self, overwrite=False, stu_repo_url=None) -> 'None':
+  def create_assignments_in_canvas(self, overwrite=False) -> 'None':
     """Create assignments for a course.
 
     :param overwrite: Whether or not you wish to overwrite preexisting assignments.
     :type overwrite: bool
-    :param stu_repo_url: The URL of your student repository. If this was provided when instantiating the course, this parameter can be left out. 
-    :type stu_repo_url: str
     """
-
-    # Check for preexisting value
-    stu_repo_url = stu_repo_url if stu_repo_url is not None else self.stu_repo_url
-
-    # Construct launch url for nbgitpuller
-    # First join our hub url, hub prefix, and launch url
-    launch_url = f"{self.hub_url}{self.hub_prefix}/hub/lti/launch"
-    # Then construct our nbgitpuller custom next parameter
-    gitpuller_url = f"{self.hub_prefix}/hub/user-redirect/git-pull"
-    # Finally, urlencode our repository and add that
-    repo_encoded_url = quote_plus(stu_repo_url)
-
-    # Finally glue this all together!! Now we just need to add the subpath for each assignment
-    full_assignment_url = fr"{launch_url}?custom_next={gitpuller_url}%3Frepo%3Dhttps%3A%2F%2F{repo_encoded_url}%26subPath%3D"
 
     print("\nCreating assignments (preexisting assignments with the same name will be updated)...")
 
@@ -656,12 +584,6 @@ class Course:
     ]
 
     for assignment in tqdm(self.assignments):
-      # urlencode the assignment's subpath
-      #! TO-DO: replace instructors/source path with student path
-      #! Maybe we should be pulling from nbgrader_config.py for this!!!!
-      subpath = quote_plus(assignment.path)
-      # and join it to the previously constructed launch URL (hub + nbgitpuller language)
-      full_path = full_assignment_url + subpath
 
       # FIRST check if an assignment with that name already exists.
       # Method mutates state, so no return *necessary* (but we have anyways)
