@@ -14,9 +14,8 @@ from typing import Union, List, Optional, Dict
 from nbgrader.apps import NbGraderAPI
 from traitlets.config import Config
 from traitlets.config.application import Application
-
 # Import my own utility functions from this module
-import utils
+from rudaux import utils
 
 # from course import Course
 
@@ -26,26 +25,14 @@ class Assignment:
   Assignment object for maniuplating assignments. 
   """
 
-  def __init__(
-    self,
-    name: str,
-    path: str,
-    stu_repo_url=None,
-    ins_repo_url=None,
-    github_tokens=None,
-    canvas_url=None,
-    course_id=None,
-    assignment={},
-    canvas_token=None
-    # hub_url='https://c7l1-timberst.stat.ubc.ca',
-    # student_repo='https://github.ubc.ca/hinshaws/dsci_100_students',
-    # hub_prefix='/jupyter'
-  ) -> 'self':
+  def __init__(self, name: str, launch_url: str, status='unassigned') -> 'self':
     """
     Assignment object for manipulating Assignments.
 
     :param name: The name of the assignment.
-    :param filename: The filename of the Jupyter Notebook containing the assignment. 
+    :type name: str
+    :param launch_url: The encoded launch url.
+    :type launch_url: str
     :param path: The path to the notebook (in the instructors repo).
     :param github_token_name: The name of your GitHub personal access token environment variable.
 
@@ -65,18 +52,6 @@ class Assignment:
     self.ins_repo_url = ins_repo_url
     self.github_tokens = github_tokens
     # self.github_token_name = github_token_name
-
-  # # Get the github token from the environment
-  # def _get_token(self, token_name: str):
-  #   """
-  #   Get an API token from an environment variable.
-  #   """
-  #   try:
-  #     token = os.environ[token_name]
-  #     return token
-  #   except KeyError as e:
-  #     print(f"You do not seem to have the '{token_name}' environment variable present:")
-  #     raise e
 
   def autograde(self):
     """
