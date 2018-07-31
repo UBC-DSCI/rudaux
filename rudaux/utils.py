@@ -1,3 +1,5 @@
+""" Utility functions for Rudaux """
+
 import os
 import re
 import sys
@@ -6,6 +8,9 @@ import urllib.parse as urlparse
 from github import Github
 from git import Repo
 from typing import List
+
+# The functions here are not attached to a class as per advice:
+# https://stackoverflow.com/questions/19620498/how-to-create-an-utility-class-correctly
 
 
 def safely_delete(path: str, overwrite: bool) -> 'None':

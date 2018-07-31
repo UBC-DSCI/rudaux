@@ -1,12 +1,12 @@
 # import unittest
 import time
-from course import Course
-from assignment import Assignment
+from rudaux.course import Course
+from rudaux.assignment import Assignment
 
 start = time.time()
 dsci100 = Course(course_dir='/Users/samhinshaw/projects/dsci100/DSCI_100_instructors')
 end = time.time()
-dsci100.generate_assignment_links()
+dsci100.get_students().init_nbgrader()
 print(f"{round(end - start, 2)} seconds elapsed")
 
 # dsci100.get_assignments_from_github().assign_all(overwrite=True)

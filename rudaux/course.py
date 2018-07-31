@@ -17,7 +17,7 @@ from github import Github
 from git import Repo
 # For setting up autograding
 from crontab import CronTab
-from assignment import Assignment
+from rudaux.assignment import Assignment
 from dateutil.parser import parse
 from terminaltables import AsciiTable, SingleTable
 # For decoding base64-encoded files from GitHub API
@@ -215,6 +215,10 @@ class Course:
       if param.get('value') is None:
         setattr(self, key, param.get('default'))
         print(f"\"{param.get('config_name')}\" is missing, using default parameter of \"{getattr(self, key)}\"")
+
+    # Make sure no preceding or trailing slashes in assignment release path
+    self.assignment_release_path = re.sub(r"/$", "", self.assignment_release_path)
+    self.assignment_release_path = re.sub(r"^/", "", self.assignment_release_path)
 
     # check for tokens
     github_token_name = config.get('GitHub').get('github_token_name')
@@ -510,17 +514,16 @@ class Course:
   #* Perhaps this should be in the constructor
   #? Can I better separate Course operations from Assignment operations?
   #! Continue working on this!!
-  def generate_assignment_objects(self):
+  def _generate_assignment_objects(self):
     """
     Generate assignment links for released assignments.
     """
 
     # give proper defaults to .get() to fail gracefully
-    rudaux_exclusions = self.full_config.get('Course', {}).get('exclude', [])
-    header = [self.full_config.get('IncludeHeaderFooter', {}).get('header'), []]
-    footer = [self.full_config.get('IncludeHeaderFooter', {}).get('footer'), []]
+    header = [self.full_config.get('IncludeHeaderFooter', {}).get('header', [])]
+    footer = [self.full_config.get('IncludeHeaderFooter', {}).get('footer', [])]
 
-    exclusions = rudaux_exclusions + header + footer
+    exclusions = header + footer
 
     # No subpaths implemented yet, so all source documents must live in
     # /instructors/source
@@ -554,11 +557,68 @@ class Course:
     return self
 
 
+  def _generate_assignment_link(self, assignment_name):
+    """
+    Generate assignment links for assigned assignments.
+    """
+
+    # Given an assignment name, look in that assignment's folder and pull out
+    # the notebook path. 
+    #! Blindly take the first result!
+    notebook = nbutils.find_all_notebooks(
+      os.path.join(self.working_directory, 'source', assignment_name)
+    )[0]
+
+    # Construct launch url for nbgitpuller
+    # First join our hub url, hub prefix, and launch url
+    launch_url = f"{self.hub_url}{self.hub_prefix}/hub/lti/launch"
+    # Then construct our nbgitpuller custom next parameter
+    gitpuller_url = f"{self.hub_prefix}/hub/user-redirect/git-pull"
+    # Finally, urlencode our repository and add that
+    repo_encoded_url = quote_plus(self.stu_repo_url)
+
+    # Finally glue this all together!! Now we just need to add the subpath for each assignment
+    launch_url_without_subpath = fr"{launch_url}?custom_next={gitpuller_url}%3Frepo%3Dhttps%3A%2F%2F{repo_encoded_url}%26subPath%3D"
+
+    # urlencode the assignment's subpath
+    subpath = quote_plus(f"{self.assignment_release_path}/{notebook}")
+    # and join it to the previously constructed launch URL (hub + nbgitpuller language)
+    full_launch_url = launch_url_without_subpath + subpath
+
+    return full_launch_url
 
   def init_nbgrader(self):
     """
     Enter information into the nbgrader gradebook database about the assignments and the students.
     """
+
+    gradebook = self.nb_api.gradebook
+
+    try:
+      ###############################
+      #     Update Student List     #
+      ###############################
+      nb_student_ids = list(map(lambda _student: _student.id, gradebook.students))
+      canvas_student_ids = list(map(lambda _student: _student.get('id'), self.students))
+
+      # First find the students that are in canvas but NOT in nbgrader
+      students_missing_from_nbgrader = list(set(canvas_student_ids) - set(nb_student_ids))
+      # Then find the students that are in nbgrader but NOT in Canvas (this
+      # could only happen if they had withdrawn from the course)
+      students_withdrawn_from_course = list(set(nb_student_ids) - set(canvas_student_ids))
+
+      if students_missing_from_nbgrader:
+        for student_id in students_missing_from_nbgrader:
+          gradebook.add_student(student_id)
+      if students_withdrawn_from_course:
+        for student_id in students_withdrawn_from_course:
+          gradebook.remove_student(student_id)
+
+    # Always make sure we close the gradebook connection, even if we error
+    except Exception as e:
+      print("Closing connection to gradebook...")
+      gradebook.close()
+      raise e
 
     # nbgrader API docs: https://nbgrader.readthedocs.io/en/stable/api/gradebook.html#nbgrader.api.Gradebook
     # 1. Make sure we have all of the course assignments
