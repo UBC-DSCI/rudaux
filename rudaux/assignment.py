@@ -6,7 +6,7 @@ import os
 import sys
 import subprocess
 import urllib.parse as urlparse
-from shutil import rmtree, copytree
+import shutil
 from github import Github
 from git import Repo
 from pathlib import Path
@@ -139,9 +139,7 @@ class Assignment:
     #=======================================#
 
     try:
-      utils.clone_repo(
-        self.course.ins_repo_url, ins_repo_dir, self.overwrite, self.course.github_tokens
-      )
+      utils.clone_repo(self.course.ins_repo_url, ins_repo_dir, self.overwrite)
     except Exception as e:
       print("There was an error cloning your instructors repository")
       raise e
@@ -186,9 +184,7 @@ class Assignment:
     #=======================================#
 
     try:
-      utils.clone_repo(
-        self.course.stu_repo_url, stu_repo_dir, self.overwrite, self.course.github_tokens
-      )
+      utils.clone_repo(self.course.stu_repo_url, stu_repo_dir, self.overwrite)
     except Exception as e:
       print("There was an error cloning your students repository")
       raise e
@@ -196,8 +192,9 @@ class Assignment:
     utils.safely_delete(student_assignment_dir, self.overwrite)
 
     # Finally, copy to the directory, as we've removed any preexisting ones or
-    # exited if we didn't want to
-    copytree(generated_assignment_dir, student_assignment_dir)
+    # exited if we didn't want to.
+    # shutil.shutil.copytree doesn't need the directory to exist beforehand
+    shutil.copytree(generated_assignment_dir, student_assignment_dir)
 
     #=======================================#
     #                                       #
@@ -356,66 +353,16 @@ class Assignment:
     # Make sure our request didn't fail silently
     resp.raise_for_status()
 
-def update_or_create_assignment(self) -> 'Assignment':
-  """Update or create an assignment, depending on whether or not it was found
-  """
+  def update_or_create_canvas_assignment(self) -> 'str':
+    """Update or create an assignment, depending on whether or not it was found
+    """
 
-  canvas_assignment = self._search_canvas_assignment()
-  
-  if canvas_assignment: 
-    self._update_canvas_assignment(canvas_assignment.get('id'))
-    return 'updated'
-  else: 
-    self._create_canvas_assignment()
-    return 'created'
+    canvas_assignment = self._search_canvas_assignment()
+    
+    if canvas_assignment: 
+      self._update_canvas_assignment(canvas_assignment.get('id'))
+      return 'updated'
+    else: 
+      self._create_canvas_assignment()
+      return 'created'
 
-
-# class CanvasAssignment(Assignment):
-#   """
-#   Assignment object for maniuplating Canvas assignments. This extended class can:
-#     - submit grades
-#     - check due dates
-#     - update assignments given new information
-#   """
-
-#   def __init__(
-#     self,
-#     name: str,
-#     canvas_url: str,
-#     course_id: int,
-#     assignment_id=None,
-#     canvas_token=None,
-#     token_name='CANVAS_TOKEN',
-#     exists_in_canvas=False
-#   ):
-#     if (assignment_id is None) and (name is None):
-#       raise ValueError('You must supply either an assignment id or name.')
-
-#     self.name = name
-
-#     canvas_url = re.sub(r"\/$", "", canvas_url)
-#     canvas_url = re.sub(r"^https{0,1}://", "", canvas_url)
-#     self.course.canvas_url = canvas_url
-
-#     self.course.course_id = course_id
-
-#     if canvas_token is None:
-#       self.course.canvas_token = self._get_token(token_name)
-
-#     if assignment_id is not None:
-#       matched_assignment = self._get_canvas_course(assignment_id)
-#     else:
-#       matched_assignment = self._search_canvas_course(name)
-
-#     if matched_assignment is not None:
-#       self.exists_in_canvas = True
-#       # self assign canvas attributes
-#       #! NOTE:
-#       #! MAKE SURE THERE ARE NO NAMESPACE CONFLICTS WITH THIS
-#       #!
-#       self.__dict__.update(matched_assignment)
-#     else:
-#       self.id = None
-#       self.exists_in_canvas = False
-
-#     print(self.__dict__)

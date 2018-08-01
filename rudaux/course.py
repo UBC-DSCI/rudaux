@@ -65,17 +65,24 @@ class Course:
     # Set up the working directory. If no course_dir has been specified, then it
     # is assumed that this is the course directory. 
     self.working_directory = course_dir if course_dir is not None else os.getcwd()
-
+    
     repo = Repo(self.working_directory)
 
     # Before we do ANYTHING, make sure our working directory is clean with no
     # untracked files! Unless we're running a cron job, in which case we don't
     # want to fail for an unexpected reason.
     if (repo.is_dirty() or repo.untracked_files) and (not cron):
-      continue_with_dirty = input("Your repository is currently in a dirty state (modifications or untracked changes are present). We strongly suggest that you resolve these before proceeding. Continue? [y/n]: ")
+      continue_with_dirty = input(
+        """
+        Your repository is currently in a dirty state (modifications or
+        untracked changes are present). We strongly suggest that you resolve
+        these before proceeding. Continue? [y/n]:"""
+      )
       # if they didn't say no, exit
       if continue_with_dirty.lower() != 'y':
         sys.exit("Exiting...")
+
+    print("Initializing course and pulling remote copy of instructors repository...")
 
     # pull the latest copy of the repo
     utils.pull_repo(repo_dir=self.working_directory)
@@ -168,8 +175,6 @@ class Course:
 
     urls = {
       'JupyterHub.hub_url': self.hub_url,
-      'GitHub.stu_repo_url': self.stu_repo_url,
-      'GitHub.ins_repo_url': self.ins_repo_url,
       'Canvas.canvas_url': self.canvas_url
     }
 
@@ -190,6 +195,9 @@ class Course:
           {value}
           """
         )
+
+      self.stu_git_url = self.stu_repo_url
+      self.ins_git_url = self.ins_repo_url
 
     #=======================================#
     #       Check For Required Params       #
@@ -263,48 +271,48 @@ class Course:
     self.assignment_release_path = re.sub(r"^/", "", self.assignment_release_path)
 
     # check for tokens
-    github_token_name = config.get('GitHub').get('github_token_name')
-    token_names = config.get('GitHub').get('token_names')
+    # github_token_name = config.get('GitHub').get('github_token_name')
+    # token_names = config.get('GitHub').get('token_names')
         
-    #=======================================#
-    #           Set GitHub Token            #
-    #=======================================#
+    # #=======================================#
+    # #           Set GitHub Token            #
+    # #=======================================#
 
-    # If the config file specifies multiple tokens, use those
-    if token_names is not None:
-      # instantiate our token object as empty
-      self.tokens = []
-      # Then for each token specified...
-      for token_name in token_names:
-        # Create a token object with the domain and token necessary
-        self.tokens.append({
-          "domain": token_name.get('domain'),
-          "token": self._get_token(token_name.get('token_name'))
-        })
-    # otherwise we'll use the same token for both github domains
-    else:
-      if github_token_name is None:
-        self.github_tokens = None
-        # Only look for PAT if it is specified by the user
-        # This way we can prompt for user/pass if no token is available
-          # if the user didn't specify a token_name, use 'GITHUB_PAT'
-          # print("Searching for default GitHub token, GITHUB_PAT...")
-          # github_token_name = 'GITHUB_PAT'
-      else: 
-        # get the single token we'll be using
-        token = self._get_token(github_token_name)
+    # # If the config file specifies multiple tokens, use those
+    # if token_names is not None:
+    #   # instantiate our token object as empty
+    #   self.tokens = []
+    #   # Then for each token specified...
+    #   for token_name in token_names:
+    #     # Create a token object with the domain and token necessary
+    #     self.tokens.append({
+    #       "domain": token_name.get('domain'),
+    #       "token": self._get_token(token_name.get('token_name'))
+    #     })
+    # # otherwise we'll use the same token for both github domains
+    # else:
+    #   if github_token_name is None:
+    #     self.github_tokens = None
+    #     # Only look for PAT if it is specified by the user
+    #     # This way we can prompt for user/pass if no token is available
+    #       # if the user didn't specify a token_name, use 'GITHUB_PAT'
+    #       # print("Searching for default GitHub token, GITHUB_PAT...")
+    #       # github_token_name = 'GITHUB_PAT'
+    #   else: 
+    #     # get the single token we'll be using
+    #     token = self._get_token(github_token_name)
 
-        # Then specify that we're using the same token for each domain
-        self.github_tokens = [
-          {
-            "domain": urlparse.urlsplit(self.stu_repo_url).netloc,
-            "token": token
-          }, 
-          {
-            "domain": urlparse.urlsplit(self.ins_repo_url).netloc,
-            "token": token
-          }
-        ]
+    #     # Then specify that we're using the same token for each domain
+    #     self.github_tokens = [
+    #       {
+    #         "domain": urlparse.urlsplit(self.stu_repo_url).netloc,
+    #         "token": token
+    #       }, 
+    #       {
+    #         "domain": urlparse.urlsplit(self.ins_repo_url).netloc,
+    #         "token": token
+    #       }
+    #     ]
 
     #=======================================#
     #           Set Canvas Token            #
@@ -337,13 +345,13 @@ class Course:
     #=======================================#
 
     # Subclass assignment for this course:
-    class DSCI100Assignment(rudaux.Assignment):
+    class CourseAssignment(rudaux.Assignment):
       course = self
 
     instantiated_assignments = []
 
     for _assignment in assignment_list:
-      assignment = DSCI100Assignment(
+      assignment = CourseAssignment(
         name=_assignment.get('name'),
         duedate=_assignment.get('duedate'),
         # default to 0 points
@@ -369,8 +377,11 @@ class Course:
       print(f"Could not find the environment variable \"{token_name}\".")
       raise e
 
-  def get_external_tool(self): 
+  def get_external_tool_id(self) -> 'Course': 
     """Find the ID of the external tool created in Canvas that represents your JupyterHub server."""
+
+    print("Looking for the external tool in Canvas...")
+
     resp = requests.get(
       url=urlparse.urljoin(
         self.canvas_url, f"/api/v1/{self.external_tool_level}s/{self.course_id}/external_tools"
@@ -409,12 +420,12 @@ class Course:
 
     return self
 
-  def get_students(self):
+  def get_students_from_canvas(self) -> 'Course':
     """
     Get the student list for a course. 
     """
 
-    print('Querying list of students...')
+    print('Querying list of students from Canvas...')
     # List all of the students in the course
     resp = requests.get(
       url=f"{self.canvas_url}/api/v1/courses/{self.course_id}/users",
@@ -464,138 +475,12 @@ class Course:
 
   #   return self
 
-  def assign(
-    self, 
-    assignments=None,
-    overwrite=False,
-  ):
-    """Assign assignments for a course
-    
-    :param assignments: The name(s) of the assignment(s) you wish to assign, as a string or list of strings.
-    :type assignments: str, List[str]
-    :param overwrite: Whether or not you wish to overwrite preexisting directories
-    :type overwrite: bool
-    """
-
-    # Make sure we've got assignments to assign
-    if not assignments:
-      print("No assignment in particular specified, assigning all assignments...")
-      assignments_to_assign = self.assignments
-    # otherwise, match the assignment(s) provided to the one in our config file
-    else:
-      # if just one assignment was specified...
-      if isinstance(assignments, str):
-        # find the assignments which match that name
-        assignments_to_assign = list(filter(lambda assn: assn['name'] == assignments, self.assignments))
-      elif isinstance(assignments, list):
-        assignments_to_assign = []
-        for assignment in assignments:
-          match = list(filter(lambda assn: assn['name'] == assignments, self.assignments))
-          assignments_to_assign.append(match)
-      else: 
-        sys.exit('Invalid argument supplied to `assign()`. Please specify a string or list of strings to assign.')
-
-    # First things first, make the temporary directories
-    ins_repo_dir = os.path.join(self.tmp_dir, 'instructors')
-    stu_repo_dir = os.path.join(self.tmp_dir, 'students')
-
-    #=======================================#
-    #               Clone Repos             #
-    #=======================================#
-
-    try:
-      utils.clone_repo(self.ins_repo_url, ins_repo_dir, overwrite, self.github_tokens)
-    except Exception as e:
-      print("There was an error cloning your instructors repository")
-      raise e
-
-    try:
-      utils.clone_repo(self.stu_repo_url, stu_repo_dir, overwrite, self.github_tokens)
-    except Exception as e:
-      print("There was an error cloning your students repository")
-      raise e
-
-    #=======================================#
-    #          Make Student Version         #
-    #=======================================#
-
-    # set up array to save assigned assignment names in. This will be so we can
-    # record which assignments were assigned in the commit message. 
-    assignment_names = []
-
-    ### FOR LOOP - ASSIGN ASSIGNMENTS ###
-
-    # For each assignment, assign!!
-    print('Assigning assignments with nbgrader...')
-    for assignment in tqdm(assignments_to_assign): 
-
-      # Push the name to our names array for adding to the commit message.
-      assignment_names.append(assignment.name)
-
-      # assign the given assignment!
-      self.nb_api.assign(assignment.name)
-
-    ### END LOOP ###
-
-    # set up directories to copy the assigned assignments to
-    generated_assignment_dir = os.path.join(ins_repo_dir, 'release')
-    student_assignment_dir = os.path.join(stu_repo_dir, self.assignment_release_path)
-
-    if not os.path.exists(student_assignment_dir):
-      os.makedirs(student_assignment_dir)
-
-    #========================================#
-    #   Move Assignments to Students Repo    #
-    #========================================#
-
-    utils.safely_delete(student_assignment_dir, overwrite)
-
-    # Finally, copy to the directory, as we've removed any preexisting ones or
-    # exited if we didn't want to
-    shutil.copytree(generated_assignment_dir, student_assignment_dir)
-
-    #===========================================#
-    # Commit & Push Changes to Instructors Repo #
-    #===========================================#
-
-    utils.commit_repo(ins_repo_dir, assignment_names)
-    utils.push_repo(ins_repo_dir)
-
-    #========================================#
-    # Commit & Push Changes to Students Repo #
-    #========================================#
-
-    utils.commit_repo(stu_repo_dir, assignment_names)
-    utils.push_repo(stu_repo_dir)
-
-    return self
-
-  # def get_assignments_from_csv(self, path: str):
-  #   """
-  #   Bring in assignments from a CSV file. 
-  #   CSV file should contain the following columns: 
-    
-  #   [required]
-  #   - name (str): the name of the assignment
-  #   - duedate (str): due date for the assignment
-  #   - notebook_path (str): github URL at which the jupyter notebook lives
-  #   - points_possible (int): the number of possible points
-
-  #   [optional]
-  #   - published (bool): whether the assignment should be published
-  #   - description (str): a description of the assignment
-  #   - unlock_at (str): a date at which the assignment becomes available
-  #   - lock_at (str): date after the due date to which students can submit their assignment for partial credit
-
-  #   :param path: Path to the CSV file. 
-  #   """
-  #   assignments = pd.read_csv(path)
-  #   print(assignments)
-
   def sync_nbgrader(self):
     """
     Enter information into the nbgrader gradebook database about the assignments and the students.
     """
+
+    print("Syncing your list of students and assignments with nbgrader...")
 
     # nbgrader API docs: 
     # https://nbgrader.readthedocs.io/en/stable/api/gradebook.html#nbgrader.api.Gradebook
@@ -641,18 +526,16 @@ class Course:
           )
 
       table = SingleTable(student_status)
-      table.title = 'Student Updates'
+      table.title = 'Students'
       print("\n")
       print(table.table)
-      print("\n")
 
       ##################################
       #     Update Assignment List     #
       ##################################
 
       nb_assignments = list(map(lambda _assignment: _assignment.name, gradebook.assignments))
-      # Don't use .get() here, because we want this to fail loudly
-      config_assignments = list(map(lambda _assignment: _assignment['name'], self.assignments))
+      config_assignments = list(map(lambda _assignment: _assignment.name, self.assignments))
 
       assignments_missing_from_nbgrader = list(set(config_assignments) - set(nb_assignments))
       assignments_withdrawn_from_config = list(set(nb_assignments) - set(config_assignments))
@@ -683,7 +566,7 @@ class Course:
           )
 
       table = SingleTable(assignment_status)
-      table.title = 'Assignment Updates'
+      table.title = 'Assignments'
       print("\n")
       print(table.table)
       print("\n")
@@ -699,14 +582,137 @@ class Course:
     gradebook.close()
     return self
 
-  def create_canvas_assignments(self, overwrite=False) -> 'None':
-    """Create assignments for a course.
-
-    :param overwrite: Whether or not you wish to overwrite preexisting assignments.
+  def assign_all(
+    self, 
+    assignments=None,
+    overwrite=False,
+  ):
+    """Assign assignments for a course
+    
+    :param assignments: The name(s) of the assignment(s) you wish to assign, as a string or list of strings.
+    :type assignments: str, List[str]
+    :param overwrite: Whether or not you wish to overwrite preexisting directories
     :type overwrite: bool
     """
 
-    print("\nCreating assignments (preexisting assignments with the same name will be updated)...")
+    # Make sure we've got assignments to assign
+    if not assignments:
+      print("No assignment in particular specified, assigning all assignments...")
+      assignments_to_assign = self.assignments
+    # otherwise, match the assignment(s) provided to the one in our config file
+    else:
+      # if just one assignment was specified...
+      if isinstance(assignments, str):
+        # find the assignments which match that name
+        assignments_to_assign = list(filter(lambda assn: assn.name == assignments, self.assignments))
+      elif isinstance(assignments, list):
+        assignments_to_assign = []
+        for assignment in assignments:
+          match = list(filter(lambda assn: assn.name == assignments, self.assignments))
+          assignments_to_assign.append(match)
+      else: 
+        sys.exit('Invalid argument supplied to `assign()`. Please specify a string or list of strings to assign.')
+
+    # First things first, make the temporary student directory. No need to clone
+    # the instructors' dir since we're working in that already, and when we
+    # initialize the course we do a git pull to make sure we have the latest
+    # copy. 
+    stu_repo_dir = os.path.join(self.tmp_dir, 'students')
+
+    #=======================================#
+    #                Clone Repo             #
+    #=======================================#
+
+    try:
+      utils.clone_repo(self.stu_repo_url, stu_repo_dir, overwrite)
+    except Exception as e:
+      print("There was an error cloning your student repository")
+      raise e
+
+    #=======================================#
+    #          Make Student Version         #
+    #=======================================#
+
+    # set up array to save assigned assignment names in. This will be so we can
+    # record which assignments were assigned in the commit message. 
+    assignment_names = []
+
+    ### FOR LOOP - ASSIGN ASSIGNMENTS ###
+
+    # For each assignment, assign!!
+    print('Creating student versions of assignments with nbgrader...')
+    for assignment in tqdm(assignments_to_assign): 
+
+      # Push the name to our names array for adding to the commit message.
+      assignment_names.append(assignment.name)
+
+      # assign the given assignment!
+      self.nb_api.assign(assignment.name)
+
+    ### END LOOP ###
+
+    print("Copying student versions to your student repository...")
+
+    # set up directories to copy the assigned assignments to
+    generated_assignment_dir = os.path.join(self.working_directory, 'release')
+    student_assignment_dir = os.path.join(stu_repo_dir, self.assignment_release_path)
+
+    #========================================#
+    #   Move Assignments to Students Repo    #
+    #========================================#
+
+    if os.path.exists(student_assignment_dir):
+      utils.safely_delete(student_assignment_dir, overwrite)
+
+    # Finally, copy to the directory, as we've removed any preexisting ones or
+    # exited if we didn't want to
+    shutil.copytree(generated_assignment_dir, student_assignment_dir)
+
+    print("Committing changes in your instructor and student repositories...")
+
+    #===========================================#
+    # Commit & Push Changes to Instructors Repo #
+    #===========================================#
+
+    utils.commit_repo(self.working_directory, assignment_names)
+    utils.push_repo(self.working_directory)
+
+    #========================================#
+    # Commit & Push Changes to Students Repo #
+    #========================================#
+
+    utils.commit_repo(stu_repo_dir, assignment_names)
+    utils.push_repo(stu_repo_dir)
+
+    return self
+
+  # def get_assignments_from_csv(self, path: str):
+  #   """
+  #   Bring in assignments from a CSV file. 
+  #   CSV file should contain the following columns: 
+    
+  #   [required]
+  #   - name (str): the name of the assignment
+  #   - duedate (str): due date for the assignment
+  #   - notebook_path (str): github URL at which the jupyter notebook lives
+  #   - points_possible (int): the number of possible points
+
+  #   [optional]
+  #   - published (bool): whether the assignment should be published
+  #   - description (str): a description of the assignment
+  #   - unlock_at (str): a date at which the assignment becomes available
+  #   - lock_at (str): date after the due date to which students can submit their assignment for partial credit
+
+  #   :param path: Path to the CSV file. 
+  #   """
+  #   assignments = pd.read_csv(path)
+  #   print(assignments)
+
+  def create_canvas_assignments(self) -> 'None':
+    """Create assignments for a course.
+    """
+
+    print("Creating assignments (preexisting assignments with the same name will be updated)...")
 
     # Initialize status table that we can push to as we go
     assignment_status = [
@@ -714,17 +720,16 @@ class Course:
     ]
 
     for assignment in tqdm(self.assignments):
-      status = assignment.update_or_create_assignment()
+      status = assignment.update_or_create_canvas_assignment()
       assignment_status.append([assignment.name, status])
 
     ## Print status for reporting:
     table = SingleTable(assignment_status)
-    table.title = 'Summary'
+    table.title = 'Assignments'
     print("\n")
     print(table.table)
     print("\n")
     return self
-
 
   # def schedule_grading(self):
   #   """
