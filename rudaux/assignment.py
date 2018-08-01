@@ -250,7 +250,7 @@ class Assignment:
 
     return False
 
-  def search_canvas_assignment(self) -> 'Dict[str, str]':
+  def _search_canvas_assignment(self) -> 'Dict[str, str]':
     """Find a Canvas assignment by its name.
     
     :param name: The name of the canvas assignment
@@ -258,14 +258,8 @@ class Assignment:
     :return: The canvas assignment object
     :rtype: Dict[str, str]
     """
-    # Quick check to make sure we have the necessary parameters.
-    if None in [self.course.canvas_url, self.course.course_id, self.course.canvas_token]:
-      return {
-        "status": f"{utils.color.RED}fail{utils.color.END}",
-        "message": 'You must provide a canvas_url, course_id, and canvas_token.'
-      }
 
-    existing_assignments = requests.get(
+    resp = requests.get(
       url=urlparse.urljoin(
         self.course.canvas_url, f"/api/v1/courses/{self.course.course_id}/assignments"
       ),
@@ -276,41 +270,33 @@ class Assignment:
       params={"search_term": self.name}
     )
 
-    if len(existing_assignments.json()) > 0:
-      self.canvas_assignment = existing_assignments.json()[0]
+    first_result = resp.json()[0]
 
-    # Make sure our request didn't fail silently
-    if 200 <= existing_assignments.status_code <= 299:
-      return {
-        "found": len(existing_assignments.json()),
-        "status": f"{utils.color.GREEN}success{utils.color.END}",
-        "assignment": existing_assignments.json()[0]
-      }
-    else:
-      # resp.raise_for_status()
-      return {
-        "found": 0,
-        "status": f"{utils.color.RED}fail{utils.color.END}",
-        "message": "Unspecified error querying Canvas API"
-      }
+    # Check to see if we found an assignment with this name
+    if len(resp.json()) > 0:
+      # If we found more than one, let the user know
+      if len(resp.json()) > 1:
+        print(
+          f"""
+          Found more than one assignment, using first result, "{first_result.get('name')}".
+          """
+        )
+      # But regardless, use the first result found
+      return first_result
 
-  def create_canvas_assignment(self, **kwargs) -> 'None':
+    else: 
+      return None
+
+    resp.raise_for_status()
+
+  def _create_canvas_assignment(self) -> 'None':
     """Create an assignment in Canvas.
     
     :param name: The name of the assignment
     :type name: str
-    **kwargs: any parameters you wish to update on the assignment. 
-      see: https://canvas.instructure.com/doc/api/assignments.html#method.assignments_api.update
     :return: None: called for side-effects.
     :rtype: None
     """
-
-    # Quick check to make sure we have the necessary parameters.
-    if None in [self.course.canvas_url, self.course.course_id, self.course.canvas_token]:
-      return {
-        "status": f"{utils.color.RED}fail{utils.color.END}",
-        "message": 'You must provide a canvas_url, course_id, and canvas_token.'
-      }
 
     resp = requests.post(
       url=urlparse.urljoin(
@@ -320,36 +306,30 @@ class Assignment:
         "Authorization": f"Bearer {self.course.canvas_token}",
         "Accept": "application/json+canvas-string-ids"
       },
-      json={"assignment": kwargs}
-    )
-    # Make sure our request didn't fail silently
-    if 200 <= resp.status_code <= 299:
-      return {"status": f"{utils.color.GREEN}success{utils.color.END}"}
-    else:
-      # resp.raise_for_status()
-      return {
-        "status": f"{utils.color.RED}fail{utils.color.END}",
-        "message": "Unspecified error querying Canvas API"
+      json={
+        "assignment": {
+          "name": self.name,
+          "submission_types": ['external_tool'],
+          "external_tool_tag_attributes": {
+            "url": self.launch_url,
+            "new_tab": True,
+            "content_id": self.course.external_tool_id,
+            "content_type": "context_external_tool"
+          }
+        }
       }
+    )
+    resp.raise_for_status()
 
-  def update_canvas_assignment(self, assignment_id: int, **kwargs) -> 'None':
+  def _update_canvas_assignment(self, assignment_id: int) -> 'None':
     """
     Update an assignment.
 
-    :param assignment_id: The Canvas ID of the assignment.
+    :param assignment_id: The numeric ID of the assignment in Canvas
     :type assignment_id: int
-    :return: None: called for side-effects.
+    :return: No return, called for side-effects.
     :rtype: None
-    **kwargs: any parameters you wish to update on the assignment. 
-      see: https://canvas.instructure.com/doc/api/assignments.html#method.assignments_api.update
     """
-
-    # Quick check to make sure we have the necessary parameters.
-    if None in [self.course.canvas_url, self.course.course_id, self.course.canvas_token]:
-      return {
-        "status": f"{utils.color.RED}fail{utils.color.END}",
-        "message": 'You must provide a canvas_url, course_id, and canvas_token.'
-      }
 
     resp = requests.put(
       url=urlparse.urljoin(
@@ -360,17 +340,34 @@ class Assignment:
         "Authorization": f"Bearer {self.course.canvas_token}",
         "Accept": "application/json+canvas-string-ids"
       },
-      json={"assignment": kwargs}
-    )
-    # Make sure our request didn't fail silently
-    if 200 <= resp.status_code <= 299:
-      return {"status": f"{utils.color.GREEN}success{utils.color.END}"}
-    else:
-      # resp.raise_for_status()
-      return {
-        "status": f"{utils.color.RED}fail{utils.color.END}",
-        "message": "Unspecified error querying Canvas API"
+      json={
+        "assignment": {
+          "submission_types": ['external_tool'],
+          "external_tool_tag_attributes": {
+            "url": self.launch_url,
+            "new_tab": True,
+            "content_id": self.course.external_tool_id,
+            "content_type": "context_external_tool"
+          }
+        }
       }
+    )
+
+    # Make sure our request didn't fail silently
+    resp.raise_for_status()
+
+def update_or_create_assignment(self) -> 'Assignment':
+  """Update or create an assignment, depending on whether or not it was found
+  """
+
+  canvas_assignment = self._search_canvas_assignment()
+  
+  if canvas_assignment: 
+    self._update_canvas_assignment(canvas_assignment.get('id'))
+    return 'updated'
+  else: 
+    self._create_canvas_assignment()
+    return 'created'
 
 
 # class CanvasAssignment(Assignment):

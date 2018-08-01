@@ -369,25 +369,6 @@ class Course:
       print(f"Could not find the environment variable \"{token_name}\".")
       raise e
 
-  # def _get_course(self):
-  #   """
-  #   Get the basic course information from Canvas
-  #   """
-  #   resp = requests.get(
-  #     url=f"{self.canvas_url}/api/v1/courses/{self.course_id}",
-  #     headers={
-  #       "Authorization": f"Bearer {self.canvas_token}",
-  #       "Accept": "application/json+canvas-string-ids"
-  #     }
-  #   )
-
-  #   # Make sure our request didn't fail silently
-  #   resp.raise_for_status()
-    
-  #   # pull out the response JSON
-  #   course = resp.json()
-  #   return course
-
   def get_external_tool(self): 
     """Find the ID of the external tool created in Canvas that represents your JupyterHub server."""
     resp = requests.get(
@@ -430,9 +411,7 @@ class Course:
 
   def get_students(self):
     """
-    DEBUG NOTE: CURRENTLY INCLUDING TEACHERS TOO
     Get the student list for a course. 
-    DEBUG NOTE: CURRENTLY INCLUDING TEACHERS TOO
     """
 
     print('Querying list of students...')
@@ -627,7 +606,7 @@ class Course:
       #     Update Student List     #
       ###############################
 
-      nb_student_ids = list(map(lambda _student: getattr(_student, 'id'), gradebook.students))
+      nb_student_ids = list(map(lambda _student: _student.id, gradebook.students))
       # Don't use .get('id') here, because we want this to fail loudly
       canvas_student_ids = list(map(lambda _student: _student['id'], self.students))
 
@@ -671,8 +650,8 @@ class Course:
       #     Update Assignment List     #
       ##################################
 
-      nb_assignments = list(map(lambda _assignment: getattr(_assignment, 'name'), gradebook.assignments))
-      # Don't use .get('id') here, because we want this to fail loudly
+      nb_assignments = list(map(lambda _assignment: _assignment.name, gradebook.assignments))
+      # Don't use .get() here, because we want this to fail loudly
       config_assignments = list(map(lambda _assignment: _assignment['name'], self.assignments))
 
       assignments_missing_from_nbgrader = list(set(config_assignments) - set(nb_assignments))
@@ -731,53 +710,12 @@ class Course:
 
     # Initialize status table that we can push to as we go
     assignment_status = [
-      ['Assignment', 'Action', 'Status', 'Message']
+      ['Assignment', 'Action']
     ]
 
     for assignment in tqdm(self.assignments):
-
-      # FIRST check if an assignment with that name already exists.
-      # Method mutates state, so no return *necessary* (but we have anyways)
-      existing_assigmnents = assignment.search_canvas_assignment()
-
-      # If we already have an assignment with this name in Canvas, update it!
-      # We assigned to self, so could also check `if assignment.canvas_assignment`
-      if existing_assigmnents['found'] > 0:
-        existing_assignment_name = existing_assigmnents.get('assignment', {}).get('name')
-        # First, check to see if the user specified overwriting:
-        if not overwrite:
-          overwrite_target_dir = input(
-            f"{existing_assignment_name} already exists, would you like to overwrite? [y/n]: "
-          )
-          # if they said yes, remove the directory
-          if overwrite_target_dir.lower() != 'y':
-            sys.exit("Will not overwrite preexisting assignment.\nExiting...")
-        # Then the assignment ID would be in the canvas_assignment dict
-        assignment_id = assignment.canvas_assignment.get('id')
-        result = assignment.update_canvas_assignment(
-          assignment_id, 
-          submission_types=['external_tool'],
-          external_tool_tag_attributes={
-            "url": assignment.launch_url,
-            "new_tab": True,
-            "content_id": self.external_tool_id,
-            "content_type": "context_external_tool"
-          }
-        )
-        assignment_status.append([assignment.name, 'update', result.get('status'), result.get('message')])
-      # otherwise create a new assignment
-      else: 
-        assignment.create_canvas_assignment(
-          name=assignment.name, 
-          submission_types=['external_tool'],
-          external_tool_tag_attributes={
-            "url": assignment.launch_url,
-            "new_tab": True,
-            "content_id": self.external_tool_id,
-            "content_type": "context_external_tool"
-          }
-        )
-        assignment_status.append([assignment.name, 'create', result.get('status'), result.get('message')])
+      status = assignment.update_or_create_assignment()
+      assignment_status.append([assignment.name, status])
 
     ## Print status for reporting:
     table = SingleTable(assignment_status)
@@ -785,22 +723,6 @@ class Course:
     print("\n")
     print(table.table)
     print("\n")
-    notice = f"""
-    {utils.color.BOLD}Notice:{utils.color.END} Unfortunately, the Canvas API currently has a limitation where it
-    cannot link your external tool to the assignment. Therefore, as it stands,
-    your launch requests are likely being sent without the LTI Consumer & Secret
-    Keys. Therefore, you need to go into each assignment that was just created
-    and link the tool by clicking "Find" under the "Submission" section, and
-    then clicking the tool your institution created (such as "Jupyter"). This
-    will change the URLs of your assignments. After that, re-run this command
-    and the URLs will be re-updated.
-
-    {utils.color.UNDERLINE}{self.canvas_url}/courses/{self.course_id}/assignments{utils.color.END}
-
-    Unfortunately, there is no way to tell if the assignment is properly linked
-    via the API, so you'll have to manually check that as well.
-    """
-    print(notice)
     return self
 
 
@@ -854,3 +776,22 @@ class Course:
   #     # then set job
   #     job.setall(close_time)
   #     self.cron.write()
+
+  # def _get_course(self):
+  #   """
+  #   Get the basic course information from Canvas
+  #   """
+  #   resp = requests.get(
+  #     url=f"{self.canvas_url}/api/v1/courses/{self.course_id}",
+  #     headers={
+  #       "Authorization": f"Bearer {self.canvas_token}",
+  #       "Accept": "application/json+canvas-string-ids"
+  #     }
+  #   )
+
+  #   # Make sure our request didn't fail silently
+  #   resp.raise_for_status()
+    
+  #   # pull out the response JSON
+  #   course = resp.json()
+  #   return course
