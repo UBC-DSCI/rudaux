@@ -40,6 +40,41 @@ def safely_delete(path: str, overwrite: bool) -> 'None':
         sys.exit("Will not overwrite specified directory.\nExiting...")
 
 
+def generate_git_urls(url):
+
+  # If starts with git@, then an SSH GIT URL
+  if re.search(r"^git@", url) is not None:
+    plain_url = re.sub(r"\:", r"/", url)
+    plain_url = re.sub(r"git@", r"https://", plain_url)
+    plain_url = re.sub(r"\.git$", r"", plain_url)
+    return {
+      "plain_https": plain_url,  # generated
+      "git_https": None,  # irrelevant
+      "git_ssh": url,  # supplied
+    }
+
+  # Otherwise if starts with http or https and ends with .git, HTTPS GIT URL
+  elif (re.search(r"^https{0,1}", url) is
+        not None) and (re.search(r"\.git$", url) is not None):
+    plain_url = re.sub(r"\.git$", r"", url)
+    return {
+      "plain_https": plain_url,  # generated
+      "git_https": url,  # supplied
+      "git_ssh": None,  # irrelevant
+    }
+
+  # Otherwise just a plain http(s) url
+  else:
+    # Just make sure no trailing slash
+    git_url = re.sub(r"/$", "", url)
+    git_url = git_url + '.git'
+    return {
+      "plain_https": url,  # supplied
+      "git_https": git_url,  # generated
+      "git_ssh": None,  # irrelevant
+    }
+
+
 def clone_repo(
   repo_url: str, target_dir: str, overwrite: bool, github_pat=None
 ) -> 'None':
