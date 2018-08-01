@@ -27,33 +27,74 @@ class Assignment:
   Assignment object for maniuplating assignments. 
   """
 
-  def __init__(self, name: str, launch_url: str, status='unassigned') -> 'self':
+  course = None
+
+  def __init__(
+    self,
+    name: str,
+    duedate: str,
+    points: int,
+    course=None,
+    status='unassigned',
+  ) -> 'self':
     """
     Assignment object for manipulating Assignments.
 
     :param name: The name of the assignment.
     :type name: str
-    :param launch_url: The encoded launch url.
-    :type launch_url: str
-    :param path: The path to the notebook (in the instructors repo).
-    :param github_token_name: The name of your GitHub personal access token environment variable.
+    :param duedate: The assignment's due date.
+    :type duedate: str
+    :param points: The number of points the assignment is worth.
+    :type points: int
+    :param course: The course the assignment belongs to.
+    :type course: Course
+
+    :param status: The status of the assignment. Options: ['unassigned', 'assigned', 'collected', 'graded', 'returned']
+    :type status: str
 
     :returns: An assignment object for performing different operations on a given assignment.
     """
 
+    if (self.course is None) and (course is None):
+      sys.exit(
+        """
+        The Assignment object must be instantiated with a course 
+        or subclassed with a course class attribute. 
+
+        Subclass method:
+        ```
+        class DSCI100Assignment(Assignment):
+          course = dsci100
+
+        homework_1 = DSCI100Assignment(
+          name='homework_1',
+          ...
+        )
+        ```
+
+        Instantiation Method:
+        ```
+        homework_1 = Assignment(
+          name='homework_1',
+          ...
+          course=dsci100
+        )
+        ```
+
+        """
+      )
+
     # First self assign user specified parameters
     self.name = name
-    self.path = path
+    self.status = status
 
-    self.canvas_url = canvas_url
-    self.course_id = course_id
-    self.canvas_assignment = assignment
-    self.canvas_token = canvas_token
+    # Only overwrite class property none present. Second check (course is not
+    # None) is not necessary, since we should have exited by now if both were
+    # None, but just want to be sure.
+    if (self.course is None) and (course is not None):
+      self.course = course
 
-    self.stu_repo_url = stu_repo_url
-    self.ins_repo_url = ins_repo_url
-    self.github_tokens = github_tokens
-    # self.github_token_name = github_token_name
+    self.launch_url = self._generate_launch_url()
 
   def autograde(self):
     """
@@ -99,7 +140,7 @@ class Assignment:
 
     try:
       utils.clone_repo(
-        self.ins_repo_url, ins_repo_dir, self.overwrite, self.github_tokens
+        self.course.ins_repo_url, ins_repo_dir, self.overwrite, self.course.github_tokens
       )
     except Exception as e:
       print("There was an error cloning your instructors repository")
@@ -146,7 +187,7 @@ class Assignment:
 
     try:
       utils.clone_repo(
-        self.stu_repo_url, stu_repo_dir, self.overwrite, self.github_tokens
+        self.course.stu_repo_url, stu_repo_dir, self.overwrite, self.course.github_tokens
       )
     except Exception as e:
       print("There was an error cloning your students repository")
@@ -168,6 +209,39 @@ class Assignment:
 
     return None
 
+  def _generate_launch_url(self):
+    """
+    Generate assignment links for assigned assignments. 
+
+    This will search your instructors repository for the source assignment and
+    then generate the link to the student copy of the assignment.
+    """
+
+    # Given an assignment name, look in that assignment's folder and pull out
+    # the notebook path. 
+    #! Blindly take the first result!
+    notebook = nbutils.find_all_notebooks(
+      os.path.join(self.course.working_directory, 'source', self.name)
+    )[0]
+
+    # Construct launch url for nbgitpuller
+    # First join our hub url, hub prefix, and launch url
+    launch_url = f"{self.course.hub_url}{self.course.hub_prefix}/hub/lti/launch"
+    # Then construct our nbgitpuller custom next parameter
+    gitpuller_url = f"{self.course.hub_prefix}/hub/user-redirect/git-pull"
+    # Finally, urlencode our repository and add that
+    repo_encoded_url = urlparse.quote_plus(self.course.stu_repo_url)
+
+    # Finally glue this all together!! Now we just need to add the subpath for each assignment
+    launch_url_without_subpath = fr"{launch_url}?custom_next={gitpuller_url}%3Frepo%3D{repo_encoded_url}%26subPath%3D"
+
+    # urlencode the assignment's subpath
+    subpath = urlparse.quote_plus(f"{self.course.assignment_release_path}/{notebook}")
+    # and join it to the previously constructed launch URL (hub + nbgitpuller language)
+    full_launch_url = launch_url_without_subpath + subpath
+
+    return full_launch_url
+
   def collect(self):
     """
     Collect an assignment. Snapshot the ZFS filesystem and copy the notebooks to
@@ -185,7 +259,7 @@ class Assignment:
     :rtype: Dict[str, str]
     """
     # Quick check to make sure we have the necessary parameters.
-    if None in [self.canvas_url, self.course_id, self.canvas_token]:
+    if None in [self.course.canvas_url, self.course.course_id, self.course.canvas_token]:
       return {
         "status": f"{utils.color.RED}fail{utils.color.END}",
         "message": 'You must provide a canvas_url, course_id, and canvas_token.'
@@ -193,10 +267,10 @@ class Assignment:
 
     existing_assignments = requests.get(
       url=urlparse.urljoin(
-        self.canvas_url, f"/api/v1/courses/{self.course_id}/assignments"
+        self.course.canvas_url, f"/api/v1/courses/{self.course.course_id}/assignments"
       ),
       headers={
-        "Authorization": f"Bearer {self.canvas_token}",
+        "Authorization": f"Bearer {self.course.canvas_token}",
         "Accept": "application/json+canvas-string-ids"
       },
       params={"search_term": self.name}
@@ -232,7 +306,7 @@ class Assignment:
     """
 
     # Quick check to make sure we have the necessary parameters.
-    if None in [self.canvas_url, self.course_id, self.canvas_token]:
+    if None in [self.course.canvas_url, self.course.course_id, self.course.canvas_token]:
       return {
         "status": f"{utils.color.RED}fail{utils.color.END}",
         "message": 'You must provide a canvas_url, course_id, and canvas_token.'
@@ -240,10 +314,10 @@ class Assignment:
 
     resp = requests.post(
       url=urlparse.urljoin(
-        self.canvas_url, f"/api/v1/courses/{self.course_id}/assignments"
+        self.course.canvas_url, f"/api/v1/courses/{self.course.course_id}/assignments"
       ),
       headers={
-        "Authorization": f"Bearer {self.canvas_token}",
+        "Authorization": f"Bearer {self.course.canvas_token}",
         "Accept": "application/json+canvas-string-ids"
       },
       json={"assignment": kwargs}
@@ -271,7 +345,7 @@ class Assignment:
     """
 
     # Quick check to make sure we have the necessary parameters.
-    if None in [self.canvas_url, self.course_id, self.canvas_token]:
+    if None in [self.course.canvas_url, self.course.course_id, self.course.canvas_token]:
       return {
         "status": f"{utils.color.RED}fail{utils.color.END}",
         "message": 'You must provide a canvas_url, course_id, and canvas_token.'
@@ -279,10 +353,11 @@ class Assignment:
 
     resp = requests.put(
       url=urlparse.urljoin(
-        self.canvas_url, f"/api/v1/courses/{self.course_id}/assignments/{assignment_id}"
+        self.course.canvas_url,
+        f"/api/v1/courses/{self.course.course_id}/assignments/{assignment_id}"
       ),
       headers={
-        "Authorization": f"Bearer {self.canvas_token}",
+        "Authorization": f"Bearer {self.course.canvas_token}",
         "Accept": "application/json+canvas-string-ids"
       },
       json={"assignment": kwargs}
@@ -323,12 +398,12 @@ class Assignment:
 
 #     canvas_url = re.sub(r"\/$", "", canvas_url)
 #     canvas_url = re.sub(r"^https{0,1}://", "", canvas_url)
-#     self.canvas_url = canvas_url
+#     self.course.canvas_url = canvas_url
 
-#     self.course_id = course_id
+#     self.course.course_id = course_id
 
 #     if canvas_token is None:
-#       self.canvas_token = self._get_token(token_name)
+#       self.course.canvas_token = self._get_token(token_name)
 
 #     if assignment_id is not None:
 #       matched_assignment = self._get_canvas_course(assignment_id)

@@ -126,11 +126,13 @@ class Course:
     # Before we continue, make sure we have all of the necessary parameters.
     self.course_id = config.get('Canvas', {}).get('course_id')
     self.canvas_url = config.get('Canvas', {}).get('canvas_url')
+    self.external_tool_name = config.get('Canvas', {}).get('external_tool_name')
+    self.external_tool_level = config.get('Canvas', {}).get('external_tool_level')
     # The canvas url should have no trailing slash
     self.canvas_url = re.sub(r"/$", "", self.canvas_url)
 
     ## GITHUB PARAMS
-    self.stu_repo_url = config.get('GitHub', {}).get('stu_repo_url')
+    self.stu_repo_url = config.get('GitHub', {}).get('stu_repo_url', '')
     self.assignment_release_path = config.get('GitHub', {}).get('assignment_release_path')
     self.ins_repo_url = config.get('GitHub', {}).get('ins_repo_url')
     # subpath not currently supported
@@ -153,12 +155,41 @@ class Course:
     ## COURSE PARAMS
 
     self.tmp_dir = config.get('Course', {}).get('tmp_dir')
-    self.assignment_names = config.get('Course', {}).get('assignments')
+    assignment_list = config.get('Course', {}).get('assignments')
 
     ## Repurpose the rest of the params for later batches
     ## (Hang onto them in case we need something)
 
-    self.full_config = config
+    self._full_config = config
+
+    #=======================================#
+    #        Validate URLs (Slightly)       #
+    #=======================================#
+
+    urls = {
+      'JupyterHub.hub_url': self.hub_url,
+      'GitHub.stu_repo_url': self.stu_repo_url,
+      'GitHub.ins_repo_url': self.ins_repo_url,
+      'Canvas.canvas_url': self.canvas_url
+    }
+
+    for key, value in urls.items():
+      if re.search(r"^https{0,1}", value) is None:
+        sys.exit(
+          f"""
+          You must specify the scheme (e.g. https://) for all URLs.
+          You are missing the scheme in "{key}":
+          {value}
+          """
+        )
+      if re.search(r".git$", value) is not None:
+        sys.exit(
+          f"""
+          Please do not use .git-appended URLs. 
+          You have used a .git url in "{key}":
+          {value}
+          """
+        )
 
     #=======================================#
     #       Check For Required Params       #
@@ -167,12 +198,12 @@ class Course:
     # Finally, before we continue, make sure all of our required parameters were
     # specified in the config file(s)
     required_params = {
-      "c.Canvas.course_id": self.course_id,
-      "c.Canvas.canvas_url": self.canvas_url,
-      "c.GitHub.stu_repo_url": self.stu_repo_url,
-      "c.GitHub.ins_repo_url": self.ins_repo_url,
-      "c.JupyterHub.hub_url": self.hub_url,
-      "c.Course.assignments": self.assignment_names
+      "Canvas.course_id": self.course_id,
+      "Canvas.canvas_url": self.canvas_url,
+      "GitHub.stu_repo_url": self.stu_repo_url,
+      "GitHub.ins_repo_url": self.ins_repo_url,
+      "JupyterHub.hub_url": self.hub_url,
+      "Course.assignments": assignment_list
     }
     
     # If any are none...
@@ -193,7 +224,7 @@ class Course:
       "assignment_release_path": {
         "value": self.assignment_release_path,
         "default": 'materials',
-        "config_name": "c.GitHub.assignment_release_path"
+        "config_name": "GitHub.assignment_release_path"
       },
       # "assignment_source_path": {
       #   "value": self.assignment_source_path,
@@ -203,12 +234,22 @@ class Course:
       "hub_prefix": {
         "value": self.hub_prefix,
         "default": "",
-        "config_name": "c.JupyterHub.base_url"
+        "config_name": "JupyterHub.base_url"
       },
       "tmp_dir": {
         "value": self.tmp_dir,
         "default": os.path.join(Path.home(), 'tmp'),
-        "config_name": "c.Course.tmp_dir"
+        "config_name": "Course.tmp_dir"
+      },
+      "external_tool_name": {
+        "value": self.external_tool_name,
+        "default": 'Jupyter',
+        "config_name": "Canvas.external_tool_name"
+      },
+      "external_tool_level": {
+        "value": self.external_tool_level,
+        "default": 'course',
+        "config_name": "Canvas.external_tool_level"
       }
     }
 
@@ -256,11 +297,11 @@ class Course:
         # Then specify that we're using the same token for each domain
         self.github_tokens = [
           {
-            "domain": urlsplit(self.stu_repo_url).netloc,
+            "domain": urlparse.urlsplit(self.stu_repo_url).netloc,
             "token": token
           }, 
           {
-            "domain": urlsplit(self.ins_repo_url).netloc,
+            "domain": urlparse.urlsplit(self.ins_repo_url).netloc,
             "token": token
           }
         ]
@@ -287,7 +328,33 @@ class Course:
     # assign init params to object
     # self.canvas_token = self._get_token(canvas_token_name)
     # self.course = self._get_course()
+
+    # Set crontab
     self.cron = CronTab(user=True)
+
+    #=======================================#
+    #        Instantiate Assignments        #
+    #=======================================#
+
+    # Subclass assignment for this course:
+    class DSCI100Assignment(rudaux.Assignment):
+      course = self
+
+    instantiated_assignments = []
+
+    for _assignment in assignment_list:
+      assignment = DSCI100Assignment(
+        name=_assignment.get('name'),
+        duedate=_assignment.get('duedate'),
+        # default to 0 points
+        points=_assignment.get('points', 0),
+        status='unknown'
+      )
+      instantiated_assignments.append(assignment)
+
+    self.assignments = instantiated_assignments
+
+#------------------ End Constructor ------------------#
 
   # Get the canvas token from the environment
   @staticmethod
@@ -320,6 +387,46 @@ class Course:
   #   # pull out the response JSON
   #   course = resp.json()
   #   return course
+
+  def get_external_tool(self): 
+    """Find the ID of the external tool created in Canvas that represents your JupyterHub server."""
+    resp = requests.get(
+      url=urlparse.urljoin(
+        self.canvas_url, f"/api/v1/{self.external_tool_level}s/{self.course_id}/external_tools"
+      ),
+      headers={
+        "Authorization": f"Bearer {self.canvas_token}",
+        "Accept": "application/json+canvas-string-ids"
+      },
+      params={
+        "search_term": self.external_tool_name
+      }
+    )
+    # first make sure we didn't silently error
+    resp.raise_for_status()
+
+    external_tools = resp.json()
+    external_tool = external_tools[0]
+
+    if not external_tools:
+      sys.exit(
+        f"""
+        No external tools found with the name {self.external_tool_name}"
+        at the {self.external_tool_level} level. 
+        Exiting...
+        """
+      )
+    elif len(external_tools) > 1:
+      print(
+        f"""
+        More than one external tool found, using the one named "{external_tool.get('name')}".
+        Description: "{external_tool.get('description')}"
+        """
+      )
+
+    self.external_tool_id = external_tool.get('id')
+
+    return self
 
   def get_students(self):
     """
@@ -491,7 +598,7 @@ class Course:
     
   #   [required]
   #   - name (str): the name of the assignment
-  #   - due_at (str): due date for the assignment
+  #   - duedate (str): due date for the assignment
   #   - notebook_path (str): github URL at which the jupyter notebook lives
   #   - points_possible (int): the number of possible points
 
@@ -506,101 +613,23 @@ class Course:
   #   assignments = pd.read_csv(path)
   #   print(assignments)
 
-
-  #! Figure out where to put this
-  #? Do we really need the assignment class?
-  #? What am I really doing here? More like generating the assignments
-  #* The links are generated in Course.create_assignments_in_canvas()
-  #* Perhaps this should be an assignment function
-  #* Perhaps this should be in the constructor
-  #? Can I better separate Course operations from Assignment operations?
-  #! Continue working on this!!
-  def _generate_assignment_objects(self):
-    """
-    Generate assignment links for released assignments.
-    """
-
-    # give proper defaults to .get() to fail gracefully
-    header = [self.full_config.get('IncludeHeaderFooter', {}).get('header', [])]
-    footer = [self.full_config.get('IncludeHeaderFooter', {}).get('footer', [])]
-
-    exclusions = header + footer
-
-    # No subpaths implemented yet, so all source documents must live in
-    # /instructors/source
-
-    notebook_paths = nbutils.find_all_notebooks(self.working_directory)
-    # create an empty list of assignments to push to
-    assignments = []
-
-    for notebook_path in notebook_paths:
-
-      split_path = nbutils.full_split(notebook_path)
-      filename = split_path[-1]
-      assignment_name = split_path[-2]
-
-      if filename not in exclusions:
-        # add the assignment name, filename, and path to our list of assignments.
-        assignment = Assignment(
-          name=assignment_name, 
-          path=notebook_path,
-          ins_repo_url=self.ins_repo_url,
-          github_tokens=self.github_tokens,
-          canvas_url=self.canvas_url,
-          course_id=self.course_id,
-          canvas_token=self.canvas_token
-        )
-        assignments.append(assignment)
-
-    # names = list(map(lambda assn: assn.name, assignments))
-    # print(f"Found the following assignments: {sorted(names)}")
-    self.assignments = assignments
-    return self
-
-
-  def _generate_assignment_link(self, assignment_name):
-    """
-    Generate assignment links for assigned assignments.
-    """
-
-    # Given an assignment name, look in that assignment's folder and pull out
-    # the notebook path. 
-    #! Blindly take the first result!
-    notebook = nbutils.find_all_notebooks(
-      os.path.join(self.working_directory, 'source', assignment_name)
-    )[0]
-
-    # Construct launch url for nbgitpuller
-    # First join our hub url, hub prefix, and launch url
-    launch_url = f"{self.hub_url}{self.hub_prefix}/hub/lti/launch"
-    # Then construct our nbgitpuller custom next parameter
-    gitpuller_url = f"{self.hub_prefix}/hub/user-redirect/git-pull"
-    # Finally, urlencode our repository and add that
-    repo_encoded_url = quote_plus(self.stu_repo_url)
-
-    # Finally glue this all together!! Now we just need to add the subpath for each assignment
-    launch_url_without_subpath = fr"{launch_url}?custom_next={gitpuller_url}%3Frepo%3Dhttps%3A%2F%2F{repo_encoded_url}%26subPath%3D"
-
-    # urlencode the assignment's subpath
-    subpath = quote_plus(f"{self.assignment_release_path}/{notebook}")
-    # and join it to the previously constructed launch URL (hub + nbgitpuller language)
-    full_launch_url = launch_url_without_subpath + subpath
-
-    return full_launch_url
-
-  def init_nbgrader(self):
+  def sync_nbgrader(self):
     """
     Enter information into the nbgrader gradebook database about the assignments and the students.
     """
 
+    # nbgrader API docs: 
+    # https://nbgrader.readthedocs.io/en/stable/api/gradebook.html#nbgrader.api.Gradebook
     gradebook = self.nb_api.gradebook
 
     try:
       ###############################
       #     Update Student List     #
       ###############################
-      nb_student_ids = list(map(lambda _student: _student.id, gradebook.students))
-      canvas_student_ids = list(map(lambda _student: _student.get('id'), self.students))
+
+      nb_student_ids = list(map(lambda _student: getattr(_student, 'id'), gradebook.students))
+      # Don't use .get('id') here, because we want this to fail loudly
+      canvas_student_ids = list(map(lambda _student: _student['id'], self.students))
 
       # First find the students that are in canvas but NOT in nbgrader
       students_missing_from_nbgrader = list(set(canvas_student_ids) - set(nb_student_ids))
@@ -608,29 +637,90 @@ class Course:
       # could only happen if they had withdrawn from the course)
       students_withdrawn_from_course = list(set(nb_student_ids) - set(canvas_student_ids))
 
+      students_no_change = set(canvas_student_ids).union(set(nb_student_ids))
+
+      student_status = [
+        ["Student ID", "Status", "Action"]
+      ]
+
       if students_missing_from_nbgrader:
         for student_id in students_missing_from_nbgrader:
+          student_status.append(
+            [student_id, "missing from nbgrader", "added to nbgrader"]
+          )
           gradebook.add_student(student_id)
       if students_withdrawn_from_course:
         for student_id in students_withdrawn_from_course:
           gradebook.remove_student(student_id)
+          student_status.append(
+            [student_id, "missing from canvas", "removed from nbgrader"]
+          )
+      if students_no_change:
+        for student_id in students_no_change:
+          student_status.append(
+            [student_id, "present in both", " - "]
+          )
+
+      table = SingleTable(student_status)
+      table.title = 'Student Updates'
+      print("\n")
+      print(table.table)
+      print("\n")
+
+      ##################################
+      #     Update Assignment List     #
+      ##################################
+
+      nb_assignments = list(map(lambda _assignment: getattr(_assignment, 'name'), gradebook.assignments))
+      # Don't use .get('id') here, because we want this to fail loudly
+      config_assignments = list(map(lambda _assignment: _assignment['name'], self.assignments))
+
+      assignments_missing_from_nbgrader = list(set(config_assignments) - set(nb_assignments))
+      assignments_withdrawn_from_config = list(set(nb_assignments) - set(config_assignments))
+
+      assignments_no_change = set(config_assignments).union(set(nb_assignments))
+
+      assignment_status = [
+        ["Assignment", "Status", "Action"]
+      ]
+
+      if assignments_missing_from_nbgrader:
+        print("Assignments missing from nbgrader, adding...")
+        for assignment_name in assignments_missing_from_nbgrader:
+          gradebook.add_assignment(assignment_name)
+          assignment_status.append(
+            [assignment_name, "missing from nbgrader", "added to nbgrader"]
+          )
+      if assignments_withdrawn_from_config:
+        for assignment_name in assignments_withdrawn_from_config:
+          gradebook.remove_assignment(assignment_name)
+          assignment_status.append(
+            [assignment_name, "missing from config", "removed from nbgrader"]
+          )
+      if assignments_no_change:
+        for assignment_name in assignments_no_change:
+          assignment_status.append(
+            [assignment_name, "present in both", " - "]
+          )
+
+      table = SingleTable(assignment_status)
+      table.title = 'Assignment Updates'
+      print("\n")
+      print(table.table)
+      print("\n")
 
     # Always make sure we close the gradebook connection, even if we error
     except Exception as e:
-      print("Closing connection to gradebook...")
+      print("An error occurred, closing connection to gradebook...")
       gradebook.close()
       raise e
 
-    # nbgrader API docs: https://nbgrader.readthedocs.io/en/stable/api/gradebook.html#nbgrader.api.Gradebook
-    # 1. Make sure we have all of the course assignments
-    # 2. Make sure we have all of the course students
-    # 3. Make sure we know where the nbgrader database is: nbgrader.api.Gradebook(db_url)
-    # 4. Add assignments: `update_or_create_assignment(name, **kwargs)`
-    # 5. Add students: `find_student(student_id)`, then `add_student(student_id, **kwargs)``
 
-    return False
+    print("Closing connection to gradebook...")
+    gradebook.close()
+    return self
 
-  def create_assignments_in_canvas(self, overwrite=False) -> 'None':
+  def create_canvas_assignments(self, overwrite=False) -> 'None':
     """Create assignments for a course.
 
     :param overwrite: Whether or not you wish to overwrite preexisting assignments.
@@ -668,9 +758,11 @@ class Course:
           assignment_id, 
           submission_types=['external_tool'],
           external_tool_tag_attributes={
-            "url": full_path,
-            "new_tab": True
-            }
+            "url": assignment.launch_url,
+            "new_tab": True,
+            "content_id": self.external_tool_id,
+            "content_type": "context_external_tool"
+          }
         )
         assignment_status.append([assignment.name, 'update', result.get('status'), result.get('message')])
       # otherwise create a new assignment
@@ -679,9 +771,11 @@ class Course:
           name=assignment.name, 
           submission_types=['external_tool'],
           external_tool_tag_attributes={
-            "url": full_path,
-            "new_tab": True
-            }
+            "url": assignment.launch_url,
+            "new_tab": True,
+            "content_id": self.external_tool_id,
+            "content_type": "context_external_tool"
+          }
         )
         assignment_status.append([assignment.name, 'create', result.get('status'), result.get('message')])
 
