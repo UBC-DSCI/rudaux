@@ -12,9 +12,11 @@ from git import Repo
 from pathlib import Path
 from typing import Union, List, Optional, Dict
 from nbgrader.apps import NbGraderAPI
+from nbgrader import utils as nbutils
 from traitlets.config import Config
 from traitlets.config.application import Application
 # Import my own utility functions from this module
+import rudaux
 from rudaux import utils
 
 # from course import Course

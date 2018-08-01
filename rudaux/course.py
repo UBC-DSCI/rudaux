@@ -6,10 +6,11 @@ import sys
 import re
 import shutil
 import textwrap
+import rudaux
 from pathlib import Path
 # Import my custom utiliy functions
 # For parsing assignments from CSV
-import pandas as pd
+# import pandas as pd
 # For progress bar
 from tqdm import tqdm
 from weir import zfs
@@ -17,13 +18,12 @@ from github import Github
 from git import Repo
 # For setting up autograding
 from crontab import CronTab
-from rudaux.assignment import Assignment
 from dateutil.parser import parse
 from terminaltables import AsciiTable, SingleTable
 # For decoding base64-encoded files from GitHub API
 from base64 import b64decode
 # for urlencoding query strings to persist through user-redirect
-from urllib.parse import urlsplit, urlunsplit, quote_plus
+import urllib.parse as urlparse
 # Bring in nbgrader API
 from nbgrader.apps import NbGraderAPI
 # Don't reinvent the wheel! Use nbgrader's method for finding notebooks
@@ -32,6 +32,7 @@ from nbgrader import utils as nbutils
 from traitlets.config import Config
 from traitlets.config.application import Application
 from rudaux import utils
+import rudaux
 
 #* All internal _methods() return an object
 

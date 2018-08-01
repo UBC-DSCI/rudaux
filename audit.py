@@ -1,7 +1,6 @@
 # import unittest
 import time
-from rudaux.course import Course
-from rudaux.assignment import Assignment
+from rudaux import Course, Assignment
 
 start = time.time()
 dsci100 = Course(course_dir='/Users/samhinshaw/projects/dsci100/DSCI_100_instructors')
