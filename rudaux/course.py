@@ -17,7 +17,6 @@ from github import Github
 from git import Repo
 # For setting up autograding
 from crontab import CronTab
-from dateutil.parser import parse
 from terminaltables import AsciiTable, SingleTable
 # For decoding base64-encoded files from GitHub API
 from base64 import b64decode
@@ -733,56 +732,38 @@ class Course:
     print("\n")
     return self
 
-  # def schedule_grading(self):
-  #   """
-  #   Schedule assignment grading tasks in crontab. 
-  #   It would probably make more sense to use `at` instead of `cron` except that:
-  #     1. CentOS has `cron` by default, but not `at`
-  #     2. The python CronTab module exists to make this process quite easy.
-  #   """
-  #   # If there is no 'lock at' time, then the due date is the time to grade.
-  #   # Otherwise, grade at the 'lock at' time. This is to allow partial credit
-  #   # for late assignments.
-  #   # Reference: https://community.canvaslms.com/docs/DOC-10327-415273044
-  #   for assignment in tqdm(self.assignments):
-  #     self._schedule_assignment_grading(assignment)
-  #   print('Grading scheduled!')
+  def schedule_grading(self):
+    """
+    Schedule assignment grading tasks in crontab. 
+    """
+    # It would probably make more sense to use `at` instead of `cron` except that:
+    # 1. CentOS has `cron` by default, but not `at`
+    # 2. The python CronTab module exists to make this process quite easy.
 
-  # def _schedule_assignment_grading(self, assignment):
-  #   job = self.cron.new(
-  #     command=f"nbgrader collect {assignment.get('name')}",
-  #     comment=f"Autograde {assignment.get('name')}"
-  #   )
+    scheduling_status = [
+      ['Assignment', 'Due Date', 'Action']
+    ]
 
-  #   if assignment.get('lock_at') is not None:
-  #     close_time = parse(assignment['lock_at'])
+    # If there is no 'lock at' time, then the due date is the time to grade.
+    # Otherwise, grade at the 'lock at' time. This is to allow partial credit
+    # for late assignments.
+    # Reference: https://community.canvaslms.com/docs/DOC-10327-415273044
 
-  #   elif assignment.get('due_at') is not None:
-  #     close_time = parse(assignment['due_at'])
+    for assignment in tqdm(self.assignments):
+      status = assignment.schedule_assignment_grading()
+      scheduling_status.append([
+        assignment.name,
+        status.get('close_time'),
+        status.get('action')
+      ])
 
-  #   # Will need course info here
-  #   elif self.course.get('end_at') is not None:
-  #     close_time = parse(self.course['end_at'])
+    ## Print status for reporting:
+    status_table = SingleTable(scheduling_status)
+    status_table.title = 'Grading Scheduling'
+    print("\n")
+    print(status_table.table)
+    print("\n")
 
-  #   else:
-  #     close_time: None
-  #     print(
-  #       'Could not find an end date for your course in Canvas, automatic grading will not be scheduled.'
-  #     )
-
-  #   # * Make sure we don't have a job for this already, and then set it if it's valid
-  #   existing_jobs = self.cron.find_command(f"nbgrader collect {assignment.get('name')}")
-
-  #   # wonky syntax because find_command & find_comment return *generators*
-  #   if (len(list(existing_jobs)) > 0) & job.is_valid():
-  #     # Set job
-  #     job.setall(close_time)
-  #     self.cron.write()
-  #   else:
-  #     # delete previous command here
-  #     # then set job
-  #     job.setall(close_time)
-  #     self.cron.write()
 
   # def _get_course(self):
   #   """

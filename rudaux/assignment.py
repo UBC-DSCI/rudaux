@@ -6,6 +6,7 @@ import os
 import sys
 import subprocess
 import urllib.parse as urlparse
+from dateutil.parser import parse
 import shutil
 from github import Github
 from git import Repo
@@ -32,8 +33,9 @@ class Assignment:
   def __init__(
     self,
     name: str,
-    duedate: str,
-    points: int,
+    duedate=None,
+    points=1,
+    manual=False,
     course=None,
     status='unassigned',
   ) -> 'self':
@@ -42,10 +44,12 @@ class Assignment:
 
     :param name: The name of the assignment.
     :type name: str
-    :param duedate: The assignment's due date.
+    :param duedate: The assignment's due date. (default: None)
     :type duedate: str
-    :param points: The number of points the assignment is worth.
+    :param points: The number of points the assignment is worth. (default: 1)
     :type points: int
+    :param manual: Is manual grading required? (default: False)
+    :type manual: bool
     :param course: The course the assignment belongs to.
     :type course: Course
 
@@ -87,6 +91,9 @@ class Assignment:
     # First self assign user specified parameters
     self.name = name
     self.status = status
+    self.duedate = duedate
+    self.points = points
+    self.manual = manual
 
     # Only overwrite class property none present. Second check (course is not
     # None) is not necessary, since we should have exited by now if both were
@@ -123,9 +130,7 @@ class Assignment:
     self.overwrite = overwrite
 
     #=======================================#
-    #                                       #
     #       Set up Parameters & Config      #
-    #                                       #
     #=======================================#
 
     # First things first, make the temporary directories
@@ -133,9 +138,7 @@ class Assignment:
     stu_repo_dir = os.path.join(tmp_dir, 'students')
 
     #=======================================#
-    #                                       #
     #       Clone from Instructors Repo     #
-    #                                       #
     #=======================================#
 
     try:
@@ -145,9 +148,7 @@ class Assignment:
       raise e
 
     #=======================================#
-    #                                       #
     #          Make Student Version         #
-    #                                       #
     #=======================================#
 
     # Make sure we're running our nbgrader commands within our instructors repo.
@@ -178,9 +179,7 @@ class Assignment:
       )
 
     #=======================================#
-    #                                       #
     #   Move Assignment to Students Repo    #
-    #                                       #
     #=======================================#
 
     try:
@@ -197,12 +196,16 @@ class Assignment:
     shutil.copytree(generated_assignment_dir, student_assignment_dir)
 
     #=======================================#
-    #                                       #
     #      Push Changes to Students Repo    #
-    #                                       #
     #=======================================#
 
     utils.push_repo(stu_repo_dir)
+
+    #=======================================#
+    #        Update Assignment Status       #
+    #=======================================#
+
+    self.status = 'assigned'
 
     return None
 
@@ -279,6 +282,8 @@ class Assignment:
           """
         )
       # But regardless, use the first result found
+      # Also assign to self
+      self.canvas_assignment = first_result
       return first_result
 
     else: 
@@ -366,3 +371,69 @@ class Assignment:
       self._create_canvas_assignment()
       return 'created'
 
+  def schedule_assignment_grading(self) -> 'Assignment':
+    """Schedule grading of an assignment.
+    
+    :param cron: Crontab of your server
+    :type cron: Cron
+    :return: self
+    :rtype: Assignment
+    """
+
+    # If we found the assignment in Canvas, we can look for a lock date.
+    if hasattr(self, 'canvas_assignment'):
+      
+      if self.canvas_assignment.get('lock_at') is not None:
+        close_time = parse(self.canvas_assignment.get('lock_at'))
+      elif self.canvas_assignment.get('due_at') is not None:
+        close_time = parse(self.canvas_assignment.get('due_at'))
+
+    # Otherwise, check for a due date from our config file.
+    elif self.duedate is not None:
+      close_time = parse(self.duedate)
+
+    # If neither, let the user know that automated grading is impossible.
+    else:
+      close_time: None
+      print(
+        f'Could not find a due date or lock date for {self.name}, automatic grading will not be scheduled.'
+      )
+
+    # Will need course info here
+    # elif self.course.get('end_at') is not None:
+    #   close_time = parse(self.course['end_at'])
+
+    # * Make sure we don't have a job for this already, and then set it if it's valid
+    # convert generator to list so we can iterate over it multiple times
+    existing_jobs = list(self.course.cron.find_command(f"nbgrader collect {self.name}"))
+
+    # Initialize dict for status reporting
+    status = {
+      'close_time': close_time
+    }
+    # Check to see if we found any preexisting jobs
+    if (len(list(existing_jobs)) > 0):
+      status['action'] = f'{utils.color.PURPLE}updated{utils.color.END}'
+      # if so, delete the previously scheduled jobs before setting a new command
+      for job in existing_jobs:  
+        self.course.cron.remove(job)
+    # Otherwise just go ahead and set the job
+    else:
+      status['action'] = f'{utils.color.DARKCYAN}created{utils.color.END}'
+
+    # Then add our new job
+    new_autograde_job = self.course.cron.new(
+      command=f"nbgrader collect {self.name}",
+      comment=f"Autograde {self.name}"
+    )
+    # Make sure it's valid...
+    if new_autograde_job.is_valid():
+      # And set it!
+      new_autograde_job.setall(close_time)
+      self.course.cron.write()
+    else: 
+      status['action'] = 'failed'
+      print(f'Automatic grading for {self.name} failed due to invalid cron job formatting:')
+      print(new_autograde_job)
+    
+    return status

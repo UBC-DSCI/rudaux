@@ -2,6 +2,15 @@ from rudaux import Course, Assignment
 
 
 def initialize_course():
+  """Initialize a course fully. This involves:
+  0. Reading your configuration file and ensuring all parameters are valid.
+  1. Identifying the tool name used for your JupyterHub installation in Canvas.
+  2. Pulling your student list from Canvas.  
+  3. Syncing Canvas with nbgrader (students & assignments).
+  4. Assigning all of the assignments listed in your config file.
+  5. Creating the assignments listed in your config file in Canvas.
+  6. Schedule automated grading of your assignments.
+  """
 
   course = Course()
 
@@ -10,16 +19,12 @@ def initialize_course():
     .get_students_from_canvas()  \
     .sync_nbgrader()             \
     .assign_all()                \
-    .create_canvas_assignments()
+    .create_canvas_assignments() \
+    .schedule_grading()
 
 
-def initialize_course_overwrite():
+def schedule_grading():
 
   course = Course()
 
-  course                         \
-    .get_external_tool_id()      \
-    .get_students_from_canvas()  \
-    .sync_nbgrader()             \
-    .assign_all(overwrite=True)  \
-    .create_canvas_assignments()
+  course.schedule_grading()
