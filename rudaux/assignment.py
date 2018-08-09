@@ -389,7 +389,7 @@ class Assignment:
 
     # If neither, let the user know that automated grading is impossible.
     else:
-      close_time: None
+      close_time = None
       print(
         f'Could not find a due date or lock date for {self.name}, automatic grading will not be scheduled.'
       )
