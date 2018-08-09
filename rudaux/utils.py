@@ -46,10 +46,13 @@ def generate_git_urls(url):
     plain_url = re.sub(r"\:", r"/", url)
     plain_url = re.sub(r"git@", r"https://", plain_url)
     plain_url = re.sub(r"\.git$", r"", plain_url)
+    gitpython_ssh = re.sub(r"\:", r"/", url)
+    gitpython_ssh = f"ssh://{gitpython_ssh}"
     return {
       "plain_https": plain_url,  # generated
       "git_https": None,  # irrelevant
       "git_ssh": url,  # supplied
+      "gitpython_ssh": gitpython_ssh  # special URL!
     }
 
   # Otherwise if starts with http or https and ends with .git, HTTPS GIT URL
@@ -60,6 +63,7 @@ def generate_git_urls(url):
       "plain_https": plain_url,  # generated
       "git_https": url,  # supplied
       "git_ssh": None,  # irrelevant
+      "gitpython_ssh": None  # special URL!
     }
 
   # Otherwise just a plain http(s) url
@@ -71,6 +75,7 @@ def generate_git_urls(url):
       "plain_https": url,  # supplied
       "git_https": git_url,  # generated
       "git_ssh": None,  # irrelevant
+      "gitpython_ssh": None  # special URL!
     }
 
 
@@ -98,8 +103,9 @@ def clone_repo(
   if not split_url.netloc:
     # SO, if using ssh, go ahead and clone.
     print('SSH URL detected, assuming SSH keys are accounted for...')
-    # Need to specify ssh protocol
-    Repo.clone_from(f"ssh://{repo_url}", target_dir)
+    # Need to specify special ssh url
+    ssh_url = generate_git_urls(repo_url).get('gitpython_ssh')
+    Repo.clone_from(ssh_url, target_dir)
 
   # Otherwise, we can get the github username from the API and use username/PAT
   # combo to authenticate.
