@@ -82,7 +82,8 @@ class Course:
       if continue_with_dirty.lower() != 'y':
         sys.exit("Exiting...")
 
-    print("Initializing course and pulling remote copy of instructors repository...")
+    # PRINT BANNER
+    print(SingleTable([['Initializing Course and Pulling Instructors Repo']]).table)
 
     # pull the latest copy of the repo
     utils.pull_repo(repo_dir=self.working_directory)
@@ -227,7 +228,7 @@ class Course:
       # Figure out which ones are none and let the user know.
       for key, value in required_params.items():
         if value is None:
-          print(f"\"{key}\" is missing.")
+          print(f"    \"{key}\" is missing.")
       sys.exit('Please make sure you have specified all required parameters in your config file.')
 
     #=======================================#
@@ -282,7 +283,7 @@ class Course:
     for key, param in optional_params.items():
       if param.get('value') is None:
         setattr(self, key, param.get('default'))
-        print(f"\"{param.get('config_name')}\" is missing, using default parameter of \"{getattr(self, key)}\"")
+        print(f"    \"{param.get('config_name')}\" is missing, using default parameter of \"{getattr(self, key)}\"")
 
     # Make sure no preceding or trailing slashes in assignment release path
     self.assignment_release_path = re.sub(r"/$", "", self.assignment_release_path)
@@ -401,7 +402,8 @@ class Course:
   def get_external_tool_id(self) -> 'Course': 
     """Find the ID of the external tool created in Canvas that represents your JupyterHub server."""
 
-    print("Looking for the external tool in Canvas...")
+    # PRINT BANNER
+    print(SingleTable([['Finding External Tool in Canvas']]).table)
 
     resp = requests.get(
       url=urlparse.urljoin(
@@ -445,8 +447,9 @@ class Course:
     """
     Get the student list for a course. 
     """
+    # PRINT BANNER
+    print(SingleTable([['Getting Student List From Canvas']]).table)
 
-    print('Querying list of students from Canvas...')
     # List all of the students in the course
     resp = requests.get(
       url=f"{self.canvas_url}/api/v1/courses/{self.course_id}/users",
@@ -501,7 +504,8 @@ class Course:
     Enter information into the nbgrader gradebook database about the assignments and the students.
     """
 
-    print("Syncing your list of students and assignments with nbgrader...")
+    # PRINT BANNER
+    print(SingleTable([['Syncing With NBgrader']]).table)
 
     # nbgrader API docs: 
     # https://nbgrader.readthedocs.io/en/stable/api/gradebook.html#nbgrader.api.Gradebook
@@ -533,19 +537,31 @@ class Course:
       if students_missing_from_nbgrader:
         for student_id in students_missing_from_nbgrader:
           student_status.append(
-            [student_id, "missing from nbgrader", "added to nbgrader"]
+            [
+              student_id,
+              "missing from nbgrader",
+              f"{utils.color.DARKCYAN}added to nbgrader{utils.color.END}"
+            ]
           )
           gradebook.add_student(student_id)
       if students_withdrawn_from_course:
         for student_id in students_withdrawn_from_course:
           gradebook.remove_student(student_id)
           student_status.append(
-            [student_id, "missing from canvas", "removed from nbgrader"]
+            [
+              student_id,
+              "missing from canvas",
+              f"{utils.color.YELLOW}removed from nbgrader{utils.color.END}"
+            ]
           )
       if students_no_change:
         for student_id in students_no_change:
           student_status.append(
-            [student_id, "present in both", " - "]
+            [
+              student_id, 
+              u'\u2713', # unicode checkmark
+              "none"
+            ]
           )
 
       # sort the status list
@@ -553,7 +569,6 @@ class Course:
 
       table = SingleTable(student_header + student_status)
       table.title = 'Students'
-      print("\n")
       print(table.table)
 
       ##################################
@@ -578,18 +593,30 @@ class Course:
         for assignment_name in assignments_missing_from_nbgrader:
           gradebook.add_assignment(assignment_name)
           assignment_status.append(
-            [assignment_name, "missing from nbgrader", "added to nbgrader"]
+            [
+              assignment_name, 
+              "missing from nbgrader", 
+              f"{utils.color.DARKCYAN}added to nbgrader{utils.color.END}"
+            ]
           )
       if assignments_withdrawn_from_config:
         for assignment_name in assignments_withdrawn_from_config:
           gradebook.remove_assignment(assignment_name)
           assignment_status.append(
-            [assignment_name, "missing from config", "removed from nbgrader"]
+            [
+              assignment_name,
+              "missing from config",
+              f"{utils.color.YELLOW}removed from nbgrader{utils.color.END}"
+            ]
           )
       if assignments_no_change:
         for assignment_name in assignments_no_change:
           assignment_status.append(
-            [assignment_name, "present in both", " - "]
+            [
+              assignment_name, 
+              u'\u2713', # unicode checkmark
+              "none"
+            ]
           )
 
       # Finally, sort the status list
@@ -597,18 +624,16 @@ class Course:
 
       table = SingleTable(assignment_header + assignment_status)
       table.title = 'Assignments'
-      print("\n")
       print(table.table)
-      print("\n")
 
     # Always make sure we close the gradebook connection, even if we error
     except Exception as e:
-      print("An error occurred, closing connection to gradebook...")
+      print("    An error occurred, closing connection to gradebook...")
       gradebook.close()
       raise e
 
 
-    print("Closing connection to gradebook...")
+    print("    Closing connection to gradebook...")
     gradebook.close()
     return self
 
@@ -624,6 +649,9 @@ class Course:
     :param overwrite: Whether or not you wish to overwrite preexisting directories
     :type overwrite: bool
     """
+
+    # PRINT BANNER
+    print(SingleTable([['Creating Student Assignments']]).table)
 
     # Make sure we've got assignments to assign
     if not assignments:
@@ -670,7 +698,9 @@ class Course:
     ### FOR LOOP - ASSIGN ASSIGNMENTS ###
 
     # For each assignment, assign!!
+    print('\n')
     print('Creating student versions of assignments with nbgrader...')
+
     for assignment in tqdm(assignments_to_assign): 
 
       # Push the name to our names array for adding to the commit message.
@@ -681,7 +711,8 @@ class Course:
 
     ### END LOOP ###
 
-    print("Copying student versions to your student repository...")
+    print('\n')
+    print('Copying student versions to your student repository...')
 
     # set up directories to copy the assigned assignments to
     generated_assignment_dir = os.path.join(self.working_directory, 'release')
@@ -698,13 +729,14 @@ class Course:
     # exited if we didn't want to
     shutil.copytree(generated_assignment_dir, student_assignment_dir)
 
-    print("Committing changes in your instructor and student repositories...")
+    print('Committing changes in your instructor and student repositories...')
 
     #===========================================#
     # Commit & Push Changes to Instructors Repo #
     #===========================================#
 
     utils.commit_repo(self.working_directory, assignment_names)
+    print('\n')
     utils.push_repo(self.working_directory)
 
     #========================================#
@@ -712,6 +744,7 @@ class Course:
     #========================================#
 
     utils.commit_repo(stu_repo_dir, assignment_names)
+    print('\n')
     utils.push_repo(stu_repo_dir)
 
     return self
@@ -742,7 +775,8 @@ class Course:
     """Create assignments for a course.
     """
 
-    print("Creating assignments (preexisting assignments with the same name will be updated)...")
+    # PRINT BANNER
+    print(SingleTable([['Creating/updating assignments in Canvas']]).table)
 
     # Initialize status table that we can push to as we go
     assignment_header = [
@@ -770,6 +804,10 @@ class Course:
     """
     Schedule assignment grading tasks in crontab. 
     """
+
+    # PRINT BANNER
+    print(SingleTable([['Scheduling Autograding']]).table)
+
     # It would probably make more sense to use `at` instead of `cron` except that:
     # 1. CentOS has `cron` by default, but not `at`
     # 2. The python CronTab module exists to make this process quite easy.

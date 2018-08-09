@@ -102,10 +102,10 @@ def clone_repo(
   # in 'path', leaving 'netloc' an empty string. We can check for that.
   if generate_git_urls(repo_url).get('git_ssh') is not None:
     # SO, if using ssh, go ahead and clone.
-    print('SSH URL detected, assuming SSH keys are accounted for...')
+    print('    SSH URL detected, assuming SSH keys are accounted for...')
     # Need to specify special ssh url
     ssh_url = generate_git_urls(repo_url).get('gitpython_ssh')
-    print(f"Cloning from {ssh_url}...")
+    print(f"    Cloning from {ssh_url}...")
     Repo.clone_from(ssh_url, target_dir)
 
   else:
@@ -156,10 +156,11 @@ def commit_repo(
   # because the output will be consistent as we are always adding ALL changes
   repo_status = re.sub(r"(.*\n)+.+to unstage\)", "", repo.git.status())
   # Strip the whitespace at the beginning of the lines
-  whitespace = re.compile(r"^\s*", re.MULTILINE)
+  # whitespace = re.compile(r"^\s*", re.MULTILINE)
+  whitespace = re.compile(r"^\s*$", re.MULTILINE)
   repo_status = re.sub(whitespace, "", repo_status)
   # And strip any preceding or trailing whitespace
-  print(repo_status.strip())
+  print(repo_status)
 
   # Only commit if status if something to commit
   if re.search('nothing to commit', repo_status) is not None:

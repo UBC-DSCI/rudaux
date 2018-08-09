@@ -371,10 +371,10 @@ class Assignment:
     
     if self.canvas_assignment: 
       self._update_canvas_assignment(self.canvas_assignment.get('id'))
-      return 'updated'
+      return f'{utils.color.PURPLE}updated{utils.color.END}'
     else: 
       self._create_canvas_assignment()
-      return 'created'
+      return f'{utils.color.DARKCYAN}created{utils.color.END}'
 
   def schedule_grading(self) -> 'Assignment':
     """Schedule grading of an assignment.
