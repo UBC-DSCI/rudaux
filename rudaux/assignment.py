@@ -265,10 +265,9 @@ class Assignment:
       params={"search_term": self.name}
     )
 
-    first_result = resp.json()[0]
-
     # Check to see if we found an assignment with this name
     if len(resp.json()) > 0:
+      first_result = resp.json()[0]
       # If we found more than one, let the user know
       if len(resp.json()) > 1:
         print(
@@ -282,6 +281,7 @@ class Assignment:
       return first_result
 
     else: 
+      print(f"No assignment in Canvas named \"{self.name}\"")
       return None
 
     resp.raise_for_status()
