@@ -97,14 +97,12 @@ class Assignment:
     self.name = name
     self.status = status
     # Due date is passed in from config file as a string we need to parse this
-    # and convert it to ISO 8601 format with the course timezone
+    # and convert it to ISO 8601 format with the course timezone. Pendulum will
+    # handle daylight savings time for us!
     self.duedate = pendulum.parse(duedate, tz=self.course.course_timezone)
     # We need to convert the course due date to the server/system due date as
     # well, so that our cron job will run at the correct time.
     self.system_due_date = self.duedate.in_tz(self.course.system_timezone)
-
-    print(f'course due date: {self.duedate}')
-    print(f'system due date: {self.system_due_date}')
     self.points = points
     self.manual = manual
 
@@ -400,14 +398,25 @@ class Assignment:
     #     Find Due Date (Close Time)      #
     # =================================== #
 
+    # NOTE: Because we are SCHEDULING our grading for the server here, 
+    # we need to use the system time, not the course time.
+
     # If we found the assignment in Canvas, we can look for a lock date.
     if hasattr(self, 'canvas_assignment'):
 
       if self.canvas_assignment.get('lock_at') is not None:
-        close_time = parse(self.canvas_assignment.get('lock_at'))
+        # If no timezone, assume course instructor is thinking in terms 
+        # of their own timezone, not UTC
+        close_time = pendulum \
+          .parse(self.canvas_assignment.get('lock_at'), tz=self.course.course_timezone) \
+          .in_tz(self.course.system_timezone)
 
       elif self.canvas_assignment.get('due_at') is not None:
-        close_time = parse(self.canvas_assignment.get('due_at'))
+        # If no timezone, assume course instructor is thinking in terms 
+        # of their own timezone, not UTC
+        close_time = pendulum \
+          .parse(self.canvas_assignment.get('due_at'), tz=self.course.course_timezone) \
+          .in_tz(self.course.system_timezone)
 
     # if both of those came back as none, or we haven't hit the 
     # Canvas API, use our own due date, as determined when the 
@@ -416,8 +425,8 @@ class Assignment:
 
     # Otherwise, check for a due date set from our config file.
     # ('' and None are both Falsey)
-    if (not close_time) and self.duedate is not None:
-      close_time = parse(self.duedate)
+    if (not close_time) and self.system_due_date is not None:
+      close_time = self.system_due_date
 
     # If we STILL haven't found a due date by now, skip scheduling grading!!
     if not close_time:
@@ -434,8 +443,10 @@ class Assignment:
     #     Done looking for due date (close time)     #
     # ============================================== #
 
-    # report the due date/close_time
-    status['close_time'] = close_time
+    # pretty print the due date/close_time in the course timezone
+    status['close_time'] = close_time \
+      .in_tz(self.course.course_timezone) \
+      .to_day_datetime_string()
 
     # Could potentially fall back to closing at course end date, but doesn't seem particularly helpful
     # elif self.course.get('end_at') is not None:
