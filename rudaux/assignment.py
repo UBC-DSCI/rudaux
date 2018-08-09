@@ -410,17 +410,15 @@ class Assignment:
     if hasattr(self, 'canvas_assignment'):
 
       if self.canvas_assignment.get('lock_at') is not None:
-        # If no timezone, assume course instructor is thinking in terms 
-        # of their own timezone, not UTC
+        # Canvas uses UTC
         close_time = pendulum \
-          .parse(self.canvas_assignment.get('lock_at'), tz=self.course.course_timezone) \
+          .parse(self.canvas_assignment.get('lock_at'), tz='UTC') \
           .in_tz(self.course.system_timezone)
 
       elif self.canvas_assignment.get('due_at') is not None:
-        # If no timezone, assume course instructor is thinking in terms 
-        # of their own timezone, not UTC
+        # Canvas uses UTC
         close_time = pendulum \
-          .parse(self.canvas_assignment.get('due_at'), tz=self.course.course_timezone) \
+          .parse(self.canvas_assignment.get('due_at'), tz='UTC') \
           .in_tz(self.course.system_timezone)
 
     # if both of those came back as none, or we haven't hit the 
