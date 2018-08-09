@@ -89,7 +89,7 @@ def clone_repo(
 
   # Finally, make the directory, as we've removed any preexisting ones or
   # exited if we didn't want to
-  os.makedirs(target_dir)
+  # os.makedirs(target_dir)
 
   split_url = urlparse.urlsplit(repo_url)
 
