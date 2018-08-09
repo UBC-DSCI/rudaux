@@ -610,7 +610,7 @@ class Course:
   ):
     """Assign assignments for a course
     
-    :param assignments: The name(s) of the assignment(s) you wish to assign, as a string or list of strings.
+    :param assignments: The name or names of the assignments you wish to assign.
     :type assignments: str, List[str]
     :param overwrite: Whether or not you wish to overwrite preexisting directories
     :type overwrite: bool
@@ -644,6 +644,9 @@ class Course:
     #                Clone Repo             #
     #=======================================#
 
+    #! DEBUG
+    print("About to clone repo.")
+    print(f"{stu_repo_dir} exists? {os.path.exists(stu_repo_dir)}")
     try:
       utils.clone_repo(self.stu_repo_url, stu_repo_dir, overwrite)
     except Exception as e:

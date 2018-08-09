@@ -114,104 +114,103 @@ class Assignment:
 
     return False
 
-  def assign(
-    self,
-    tmp_dir=os.path.join(Path.home(), 'tmp'),
-    overwrite=False,
-    # course=None #? What is the best way to have certain parts of this be abstracted if it's being called from the course object?
-  ) -> 'None':
-    """
-    Assign assignment to students (generate student copy from instructors
-    repository and push to public repository). Only provide SSH URLs if you have
-    an SSH-key within sshd on this machine. Otherwise we will use your Github
-    Personal Access Token.
+  # def assign(
+  #   self,
+  #   tmp_dir=os.path.join(Path.home(), 'tmp'),
+  #   overwrite=False,
+  # ) -> 'None':
+  #   """
+  #   Assign assignment to students (generate student copy from instructors
+  #   repository and push to public repository). Only provide SSH URLs if you have
+  #   an SSH-key within sshd on this machine. Otherwise we will use your Github
+  #   Personal Access Token.
 
-    :param tmp_dir: A temporary directory to clone your instructors repo to. 
-    The default dir is located within the users directory so as to ensure write 
-    permissions. 
-    """
+  #   :param tmp_dir: A temporary directory to clone your instructors repo to. 
+  #   The default dir is located within the users directory so as to ensure write 
+  #   permissions. 
+  #   """
 
-    self.overwrite = overwrite
+  #   self.overwrite = overwrite
 
-    #=======================================#
-    #       Set up Parameters & Config      #
-    #=======================================#
+  #   #=======================================#
+  #   #       Set up Parameters & Config      #
+  #   #=======================================#
 
-    # First things first, make the temporary directories
-    ins_repo_dir = os.path.join(tmp_dir, 'instructors')
-    stu_repo_dir = os.path.join(tmp_dir, 'students')
+  #   # First things first, make the temporary directories
+  #   ins_repo_dir = os.path.join(tmp_dir, 'instructors')
+  #   stu_repo_dir = os.path.join(tmp_dir, 'students')
 
-    #=======================================#
-    #       Clone from Instructors Repo     #
-    #=======================================#
+  #   #=======================================#
+  #   #       Clone from Instructors Repo     #
+  #   #=======================================#
 
-    try:
-      utils.clone_repo(self.course.ins_repo_url, ins_repo_dir, self.overwrite)
-    except Exception as e:
-      print("There was an error cloning your instructors repository")
-      raise e
+  #   try:
+  #     utils.clone_repo(self.course.ins_repo_url, ins_repo_dir, self.overwrite)
+  #   except Exception as e:
+  #     print("There was an error cloning your instructors repository")
+  #     raise e
 
-    #=======================================#
-    #          Make Student Version         #
-    #=======================================#
+  #   #=======================================#
+  #   #          Make Student Version         #
+  #   #=======================================#
 
-    # Make sure we're running our nbgrader commands within our instructors repo.
-    # this will contain our gradebook database, our source directory, and other
-    # things.
-    custom_config = Config()
-    custom_config.CourseDirectory.root = ins_repo_dir
+  #   # Make sure we're running our nbgrader commands within our instructors repo.
+  #   # this will contain our gradebook database, our source directory, and other
+  #   # things.
+  #   custom_config = Config()
+  #   custom_config.CourseDirectory.root = ins_repo_dir
 
-    # use the traitlets Application class directly to load nbgrader config file.
-    # reference:
-    # https://github.com/jupyter/nbgrader/blob/41f52873c690af716c796a6003d861e493d45fea/nbgrader/server_extensions/validate_assignment/handlers.py#L35-L37
-    for config in Application._load_config_files('nbgrader_config', path=ins_repo_dir):
-      # merge it with our custom config
-      custom_config.merge(config)
+  #   # use the traitlets Application class directly to load nbgrader config file.
+  #   # reference:
+  #   # https://github.com/jupyter/nbgrader/blob/41f52873c690af716c796a6003d861e493d45fea/nbgrader/server_extensions/validate_assignment/handlers.py#L35-L37
+  #   for config in Application._load_config_files('nbgrader_config', path=ins_repo_dir):
+  #     # merge it with our custom config
+  #     custom_config.merge(config)
 
-    # set up the nbgrader api with our merged config files
-    nb_api = NbGraderAPI(config=custom_config)
+  #   # set up the nbgrader api with our merged config files
+  #   nb_api = NbGraderAPI(config=custom_config)
 
-    # assign the given assignment!
-    nb_api.assign(self.name)
+  #   # assign the given assignment!
+  #   nb_api.assign(self.name)
 
-    generated_assignment_dir = os.path.join(ins_repo_dir, 'release', self.name)
-    student_assignment_dir = os.path.join(stu_repo_dir, self.name)
-    # make sure we assigned properly
-    if not os.path.exists(generated_assignment_dir):
-      sys.exit(
-        f"nbgrader failed to assign {self.name}, please make sure your directory structure is set up properly in nbgrader"
-      )
+  #   generated_assignment_dir = os.path.join(ins_repo_dir, 'release', self.name)
+  #   student_assignment_dir = os.path.join(stu_repo_dir, self.name)
+  #   # make sure we assigned properly
+  #   if not os.path.exists(generated_assignment_dir):
+  #     sys.exit(
+  #       f"nbgrader failed to assign {self.name}, please make sure your directory structure is set up properly in nbgrader"
+  #     )
 
-    #=======================================#
-    #   Move Assignment to Students Repo    #
-    #=======================================#
+  #   #=======================================#
+  #   #   Move Assignment to Students Repo    #
+  #   #=======================================#
 
-    try:
-      utils.clone_repo(self.course.stu_repo_url, stu_repo_dir, self.overwrite)
-    except Exception as e:
-      print("There was an error cloning your students repository")
-      raise e
+  #   try:
+  #     utils.clone_repo(self.course.stu_repo_url, stu_repo_dir, self.overwrite)
+  #   except Exception as e:
+  #     print("There was an error cloning your students repository")
+  #     raise e
 
-    utils.safely_delete(student_assignment_dir, self.overwrite)
+  #   utils.safely_delete(student_assignment_dir, self.overwrite)
 
-    # Finally, copy to the directory, as we've removed any preexisting ones or
-    # exited if we didn't want to.
-    # shutil.shutil.copytree doesn't need the directory to exist beforehand
-    shutil.copytree(generated_assignment_dir, student_assignment_dir)
+  #   # Finally, copy to the directory, as we've removed any preexisting ones or
+  #   # exited if we didn't want to.
+  #   # shutil.shutil.copytree doesn't need the directory to exist beforehand
+  #   shutil.copytree(generated_assignment_dir, student_assignment_dir)
 
-    #=======================================#
-    #      Push Changes to Students Repo    #
-    #=======================================#
+  #   #=======================================#
+  #   #      Push Changes to Students Repo    #
+  #   #=======================================#
 
-    utils.push_repo(stu_repo_dir)
+  #   utils.push_repo(stu_repo_dir)
 
-    #=======================================#
-    #        Update Assignment Status       #
-    #=======================================#
+  #   #=======================================#
+  #   #        Update Assignment Status       #
+  #   #=======================================#
 
-    self.status = 'assigned'
+  #   self.status = 'assigned'
 
-    return None
+  #   return None
 
   def _generate_launch_url(self):
     """
