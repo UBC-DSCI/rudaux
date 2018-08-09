@@ -424,7 +424,7 @@ class Assignment:
     man_graded = ' -m' if self.manual else ''
 
     # Construct the grade command for cron to run
-    grade_command = f"rudaux grade {self.name} --dir {self.course.working_directory}{man_graded}"
+    grade_command = f"rudaux grade '{self.name}' --dir {self.course.working_directory}{man_graded}"
 
     # Then add our new job
     new_autograde_job = self.course.cron.new(
