@@ -198,8 +198,10 @@ class Course:
           """
         )
 
-      self.stu_git_url = self.stu_repo_url
-      self.ins_git_url = self.ins_repo_url
+    # Since we are using the student repo URL for the Launch URLs 
+    # (i.e. telling nbgitpuller where to find the notebook), 
+    # if the user provided an SSH url, we need the https version as well.
+    self.stu_launch_url = utils.generate_git_urls(self.stu_repo_url).get('plain_https')
 
     #=======================================#
     #       Check For Required Params       #

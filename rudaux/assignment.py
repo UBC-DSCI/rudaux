@@ -234,7 +234,7 @@ class Assignment:
     # Then construct our nbgitpuller custom next parameter
     gitpuller_url = f"{self.course.hub_prefix}/hub/user-redirect/git-pull"
     # Finally, urlencode our repository and add that
-    repo_encoded_url = urlparse.quote_plus(self.course.stu_repo_url)
+    repo_encoded_url = urlparse.quote_plus(self.course.stu_launch_url)
 
     # Finally glue this all together!! Now we just need to add the subpath for each assignment
     launch_url_without_subpath = fr"{launch_url}?custom_next={gitpuller_url}%3Frepo%3D{repo_encoded_url}%26subPath%3D"
