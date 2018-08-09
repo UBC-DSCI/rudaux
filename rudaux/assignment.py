@@ -312,7 +312,7 @@ class Assignment:
       json={
         "assignment": {
           "name": self.name,
-          "due_at": self.duedate,
+          "due_at": self.duedate.to_iso8601_string(),
           "points_possible": self.points,
           "submission_types": ['external_tool'],
           "external_tool_tag_attributes": {
@@ -336,9 +336,6 @@ class Assignment:
     :rtype: None
     """
 
-    print(f"Due date is: {self.duedate}.")
-    print(f"Type of due date is: {type(self.duedate)}.")
-
     resp = requests.put(
       url=urlparse.urljoin(
         self.course.canvas_url,
@@ -350,7 +347,7 @@ class Assignment:
       },
       json={
         "assignment": {
-          "due_at": self.duedate,
+          "due_at": self.duedate.to_iso8601_string(),
           "points_possible": self.points,
           "submission_types": ['external_tool'],
           "external_tool_tag_attributes": {
