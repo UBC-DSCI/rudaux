@@ -374,6 +374,8 @@ class Assignment:
     :rtype: Assignment
     """
 
+    close_time = None
+
     # If we found the assignment in Canvas, we can look for a lock date.
     if hasattr(self, 'canvas_assignment'):
       
@@ -405,7 +407,7 @@ class Assignment:
 
     # Initialize dict for status reporting
     status = {
-      'close_time': close_time if close_time else 'No Due Date'
+      'close_time': close_time
     }
 
     # Check to see if we found any preexisting jobs
