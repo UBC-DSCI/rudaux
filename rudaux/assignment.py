@@ -247,14 +247,6 @@ class Assignment:
 
     return full_launch_url
 
-  def collect(self):
-    """
-    Collect an assignment. Snapshot the ZFS filesystem and copy the notebooks to
-    a docker volume for sandboxed grading.
-    """
-
-    return False
-
   def _search_canvas_assignment(self) -> 'Dict[str, str]':
     """Find a Canvas assignment by its name.
     
@@ -431,7 +423,11 @@ class Assignment:
     else:
       status['action'] = f'{utils.color.DARKCYAN}created{utils.color.END}'
 
-    grade_command = f"rudaux grade --dir {self.course.working_directory} -a {self.name}"
+    # If we require manual grading, set the flag
+    man_graded = ' -m' if self.manual else ''
+
+    # Construct the grade command for cron to run
+    grade_command = f"rudaux grade {self.name} --dir {self.course.working_directory}{man_graded}"
 
     # Then add our new job
     new_autograde_job = self.course.cron.new(
@@ -449,3 +445,30 @@ class Assignment:
       print(new_autograde_job)
     
     return status
+
+  # These functions are intended only to be run from commands.grade(), 
+  # which is intended only to be run from a system-level crontab
+  # OR with sudo permissions.
+  def snapshot_zfs(self):
+    """Snapshot the ZFS filesystem.
+    
+    """
+
+    # construct command for zfs.
+    # ZFS refers to its 'datasets' without a preceding slash
+    dataset = re.sub('^/', '', self.course.storage_path)
+    # we'll name the snapshot after the assignment being graded
+    subprocess.run(["zfs", "snapshot", f"{dataset}@{self.name}"], check=True)
+
+  def collect(self):
+    """
+    Collect an assignment via the nbgrader API.
+    This essentially copies the notebooks to a new location
+    """
+    # copy or nbgrader api collect
+    # if copied, set collected in nbgrader database?
+    # sudo zfs snapshot -r tank/home@thisisatest
+    print('collecting...')
+
+  def grade(self):
+    print('grading...')

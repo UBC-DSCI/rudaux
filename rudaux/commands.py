@@ -1,3 +1,4 @@
+import subprocess
 from rudaux import Course, Assignment
 
 
@@ -37,8 +38,21 @@ def grade(args):
   :param args: Arguments passed in from the command line parser.
   """
 
-  print(args)
+  this_course = Course()
 
-  course = Course()
+  # Subclass assignment for this course:
+  class CourseAssignment(Assignment):
+    course = this_course
 
-  course.schedule_grading()
+  assignment = CourseAssignment(
+    name=args.assignment_name,
+    manual=args.manual,
+    course=None,
+    status='unassigned',
+  )
+
+  if this_course.zfs:
+    assignment.snapshot_zfs()
+
+  assignment.collect()
+  assignment.grade()

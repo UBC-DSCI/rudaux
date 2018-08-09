@@ -53,7 +53,7 @@ init_parser.add_argument(
   dest='directory',
   action='store',
   default=os.getcwd(),
-  help="Specify the directory of your instructor repository containing configuration files."
+  help="The directory containing configuration files."
 )
 
 init_parser.add_argument(
@@ -79,12 +79,22 @@ grade_parser.add_argument(
   type=str,
   help="Name of the assignment to grade."
 )
+
 grade_parser.add_argument(
   '--dir',
   dest='directory',
   action='store',
   default=os.getcwd(),
-  help="Specify the directory of your instructor repository containing configuration files."
+  help="The directory containing configuration files."
+)
+
+grade_parser.add_argument(
+  '--manual',
+  '-m',
+  dest='manual',
+  action='store_true',
+  default=False,
+  help="Manual grading is necessary."
 )
 
 # Parse the arguments!

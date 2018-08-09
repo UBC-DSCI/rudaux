@@ -346,7 +346,10 @@ class Course:
     # self.course = self._get_course()
 
     # Set crontab
-    self.cron = CronTab(user=True)
+    # self.cron = CronTab(user=True)
+    # We need to use the system crontab because we'll be making ZFS snapshots
+    # which requires elevated permissions
+    self.cron = CronTab()
 
     #=======================================#
     #        Instantiate Assignments        #
