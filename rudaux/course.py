@@ -376,8 +376,9 @@ class Course:
       assignment = CourseAssignment(
         name=_assignment.get('name'),
         duedate=_assignment.get('duedate'),
-        # default to 0 points
-        points=_assignment.get('points', 0),
+        duetime=_assignment.get('duetime', '23:59:59'), # default is 1 sec to midnight
+        points=_assignment.get('points', 0), # default is zero points
+        manual=_assignment.get('manual', False), # default is no manual grading
         status='unknown'
       )
       instantiated_assignments.append(assignment)

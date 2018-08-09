@@ -39,6 +39,7 @@ class Assignment:
     self,
     name: str,
     duedate=None,
+    duetime=None,
     points=1,
     manual=False,
     course=None,
@@ -50,6 +51,8 @@ class Assignment:
     :param name: The name of the assignment.
     :type name: str
     :param duedate: The assignment's due date. (default: None)
+    :type duedate: str
+    :param duedate: The assignment's due time. (default: None)
     :type duedate: str
     :param points: The number of points the assignment is worth. (default: 1)
     :type points: int
@@ -96,15 +99,20 @@ class Assignment:
     # First self assign user specified parameters
     self.name = name
     self.status = status
+    self.points = points
+    self.manual = manual
+
+    #============================#
+    #      Datetime Parsing      #
+    #============================#
+
     # Due date is passed in from config file as a string we need to parse this
     # and convert it to ISO 8601 format with the course timezone. Pendulum will
     # handle daylight savings time for us!
-    self.duedate = pendulum.parse(duedate, tz=self.course.course_timezone)
+    self.duedate = pendulum.parse(f"{duedate}T{duetime}", tz=self.course.course_timezone)
     # We need to convert the course due date to the server/system due date as
     # well, so that our cron job will run at the correct time.
     self.system_due_date = self.duedate.in_tz(self.course.system_timezone)
-    self.points = points
-    self.manual = manual
 
     # Only overwrite class property none present. Second check (course is not
     # None) is not necessary, since we should have exited by now if both were
