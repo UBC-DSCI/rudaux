@@ -17,6 +17,8 @@ def initialize_course(args):
 
   course = Course()
 
+  # course.schedule_grading()
+
   course                                   \
     .get_external_tool_id()                \
     .get_students_from_canvas()            \

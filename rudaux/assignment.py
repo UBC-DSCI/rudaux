@@ -305,6 +305,8 @@ class Assignment:
       json={
         "assignment": {
           "name": self.name,
+          "due_at": self.duedate,
+          "points_possible": self.points,
           "submission_types": ['external_tool'],
           "external_tool_tag_attributes": {
             "url": self.launch_url,
@@ -338,6 +340,8 @@ class Assignment:
       },
       json={
         "assignment": {
+          "due_at": self.duedate,
+          "points_possible": self.points,
           "submission_types": ['external_tool'],
           "external_tool_tag_attributes": {
             "url": self.launch_url,
@@ -356,10 +360,10 @@ class Assignment:
     """Update or create an assignment, depending on whether or not it was found
     """
 
-    canvas_assignment = self._search_canvas_assignment()
+    self.canvas_assignment = self._search_canvas_assignment()
     
-    if canvas_assignment: 
-      self._update_canvas_assignment(canvas_assignment.get('id'))
+    if self.canvas_assignment: 
+      self._update_canvas_assignment(self.canvas_assignment.get('id'))
       return 'updated'
     else: 
       self._create_canvas_assignment()
@@ -374,27 +378,52 @@ class Assignment:
     :rtype: Assignment
     """
 
-    close_time = None
+    # Initialize dict for status reporting
+    status = {}
+
+    # Initialize an empty value for close_time
+    close_time = ''
+
+    # =================================== #
+    #     Find Due Date (Close Time)      #
+    # =================================== #
 
     # If we found the assignment in Canvas, we can look for a lock date.
     if hasattr(self, 'canvas_assignment'):
-      
+
       if self.canvas_assignment.get('lock_at') is not None:
         close_time = parse(self.canvas_assignment.get('lock_at'))
 
       elif self.canvas_assignment.get('due_at') is not None:
         close_time = parse(self.canvas_assignment.get('due_at'))
 
+    # if both of those came back as none, or we haven't hit the 
+    # Canvas API, use our own due date, as determined when the 
+    # Assignment was instantiated (with the from the date from
+    # the config object)
+
     # Otherwise, check for a due date set from our config file.
-    elif self.duedate is not None:
+    # ('' and None are both Falsey)
+    if (not close_time) and self.duedate is not None:
       close_time = parse(self.duedate)
 
-    # If neither, let the user know that automated grading is impossible.
-    else:
-      close_time = None
+    # If we STILL haven't found a due date by now, skip scheduling grading!!
+    if not close_time:
       print(
         f'Could not find a due date or lock date for {self.name}, automatic grading will not be scheduled.'
       )
+      status['close_time'] = 'None'
+      status['action'] = 'None'
+      
+      # Exit early if no due date found!
+      return status
+
+    # ============================================== #
+    #     Done looking for due date (close time)     #
+    # ============================================== #
+
+    # report the due date/close_time
+    status['close_time'] = close_time
 
     # Could potentially fall back to closing at course end date, but doesn't seem particularly helpful
     # elif self.course.get('end_at') is not None:
@@ -404,11 +433,6 @@ class Assignment:
 
     # convert generator to list so we can iterate over it multiple times
     existing_jobs = list(self.course.cron.find_comment(f"Autograde {self.name}"))
-
-    # Initialize dict for status reporting
-    status = {
-      'close_time': close_time
-    }
 
     # Check to see if we found any preexisting jobs
     if (len(list(existing_jobs)) > 0):
