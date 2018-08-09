@@ -405,7 +405,7 @@ class Assignment:
 
     # Initialize dict for status reporting
     status = {
-      'close_time': close_time
+      'close_time': close_time if close_time else 'No Due Date'
     }
 
     # Check to see if we found any preexisting jobs
