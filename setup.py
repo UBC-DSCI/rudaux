@@ -1,5 +1,9 @@
 from setuptools import setup, find_packages
 
+requirements = []
+with open('requirements.txt', 'r') as in_:
+  requirements = in_.readlines()
+
 setup(
   name='rudaux',
   version='0.1',
@@ -12,6 +16,7 @@ setup(
   license='BSD',
   packages=find_packages(),
   zip_safe=False,
+  install_requires=requirements,
   # entry_points={
   #   'console_scripts':
   #     [

@@ -5,7 +5,6 @@ import re
 import sys
 import shutil
 import urllib.parse as urlparse
-from github import Github
 from git import Repo
 from typing import List
 

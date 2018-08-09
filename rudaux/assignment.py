@@ -10,8 +10,6 @@ import urllib.parse as urlparse
 
 from dateutil.parser import parse
 from weir import zfs
-from github import Github
-from git import Repo
 from pathlib import Path
 from typing import Union, List, Optional, Dict
 

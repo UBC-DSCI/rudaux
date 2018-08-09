@@ -11,7 +11,6 @@ from pathlib import Path
 # For progress bar
 from tqdm import tqdm
 from weir import zfs
-from github import Github
 from git import Repo
 # For setting up autograding
 from crontab import CronTab
