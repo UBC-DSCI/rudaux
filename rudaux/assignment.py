@@ -8,7 +8,6 @@ import subprocess
 import shutil
 import pendulum
 import time
-import pytz
 import urllib.parse as urlparse
 
 from dateutil.parser import parse
