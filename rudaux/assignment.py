@@ -281,7 +281,6 @@ class Assignment:
       return first_result
 
     else: 
-      print(f"No assignment in Canvas named \"{self.name}\"")
       return None
 
     resp.raise_for_status()
