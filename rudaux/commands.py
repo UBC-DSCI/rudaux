@@ -52,10 +52,7 @@ def grade(args):
   )
 
   if this_course.zfs:
-    try:
-      assignment.snapshot_zfs()
-    except CalledProcessError as e:
-      print(e)
+    assignment.snapshot_zfs()
 
   assignment.collect()
   assignment.grade()

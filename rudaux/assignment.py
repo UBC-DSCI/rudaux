@@ -6,6 +6,7 @@ import os
 import sys
 import subprocess
 import shutil
+import time
 import urllib.parse as urlparse
 
 from dateutil.parser import parse
@@ -455,9 +456,25 @@ class Assignment:
     # construct command for zfs.
     # ZFS refers to its 'datasets' without a preceding slash
     dataset = re.sub('^/', '', self.course.storage_path)
-    # we'll name the snapshot after the assignment being graded
-    #! See how a sudo command runs when it is run from system crontab
-    subprocess.run(["sudo", "zfs", "snapshot", f"{dataset}@{self.name}"], check=True)
+    snapshot_name = f"{dataset}@{self.name}"
+
+    # Now, we can use Weir to check for preexisting snapshots
+    existing_snapshots = zfs.open(dataset).snapshots()
+
+    # The whole reason we are doing this is because our snapshot names must be unique
+    # So if we DO have a hit, there can only be one!
+    preexisting_snapshots = list(filter(lambda snap: snap.name == snapshot_name, existing_snapshots))
+
+    # so if we have a hit, get the date of that snap
+    if len(preexisting_snapshots) > 0:
+      preexisting_snapshot = preexisting_snapshots[0]
+      snap_date = preexisting_snapshot.getprop('creation').get('value')
+      snap_time = time.strftime(r'%Y-%m-%d %H:%M:%S', time.localtime(int(snap_date)))
+      print(f'Using preexisting snapshot for this assignment created at {snap_time} (server time).')
+    else: 
+      # we'll name the snapshot after the assignment being graded
+      #! I feel like we can't run a sudo command from the user crontab
+      subprocess.run(["sudo", "zfs", "snapshot", snapshot_name], check=True)
 
   def collect(self):
     """
