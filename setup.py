@@ -12,12 +12,13 @@ setup(
   license='BSD',
   packages=find_packages(),
   zip_safe=False,
-  entry_points={
-    'console_scripts':
-      [
-        'initialize-course=rudaux.command_line:initialize_course',
-        # 'initialize-course-overwrite=rudaux.command_line:initialize_course_overwrite'
-        'schedule-grading=rudaux.command_line:schedule_grading'
-      ],
-  }
+  # entry_points={
+  #   'console_scripts':
+  #     [
+  #       'initialize-course=rudaux.commands:initialize_course',
+  #       # 'initialize-course-overwrite=rudaux.command_line:initialize_course_overwrite'
+  #       'schedule-grading=rudaux.commands:schedule_grading',
+  #     ],
+  # },
+  scripts=['bin/rudaux']
 )

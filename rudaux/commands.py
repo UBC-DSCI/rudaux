@@ -1,7 +1,7 @@
 from rudaux import Course, Assignment
 
 
-def initialize_course():
+def initialize_course(args):
   """Initialize a course fully. This involves:
   0. Reading your configuration file and ensuring all parameters are valid.
   1. Identifying the tool name used for your JupyterHub installation in Canvas.
@@ -18,12 +18,12 @@ def initialize_course():
     .get_external_tool_id()      \
     .get_students_from_canvas()  \
     .sync_nbgrader()             \
-    .assign_all()                \
+    .assign_all(args.overwrite)  \
     .create_canvas_assignments() \
     .schedule_grading()
 
 
-def schedule_grading():
+def schedule_grading(args):
 
   course = Course()
 

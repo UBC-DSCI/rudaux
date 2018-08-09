@@ -1,0 +1,66 @@
+#!/usr/bin/env python
+
+import os
+# from rudaux import initialize_course, schedule_grading
+from rudaux import commands
+from argparse import ArgumentParser
+
+## Initialize argument parsing
+
+parser = ArgumentParser(
+  description='Manage your JupyterHub/Canvas/nbgrader course with Rudaux.'
+)
+
+## Parameters to specify on any subcommand
+
+parser.add_argument(
+  '--dir',
+  dest='directory',
+  action='store',
+  default=os.getcwd(),
+  help="Specify the directory of your instructor repository containing configuration files."
+)
+
+parser.add_argument(
+  '--overwrite',
+  '-o',
+  dest='overwrite',
+  action='store_true',
+  default=False,
+  help='Suppress overwrite warnings and nuke any existing directories with abandon!'
+)
+
+# Subcommands
+
+subparsers = parser.add_subparsers(
+  title='Subcommands', dest="subparser", help='Commands rudaux can process.'
+)
+
+## Initialize Course
+
+init_parser = subparsers.add_parser('init', help='Initialize or update the course.')
+init_parser.set_defaults(func=commands.initialize_course)
+
+## Grade an assignment
+
+grade_parser = subparsers.add_parser('grade', help='Grade an assignment.')
+grade_parser.set_defaults(func=commands.schedule_grading)
+
+# Grading options
+
+# grade_parser.add_argument(
+#   '--storage',
+#   '-s',
+#   metavar='storage path',
+#   action='store',
+#   type=str,
+#   default='/tank/home',
+#   help="Path to your students' persistent storage."
+# )
+
+# Parse the arguments!
+args = parser.parse_args()
+
+print(args)
+
+args.func(args)

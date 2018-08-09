@@ -5,17 +5,22 @@ import nbgrader
 import os
 import sys
 import subprocess
-import urllib.parse as urlparse
-from dateutil.parser import parse
 import shutil
+import urllib.parse as urlparse
+
+from dateutil.parser import parse
+from weir import zfs
 from github import Github
 from git import Repo
 from pathlib import Path
 from typing import Union, List, Optional, Dict
+
 from nbgrader.apps import NbGraderAPI
 from nbgrader import utils as nbutils
+
 from traitlets.config import Config
 from traitlets.config.application import Application
+
 # Import my own utility functions from this module
 import rudaux
 from rudaux import utils
@@ -385,10 +390,11 @@ class Assignment:
       
       if self.canvas_assignment.get('lock_at') is not None:
         close_time = parse(self.canvas_assignment.get('lock_at'))
+
       elif self.canvas_assignment.get('due_at') is not None:
         close_time = parse(self.canvas_assignment.get('due_at'))
 
-    # Otherwise, check for a due date from our config file.
+    # Otherwise, check for a due date set from our config file.
     elif self.duedate is not None:
       close_time = parse(self.duedate)
 
@@ -399,11 +405,12 @@ class Assignment:
         f'Could not find a due date or lock date for {self.name}, automatic grading will not be scheduled.'
       )
 
-    # Will need course info here
+    # Could potentially fall back to closing at course end date, but doesn't seem particularly helpful
     # elif self.course.get('end_at') is not None:
     #   close_time = parse(self.course['end_at'])
 
-    # * Make sure we don't have a job for this already, and then set it if it's valid
+    # Make sure we don't have a job for this already, and then set it if it's valid
+
     # convert generator to list so we can iterate over it multiple times
     existing_jobs = list(self.course.cron.find_command(f"nbgrader collect {self.name}"))
 
@@ -421,9 +428,14 @@ class Assignment:
     else:
       status['action'] = f'{utils.color.DARKCYAN}created{utils.color.END}'
 
+    # if self.course.zfs: 
+    #   grade_command = f""
+    # else: 
+    #   grade_command = f""
+
     # Then add our new job
     new_autograde_job = self.course.cron.new(
-      command=f"nbgrader collect {self.name}",
+      command=f"zfs snapshot {self.course.storage_path}@{self.name} && nbgrader collect {self.name}",
       comment=f"Autograde {self.name}"
     )
     # Make sure it's valid...

@@ -5,9 +5,7 @@ import sys
 import re
 import shutil
 import textwrap
-import rudaux
 from pathlib import Path
-# Import my custom utiliy functions
 # For parsing assignments from CSV
 # import pandas as pd
 # For progress bar
@@ -32,8 +30,9 @@ from nbgrader import utils as nbutils
 from traitlets.config import Config
 from traitlets.config.application import Application
 
-# from rudaux import rudaux.utils
+# Import my rudaux utils
 import rudaux
+from rudaux import utils
 
 #* All internal _methods() return an object
 
@@ -86,7 +85,7 @@ class Course:
     print("Initializing course and pulling remote copy of instructors repository...")
 
     # pull the latest copy of the repo
-    rudaux.utils.pull_repo(repo_dir=self.working_directory)
+    utils.pull_repo(repo_dir=self.working_directory)
 
     # Make sure we're running our nbgrader commands within our instructors repo.
     # this will contain our gradebook database, our source directory, and other
@@ -151,6 +150,9 @@ class Course:
     self.hub_url = config.get('JupyterHub', {}).get('hub_url')
     # The hub url should have no trailing slash
     self.hub_url = re.sub(r"/$", "", self.hub_url)
+    # Get Storage directory & type
+    self.storage_path = config.get('JupyterHub', {}).get('storage_path', )
+    self.zfs = config.get('JupyterHub', {}).get('zfs') # default is false!
     # Note hub_prefix, not base_url, to avoid any ambiguity
     self.hub_prefix = config.get('JupyterHub', {}).get('base_url')
     # If prefix was set, make sure it has no trailing slash, but a preceding
@@ -244,6 +246,11 @@ class Course:
         "value": self.hub_prefix,
         "default": "",
         "config_name": "JupyterHub.base_url"
+      },
+      "zfs": {
+        "value": self.zfs,
+        "default": False,
+        "config_name": "JupyterHub.zfs"
       },
       "tmp_dir": {
         "value": self.tmp_dir,
@@ -625,7 +632,7 @@ class Course:
     #=======================================#
 
     try:
-      rudaux.utils.clone_repo(self.stu_repo_url, stu_repo_dir, overwrite)
+      utils.clone_repo(self.stu_repo_url, stu_repo_dir, overwrite)
     except Exception as e:
       print("There was an error cloning your student repository")
       raise e
@@ -663,7 +670,7 @@ class Course:
     #========================================#
 
     if os.path.exists(student_assignment_dir):
-      rudaux.utils.safely_delete(student_assignment_dir, overwrite)
+      utils.safely_delete(student_assignment_dir, overwrite)
 
     # Finally, copy to the directory, as we've removed any preexisting ones or
     # exited if we didn't want to
@@ -675,15 +682,15 @@ class Course:
     # Commit & Push Changes to Instructors Repo #
     #===========================================#
 
-    rudaux.utils.commit_repo(self.working_directory, assignment_names)
-    rudaux.utils.push_repo(self.working_directory)
+    utils.commit_repo(self.working_directory, assignment_names)
+    utils.push_repo(self.working_directory)
 
     #========================================#
     # Commit & Push Changes to Students Repo #
     #========================================#
 
-    rudaux.utils.commit_repo(stu_repo_dir, assignment_names)
-    rudaux.utils.push_repo(stu_repo_dir)
+    utils.commit_repo(stu_repo_dir, assignment_names)
+    utils.push_repo(stu_repo_dir)
 
     return self
 
