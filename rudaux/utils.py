@@ -160,8 +160,13 @@ def commit_repo(
   repo_status = re.sub(whitespace, "", repo_status)
   # And strip any preceding or trailing whitespace
   print(repo_status.strip())
-  print(f"assignment names: {' '.join(names)}")
-  repo.git.commit("-m", f"Assigning {' '.join(names)}")
+
+  # Only commit if status if something to commit
+  if re.search('nothing to commit', repo_status) is not None:
+    print(f'Nothing to commit for repo \"{os.path.split(repo_dir)[1]}\".')
+  else:
+    print(f"assignment names: {' '.join(names)}")
+    repo.git.commit("-m", f"Assigning {' '.join(names)}")
 
 
 def push_repo(
