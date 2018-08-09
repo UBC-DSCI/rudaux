@@ -17,13 +17,14 @@ def initialize_course(args):
 
   course = Course()
 
-  course                         \
-    .get_external_tool_id()      \
-    .get_students_from_canvas()  \
-    .sync_nbgrader()             \
-    .assign_all(args.overwrite)  \
-    .create_canvas_assignments() \
-    .schedule_grading()
+  # course                         \
+  #   .get_external_tool_id()      \
+  #   .get_students_from_canvas()  \
+  #   .sync_nbgrader()             \
+  #   .assign_all(args.overwrite)  \
+  #   .create_canvas_assignments() \
+  #   .schedule_grading()
+  course.schedule_grading()
 
 
 def grade(args):

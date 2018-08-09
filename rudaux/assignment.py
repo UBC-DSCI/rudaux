@@ -456,7 +456,8 @@ class Assignment:
     # ZFS refers to its 'datasets' without a preceding slash
     dataset = re.sub('^/', '', self.course.storage_path)
     # we'll name the snapshot after the assignment being graded
-    subprocess.run(["zfs", "snapshot", f"{dataset}@{self.name}"], check=True)
+    #! See how a sudo command runs when it is run from system crontab
+    subprocess.run(["sudo", "zfs", "snapshot", f"{dataset}@{self.name}"], check=True)
 
   def collect(self):
     """
