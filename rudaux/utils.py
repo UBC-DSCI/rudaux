@@ -42,10 +42,11 @@ def safely_delete(path: str, overwrite: bool) -> 'None':
 def generate_git_urls(url):
 
   # If starts with git@, then an SSH GIT URL
-  if re.search(r"^git@", url) is not None:
+  if re.search(r"git@", url) is not None:
     plain_url = re.sub(r"\:", r"/", url)
     plain_url = re.sub(r"git@", r"https://", plain_url)
     plain_url = re.sub(r"\.git$", r"", plain_url)
+
     gitpython_ssh = re.sub(r"\:", r"/", url)
     gitpython_ssh = f"ssh://{gitpython_ssh}"
     return {
@@ -97,25 +98,28 @@ def clone_repo(
 
   split_url = urlparse.urlsplit(repo_url)
 
-  print(f"Cloning from {repo_url}...")
   # If you use `urlparse` on a github ssh string, the entire result gets put
   # in 'path', leaving 'netloc' an empty string. We can check for that.
-  if not split_url.netloc:
+  if generate_git_urls(repo_url).get('git_ssh') is not None:
     # SO, if using ssh, go ahead and clone.
     print('SSH URL detected, assuming SSH keys are accounted for...')
     # Need to specify special ssh url
     ssh_url = generate_git_urls(repo_url).get('gitpython_ssh')
+    print(f"Cloning from {ssh_url}...")
     Repo.clone_from(ssh_url, target_dir)
 
-  # Otherwise, we can get the github username from the API and use username/PAT
-  # combo to authenticate.
-  # elif github_pat is not None:
-  #   github_username = find_github_username(repo_url, github_pat)
-  #   repo_url_auth = f"https://{github_username}:{github_pat}@{split_url.netloc}{split_url.path}.git"
-  # # Otherwise we can just prompt for user/pass
-  # else:
-  repo_url_auth = f"https://{split_url.netloc}{split_url.path}.git"
-  Repo.clone_from(repo_url_auth, target_dir)
+  else:
+    # Otherwise, we can get the github username from the API and use username/PAT
+    # combo to authenticate.
+    # elif github_pat is not None:
+    #   github_username = find_github_username(repo_url, github_pat)
+    #   repo_url_auth = f"https://{github_username}:{github_pat}@{split_url.netloc}{split_url.path}.git"
+    # # Otherwise we can just prompt for user/pass
+    # else:
+    repo_url_auth = f"https://{split_url.netloc}{split_url.path}.git"
+
+    print(f"Cloning from {repo_url}...")
+    Repo.clone_from(repo_url_auth, target_dir)
 
   return None
 
