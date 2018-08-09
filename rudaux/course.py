@@ -4,6 +4,7 @@ import os
 import sys
 import re
 import shutil
+import pendulum
 import textwrap
 from pathlib import Path
 # For parsing assignments from CSV
@@ -166,6 +167,9 @@ class Course:
     self.tmp_dir = config.get('Course', {}).get('tmp_dir')
     assignment_list = config.get('Course', {}).get('assignments')
 
+    self.course_timezone = config.get('Course', {}).get('timezone')
+    self.system_timezone = pendulum.now(tz='local').timezone.name
+
     ## Repurpose the rest of the params for later batches
     ## (Hang onto them in case we need something)
 
@@ -252,6 +256,11 @@ class Course:
         "value": self.zfs,
         "default": False,
         "config_name": "JupyterHub.zfs"
+      },
+      "course_timezone": {
+        "value": self.course_timezone,
+        "default": 'US/Pacific',
+        "config_name": "Course.timezone"
       },
       "tmp_dir": {
         "value": self.tmp_dir,

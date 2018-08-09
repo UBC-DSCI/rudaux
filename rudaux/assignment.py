@@ -6,7 +6,9 @@ import os
 import sys
 import subprocess
 import shutil
+import pendulum
 import time
+import pytz
 import urllib.parse as urlparse
 
 from dateutil.parser import parse
@@ -95,7 +97,15 @@ class Assignment:
     # First self assign user specified parameters
     self.name = name
     self.status = status
-    self.duedate = duedate
+    # Due date is passed in from config file as a string we need to parse this
+    # and convert it to ISO 8601 format with the course timezone
+    self.duedate = pendulum.parse(duedate, tz=self.course.course_timezone)
+    # We need to convert the course due date to the server/system due date as
+    # well, so that our cron job will run at the correct time.
+    self.system_due_date = self.duedate.in_tz(self.course.system_timezone)
+
+    print(f'course due date: {self.duedate}')
+    print(f'system due date: {self.system_due_date}')
     self.points = points
     self.manual = manual
 
@@ -328,6 +338,9 @@ class Assignment:
     :return: No return, called for side-effects.
     :rtype: None
     """
+
+    print(f"Due date is: {self.duedate}.")
+    print(f"Type of due date is: {type(self.duedate)}.")
 
     resp = requests.put(
       url=urlparse.urljoin(

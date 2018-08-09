@@ -1,8 +1,10 @@
 GitPython==2.1.11
 nbgrader==0.5.4
+pendulum==2.0.3
 pytest==3.6.3
 python-crontab==2.3.4
 python-dateutil==2.7.3
+pytzdata==2018.5
 requests==2.19.1
 terminaltables==3.1.0
 tqdm==4.23.4
