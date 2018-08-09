@@ -348,7 +348,7 @@ class Course:
     # self.cron = CronTab(user=True)
     # We need to use the system crontab because we'll be making ZFS snapshots
     # which requires elevated permissions
-    self.cron = CronTab()
+    self.cron = CronTab(user=True)
 
     #=======================================#
     #        Instantiate Assignments        #
@@ -513,9 +513,11 @@ class Course:
 
       students_no_change = set(canvas_student_ids).union(set(nb_student_ids))
 
-      student_status = [
+      student_header = [
         ["Student ID", "Status", "Action"]
       ]
+
+      student_status = []
 
       if students_missing_from_nbgrader:
         for student_id in students_missing_from_nbgrader:
@@ -535,7 +537,10 @@ class Course:
             [student_id, "present in both", " - "]
           )
 
-      table = SingleTable(student_status)
+      # sort the status list
+      student_status = sorted(student_status, key=lambda k: k[0]) 
+
+      table = SingleTable(student_header + student_status)
       table.title = 'Students'
       print("\n")
       print(table.table)
@@ -552,12 +557,13 @@ class Course:
 
       assignments_no_change = set(config_assignments).union(set(nb_assignments))
 
-      assignment_status = [
+      assignment_header = [
         ["Assignment", "Status", "Action"]
       ]
 
+      assignment_status = []
+
       if assignments_missing_from_nbgrader:
-        print("Assignments missing from nbgrader, adding...")
         for assignment_name in assignments_missing_from_nbgrader:
           gradebook.add_assignment(assignment_name)
           assignment_status.append(
@@ -575,7 +581,10 @@ class Course:
             [assignment_name, "present in both", " - "]
           )
 
-      table = SingleTable(assignment_status)
+      # Finally, sort the status list
+      assignment_status = sorted(assignment_status, key=lambda k: k[0]) 
+
+      table = SingleTable(assignment_header + assignment_status)
       table.title = 'Assignments'
       print("\n")
       print(table.table)
@@ -725,16 +734,21 @@ class Course:
     print("Creating assignments (preexisting assignments with the same name will be updated)...")
 
     # Initialize status table that we can push to as we go
-    assignment_status = [
+    assignment_header = [
       ['Assignment', 'Action']
     ]
+
+    assignment_status = []
 
     for assignment in tqdm(self.assignments):
       status = assignment.update_or_create_canvas_assignment()
       assignment_status.append([assignment.name, status])
 
+    # Sort statuses
+    assignment_status = sorted(assignment_status, key=lambda k: k[0]) 
+
     ## Print status for reporting:
-    table = SingleTable(assignment_status)
+    table = SingleTable(assignment_header + assignment_status)
     table.title = 'Assignments'
     print("\n")
     print(table.table)
