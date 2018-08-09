@@ -103,13 +103,13 @@ def clone_repo(
 
   # Otherwise, we can get the github username from the API and use username/PAT
   # combo to authenticate.
-  elif github_pat is not None:
-    github_username = find_github_username(repo_url, github_pat)
-    repo_url_auth = f"https://{github_username}:{github_pat}@{split_url.netloc}{split_url.path}.git"
-  # Otherwise we can just prompt for user/pass
-  else:
-    repo_url_auth = f"https://{split_url.netloc}{split_url.path}.git"
-    Repo.clone_from(repo_url_auth, target_dir)
+  # elif github_pat is not None:
+  #   github_username = find_github_username(repo_url, github_pat)
+  #   repo_url_auth = f"https://{github_username}:{github_pat}@{split_url.netloc}{split_url.path}.git"
+  # # Otherwise we can just prompt for user/pass
+  # else:
+  repo_url_auth = f"https://{split_url.netloc}{split_url.path}.git"
+  Repo.clone_from(repo_url_auth, target_dir)
 
   return None
 
@@ -202,29 +202,29 @@ def push_repo(
   return None
 
 
-def find_github_username(url: str, pat: str) -> 'str':
-  """Find a github username through the github api.
-  
-  :param url: Any github or github enterprise url.
-  :type url: str
-  :param pat: A personal access token for the account in question.
-  :type pat: str
-  :return: The username of the PAT holder.
-  :rtype: str
-  """
+# def find_github_username(url: str, pat: str) -> 'str':
+#   """Find a github username through the github api.
 
-  split_url = urlparse.urlsplit(url)
-  # If we're trying to clone from github.com...
-  if split_url.netloc == 'github.com':
-    # Github() default is api.github.com
-    github_username = Github(pat).get_user().login
-  # Otherwise, use the GHE Domain
-  else:
-    github_username = Github(
-      base_url=urlparse.urljoin(url, "/api/v3"), login_or_token=pat
-    ).get_user().login
+#   :param url: Any github or github enterprise url.
+#   :type url: str
+#   :param pat: A personal access token for the account in question.
+#   :type pat: str
+#   :return: The username of the PAT holder.
+#   :rtype: str
+#   """
 
-  return github_username
+#   split_url = urlparse.urlsplit(url)
+#   # If we're trying to clone from github.com...
+#   if split_url.netloc == 'github.com':
+#     # Github() default is api.github.com
+#     github_username = Github(pat).get_user().login
+#   # Otherwise, use the GHE Domain
+#   else:
+#     github_username = Github(
+#       base_url=urlparse.urljoin(url, "/api/v3"), login_or_token=pat
+#     ).get_user().login
+
+#   return github_username
 
 
 class color:
