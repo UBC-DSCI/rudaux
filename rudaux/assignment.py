@@ -376,7 +376,7 @@ class Assignment:
       self._create_canvas_assignment()
       return 'created'
 
-  def schedule_assignment_grading(self) -> 'Assignment':
+  def schedule_grading(self) -> 'Assignment':
     """Schedule grading of an assignment.
     
     :param cron: Crontab of your server
@@ -412,30 +412,30 @@ class Assignment:
     # Make sure we don't have a job for this already, and then set it if it's valid
 
     # convert generator to list so we can iterate over it multiple times
-    existing_jobs = list(self.course.cron.find_command(f"nbgrader collect {self.name}"))
+    existing_jobs = list(self.course.cron.find_comment(f"Autograde {self.name}"))
 
     # Initialize dict for status reporting
     status = {
       'close_time': close_time
     }
+
     # Check to see if we found any preexisting jobs
     if (len(list(existing_jobs)) > 0):
       status['action'] = f'{utils.color.PURPLE}updated{utils.color.END}'
+
       # if so, delete the previously scheduled jobs before setting a new command
       for job in existing_jobs:  
         self.course.cron.remove(job)
+
     # Otherwise just go ahead and set the job
     else:
       status['action'] = f'{utils.color.DARKCYAN}created{utils.color.END}'
 
-    # if self.course.zfs: 
-    #   grade_command = f""
-    # else: 
-    #   grade_command = f""
+    grade_command = f"rudaux grade --dir {self.course.working_directory} -a {self.name}"
 
     # Then add our new job
     new_autograde_job = self.course.cron.new(
-      command=f"zfs snapshot {self.course.storage_path}@{self.name} && nbgrader collect {self.name}",
+      command=grade_command,
       comment=f"Autograde {self.name}"
     )
     # Make sure it's valid...

@@ -11,24 +11,31 @@ parser = ArgumentParser(
   description='Manage your JupyterHub/Canvas/nbgrader course with Rudaux.'
 )
 
-## Parameters to specify on any subcommand
+## Parameters to specify on ANY subcommand
 
-parser.add_argument(
-  '--dir',
-  dest='directory',
-  action='store',
-  default=os.getcwd(),
-  help="Specify the directory of your instructor repository containing configuration files."
-)
+# Actually, I've opted just to specify these for each subparser, as it makes
+# more sense to run:
+# command subcommand -options
 
-parser.add_argument(
-  '--overwrite',
-  '-o',
-  dest='overwrite',
-  action='store_true',
-  default=False,
-  help='Suppress overwrite warnings and nuke any existing directories with abandon!'
-)
+# than it does to run:
+# command -options subcommand
+
+# parser.add_argument(
+#   '--dir',
+#   dest='directory',
+#   action='store',
+#   default=os.getcwd(),
+#   help="Specify the directory of your instructor repository containing configuration files."
+# )
+
+# parser.add_argument(
+#   '--overwrite',
+#   '-o',
+#   dest='overwrite',
+#   action='store_true',
+#   default=False,
+#   help='Suppress overwrite warnings and nuke any existing directories with abandon!'
+# )
 
 # Subcommands
 
@@ -41,26 +48,50 @@ subparsers = parser.add_subparsers(
 init_parser = subparsers.add_parser('init', help='Initialize or update the course.')
 init_parser.set_defaults(func=commands.initialize_course)
 
+init_parser.add_argument(
+  '--dir',
+  dest='directory',
+  action='store',
+  default=os.getcwd(),
+  help="Specify the directory of your instructor repository containing configuration files."
+)
+
+init_parser.add_argument(
+  '--overwrite',
+  '-o',
+  dest='overwrite',
+  action='store_true',
+  default=False,
+  help='Suppress overwrite warnings and nuke any existing directories with abandon!'
+)
+
 ## Grade an assignment
 
 grade_parser = subparsers.add_parser('grade', help='Grade an assignment.')
-grade_parser.set_defaults(func=commands.schedule_grading)
+grade_parser.set_defaults(func=commands.grade)
 
 # Grading options
 
-# grade_parser.add_argument(
-#   '--storage',
-#   '-s',
-#   metavar='storage path',
-#   action='store',
-#   type=str,
-#   default='/tank/home',
-#   help="Path to your students' persistent storage."
-# )
+grade_parser.add_argument(
+  'assignment_name',
+  metavar='name',
+  action='store',
+  type=str,
+  help="Name of the assignment to grade."
+)
+grade_parser.add_argument(
+  '--dir',
+  dest='directory',
+  action='store',
+  default=os.getcwd(),
+  help="Specify the directory of your instructor repository containing configuration files."
+)
 
 # Parse the arguments!
 args = parser.parse_args()
 
-print(args)
-
-args.func(args)
+if args.subparser is not None:
+  args.func(args)
+else:
+  # Otherwise, no subcommand was called, so raise help
+  args = parser.parse_known_args(['-h'])

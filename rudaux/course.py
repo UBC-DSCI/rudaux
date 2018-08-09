@@ -757,7 +757,7 @@ class Course:
     # Reference: https://community.canvaslms.com/docs/DOC-10327-415273044
 
     for assignment in tqdm(self.assignments):
-      status = assignment.schedule_assignment_grading()
+      status = assignment.schedule_grading()
       scheduling_status.append([
         assignment.name,
         status.get('close_time'),

@@ -2,7 +2,7 @@ from rudaux import Course, Assignment
 
 
 def initialize_course(args):
-  """Initialize a course fully. This involves:
+  """Fully Initialize a course. This involves:
   0. Reading your configuration file and ensuring all parameters are valid.
   1. Identifying the tool name used for your JupyterHub installation in Canvas.
   2. Pulling your student list from Canvas.  
@@ -10,6 +10,8 @@ def initialize_course(args):
   4. Assigning all of the assignments listed in your config file.
   5. Creating the assignments listed in your config file in Canvas.
   6. Schedule automated grading of your assignments.
+
+  :param args: Arguments passed in from the command line parser.
   """
 
   course = Course()
@@ -23,7 +25,19 @@ def initialize_course(args):
     .schedule_grading()
 
 
-def schedule_grading(args):
+def grade(args):
+  """Grade an assignment.
+  1. If we are using a ZFS storage system, snapshot with ZFS.
+  2. ? Copy to a temporary directory
+  3. Collect assignments with nbgrader
+  4. Grade assignments with nbgrader
+  5. If no manual input, generate forms
+  6. If no manual input, return forms and submit grades
+  
+  :param args: Arguments passed in from the command line parser.
+  """
+
+  print(args)
 
   course = Course()
 
