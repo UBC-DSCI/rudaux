@@ -98,7 +98,8 @@ def clone_repo(
   if not split_url.netloc:
     # SO, if using ssh, go ahead and clone.
     print('SSH URL detected, assuming SSH keys are accounted for...')
-    Repo.clone_from(repo_url, target_dir)
+    # Need to specify ssh protocol
+    Repo.clone_from(f"ssh://{repo_url}", target_dir)
 
   # Otherwise, we can get the github username from the API and use username/PAT
   # combo to authenticate.
