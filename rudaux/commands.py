@@ -1,4 +1,4 @@
-import subprocess
+from subprocess import CalledProcessError
 from rudaux import Course, Assignment
 
 
@@ -52,7 +52,10 @@ def grade(args):
   )
 
   if this_course.zfs:
-    assignment.snapshot_zfs()
+    try:
+      assignment.snapshot_zfs()
+    except CalledProcessError as e:
+      print(e)
 
   assignment.collect()
   assignment.grade()
