@@ -644,9 +644,6 @@ class Course:
     #                Clone Repo             #
     #=======================================#
 
-    #! DEBUG
-    print("About to clone repo.")
-    print(f"{stu_repo_dir} exists? {os.path.exists(stu_repo_dir)}")
     try:
       utils.clone_repo(self.stu_repo_url, stu_repo_dir, overwrite)
     except Exception as e:

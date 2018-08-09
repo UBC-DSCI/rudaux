@@ -85,13 +85,7 @@ def clone_repo(
   :type target_dir: str
   """
 
-  #! DEBUG
-  print(f"About to delete repo.")
-  print(f"{target_dir} exists? {os.path.exists(target_dir)}")
   safely_delete(target_dir, overwrite)
-  #! DEBUG
-  print(f"Repo has been deleted.")
-  print(f"{target_dir} exists? {os.path.exists(target_dir)}")
   # Finally, make the directory, as we've removed any preexisting ones or
   # exited if we didn't want to
   # os.makedirs(target_dir)
@@ -104,9 +98,6 @@ def clone_repo(
   if not split_url.netloc:
     # SO, if using ssh, go ahead and clone.
     print('SSH URL detected, assuming SSH keys are accounted for...')
-    #! DEBUG
-    print(f"About to clone repo.")
-    print(f"{target_dir} exists? {os.path.exists(target_dir)}")
     Repo.clone_from(repo_url, target_dir)
 
   # Otherwise, we can get the github username from the API and use username/PAT
