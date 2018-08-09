@@ -25,6 +25,7 @@ def safely_delete(path: str, overwrite: bool) -> 'None':
   if os.path.exists(path):
     # If we allowed for overwriting, just go ahead and remove the directory
     if overwrite:
+      print(f'Deleting {path}...')
       shutil.rmtree(path)
     # Otherwise, ask first
     else:
