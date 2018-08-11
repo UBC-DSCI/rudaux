@@ -498,43 +498,97 @@ class Assignment:
   # These functions are intended only to be run from commands.grade(), 
   # which is intended only to be run from a system-level crontab
   # OR with sudo permissions.
-  def snapshot_zfs(self):
-    """Snapshot the ZFS filesystem.
+  # def snapshot_zfs(self):
+  #   """Snapshot the ZFS filesystem.
     
-    """
+  #   """
 
-    # construct command for zfs.
-    # ZFS refers to its 'datasets' without a preceding slash
-    dataset = re.sub('^/', '', self.course.storage_path)
-    snapshot_name = f"{dataset}@{self.name}"
+  #   # construct command for zfs.
+  #   # ZFS refers to its 'datasets' without a preceding slash
+  #   dataset = re.sub('^/', '', self.course.storage_path)
+  #   snapshot_name = f"{dataset}@{self.name}"
 
-    # Now, we can use Weir to check for preexisting snapshots
-    existing_snapshots = zfs.open(dataset).snapshots()
+  #   # Now, we can use Weir to check for preexisting snapshots
+  #   existing_snapshots = zfs.open(dataset).snapshots()
 
-    # The whole reason we are doing this is because our snapshot names must be unique
-    # So if we DO have a hit, there can only be one!
-    preexisting_snapshots = list(filter(lambda snap: snap.name == snapshot_name, existing_snapshots))
+  #   # The whole reason we are doing this is because our snapshot names must be unique
+  #   # So if we DO have a hit, there can only be one!
+  #   preexisting_snapshots = list(filter(lambda snap: snap.name == snapshot_name, existing_snapshots))
 
-    # so if we have a hit, get the date of that snap
-    if len(preexisting_snapshots) > 0:
-      preexisting_snapshot = preexisting_snapshots[0]
-      snap_date = preexisting_snapshot.getprop('creation').get('value')
-      snap_time = time.strftime(r'%Y-%m-%d %H:%M:%S', time.localtime(int(snap_date)))
-      print(f'Using preexisting snapshot for this assignment created at {snap_time} (server time).')
-    else: 
-      # we'll name the snapshot after the assignment being graded
-      #! I feel like we can't run a sudo command from the user crontab
-      subprocess.run(["sudo", "zfs", "snapshot", snapshot_name], check=True)
+  #   # so if we have a hit, get the date of that snap
+  #   if len(preexisting_snapshots) > 0:
+  #     preexisting_snapshot = preexisting_snapshots[0]
+  #     snap_date = preexisting_snapshot.getprop('creation').get('value')
+  #     snap_time = time.strftime(r'%Y-%m-%d %H:%M:%S', time.localtime(int(snap_date)))
+  #     print(f'Using preexisting snapshot for this assignment created at {snap_time} (server time).')
+  #   else: 
+  #     # we'll name the snapshot after the assignment being graded
+  #     #! I feel like we can't run a sudo command from the user crontab
+  #     subprocess.run(["sudo", "zfs", "snapshot", snapshot_name], check=True)
 
   def collect(self):
     """
     Collect an assignment via the nbgrader API.
     This essentially copies the notebooks to a new location
     """
-    # copy or nbgrader api collect
-    # if copied, set collected in nbgrader database?
-    # sudo zfs snapshot -r tank/home@thisisatest
-    print('collecting...')
+
+    try:
+      student_ids = map(lambda stu: stu.get('id'), self.course.students)
+    except Exception:
+      sys.exit("No students found. Please run `course.get_students_from_canvas()` before collecting an assignment.")
+
+    if self.course.zfs:
+      # This is the snapshot name for this assignment. This may be an hourly
+      # snapshot that corresponds to the due date, or it might be the
+      # assignment name.
+      snapshot_name = self.name
+      zfs_path = os.path.join(
+        '.zfs', 
+        'snapshot', 
+        snapshot_name
+      )
+
+    # get the assignment path for each student ID in Canvas
+    for student_id in student_ids:
+
+      student_path = os.path.join(self.course.storage_path, student_id)
+
+      # If zfs, use the student + zfs + assignment name path
+      if self.course.zfs:
+        assignment_path = os.path.join(
+          student_path, 
+          zfs_path, 
+          self.name
+        )
+      # otherwise just use the student's work directly
+      else:
+        assignment_path = os.path.join(
+          student_path, 
+          self.name
+        )
+      # then copy the work into the submitted directory + student_id + assignment_name
+      shutil.copytree(
+        assignment_path, 
+        os.path.join(
+          self.course.working_directory, 
+          'submitted',
+          student_id
+        )
+      )
+
+    # Finally, collect the assignment
+    res = self.course.nb_api.collect(self.name)
+
+    if res.get('success'):
+      print(f'Successfully collected {self.name}.')
+    if res.get('error') is not None:
+      print(f'There was an error collecting {self.name}.')
+      print(res.get('error'))
+    if res.get('log') is not None:
+      print(f'Log result of collecting {self.name}.')
+      print(res.get('log'))
+
+    return self
 
   def grade(self):
     print('grading...')
