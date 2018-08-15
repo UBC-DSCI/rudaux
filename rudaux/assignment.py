@@ -337,6 +337,8 @@ class Assignment:
     )
     resp.raise_for_status()
 
+    return resp.json()
+
   def _update_canvas_assignment(self, assignment_id: int) -> 'None':
     """
     Update an assignment.
@@ -374,6 +376,8 @@ class Assignment:
     # Make sure our request didn't fail silently
     resp.raise_for_status()
 
+    return resp.json()
+
   def update_or_create_canvas_assignment(self) -> 'str':
     """Update or create an assignment, depending on whether or not it was found
     """
@@ -381,10 +385,10 @@ class Assignment:
     self.canvas_assignment = self._search_canvas_assignment()
     
     if self.canvas_assignment: 
-      self._update_canvas_assignment(self.canvas_assignment.get('id'))
+      self.canvas_assignment = self._update_canvas_assignment(self.canvas_assignment.get('id'))
       return f'{utils.color.PURPLE}updated{utils.color.END}'
     else: 
-      self._create_canvas_assignment()
+      self.canvas_assignment = self._create_canvas_assignment()
       return f'{utils.color.DARKCYAN}created{utils.color.END}'
 
   def schedule_grading(self) -> 'Assignment':
@@ -409,8 +413,17 @@ class Assignment:
     # NOTE: Because we are SCHEDULING our grading for the server here, 
     # we need to use the system time, not the course time.
 
+    # if both of those came back as none, or we haven't hit the 
+    # Canvas API, use our own due date, as determined when the 
+    # Assignment was instantiated (with the from the date from
+    # the config object)
+
+    # Use system due date before checking for canvas_assignment.
+    if self.system_due_date is not None:
+      close_time = self.system_due_date
+
     # If we found the assignment in Canvas, we can look for a lock date.
-    if hasattr(self, 'canvas_assignment') and self.canvas_assignment is not None:
+    elif hasattr(self, 'canvas_assignment') and self.canvas_assignment is not None:
 
       if self.canvas_assignment.get('lock_at') is not None:
         # Canvas uses UTC
@@ -423,16 +436,6 @@ class Assignment:
         close_time = pendulum \
           .parse(self.canvas_assignment.get('due_at'), tz='UTC') \
           .in_tz(self.course.system_timezone)
-
-    # if both of those came back as none, or we haven't hit the 
-    # Canvas API, use our own due date, as determined when the 
-    # Assignment was instantiated (with the from the date from
-    # the config object)
-
-    # Otherwise, check for a due date set from our config file.
-    # ('' and None are both Falsey)
-    if (not close_time) and self.system_due_date is not None:
-      close_time = self.system_due_date
 
     # If we STILL haven't found a due date by now, skip scheduling grading!!
     if not close_time:
@@ -732,7 +735,7 @@ class Assignment:
     utils.commit_repo(self.course.working_directory, 'message')
     print('\n')
     utils.push_repo(self.course.working_directory)
-    
+
     return self
 
   def submit(self):
