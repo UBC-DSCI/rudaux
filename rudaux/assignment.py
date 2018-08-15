@@ -407,7 +407,7 @@ class Assignment:
     # we need to use the system time, not the course time.
 
     # If we found the assignment in Canvas, we can look for a lock date.
-    if hasattr(self, 'canvas_assignment'):
+    if hasattr(self, 'canvas_assignment') and self.canvas_assignment is not None:
 
       if self.canvas_assignment.get('lock_at') is not None:
         # Canvas uses UTC
