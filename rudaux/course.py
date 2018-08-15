@@ -137,7 +137,8 @@ class Course:
       try:
         # expand home user in-place
         config['Exchange']['root'] = os.path.expanduser(config['Exchange']['root'])
-
+      except:
+        pass
 
     ## CANVAS PARAMS
 
