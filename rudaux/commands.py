@@ -16,7 +16,7 @@ def initialize_course(args):
   :param args: Arguments passed in from the command line parser.
   """
 
-  course = Course(args.directory)
+  course = Course(course_dir=args.directory, cron=args.cron)
 
   # course.schedule_grading()
 
@@ -41,7 +41,7 @@ def grade(args):
   :param args: Arguments passed in from the command line parser.
   """
 
-  this_course = Course(args.directory)
+  this_course = Course(course_dir=args.directory, cron=args.cron)
 
   this_course = this_course                \
     .get_external_tool_id()                \

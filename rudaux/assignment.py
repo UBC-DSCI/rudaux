@@ -483,7 +483,7 @@ class Assignment:
     man_graded = ' -m' if self.manual else ''
 
     # Construct the grade command for cron to run
-    grade_command = f"rudaux grade '{self.name}' "          + \
+    grade_command = f"rudaux grade '{self.name}' --cron "   + \
       f"--dir {self.course.working_directory}{man_graded} " + \
       f">> {self.course.working_directory}"                 + \
       f"/{close_time_course_time.format('YYYY-MM-DD-HHmm')}-autograde-{self.name}.log"

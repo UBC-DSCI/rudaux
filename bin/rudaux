@@ -57,6 +57,15 @@ init_parser.add_argument(
 )
 
 init_parser.add_argument(
+  '--cron',
+  '-c',
+  dest='cron',
+  action='store_true',
+  default=False,
+  help='Tell rudaux this is not an interactive shell, do not prompt!'
+)
+
+init_parser.add_argument(
   '--overwrite',
   '-o',
   dest='overwrite',
@@ -86,6 +95,15 @@ grade_parser.add_argument(
   action='store',
   default=os.getcwd(),
   help="The directory containing configuration files."
+)
+
+grade_parser.add_argument(
+  '--cron',
+  '-c',
+  dest='cron',
+  action='store_true',
+  default=False,
+  help='Tell rudaux this is not an interactive shell, do not prompt!'
 )
 
 grade_parser.add_argument(
