@@ -649,12 +649,17 @@ class Assignment:
           student_id=student_id
         )
       # except NbGraderException:
-      # Can't seem to get this exception to fail, so fail on all
+      # I believe NbGraderException is implemented poorly, and thus isn't being caught properly
       except:
-        print(res.get('error'))
-        assn_grade_status.append([student_id, f'{utils.color.RED}failure{utils.color.END}'])
+        # This will never get triggered
+        pass
       else:
-        assn_grade_status.append([student_id, f'{utils.color.GREEN}success{utils.color.END}'])
+        # Handle everything here:
+        if res.get('error') is not None:
+          print(res.get('error'))
+          assn_grade_status.append([student_id, f'{utils.color.RED}failure{utils.color.END}'])
+        else:
+          assn_grade_status.append([student_id, f'{utils.color.GREEN}success{utils.color.END}'])
 
     table = SingleTable(assn_grade_header + assn_grade_status)
     table.title = 'Assignment Grading'
