@@ -665,8 +665,14 @@ class Assignment:
     table.title = 'Assignment Grading'
     print(table.table)
 
-    # Commit repo
-    # Push repo
+    #===========================================#
+    # Commit & Push Changes to Instructors Repo #
+    #===========================================#
+
+    utils.commit_repo(self.course.working_directory, 'message')
+    print('\n')
+    utils.push_repo(self.course.working_directory)
+
     return self
 
   def feedback(self):
@@ -704,8 +710,14 @@ class Assignment:
     table.title = 'Assignment Feedback'
     print(table.table)
 
-    # Commit Repo
-    # Push Repo
+    #===========================================#
+    # Commit & Push Changes to Instructors Repo #
+    #===========================================#
+
+    utils.commit_repo(self.course.working_directory, 'message')
+    print('\n')
+    utils.push_repo(self.course.working_directory)
+    
     return self
 
   def submit(self):

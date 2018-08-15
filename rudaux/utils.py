@@ -137,14 +137,14 @@ def pull_repo(repo_dir: str, branch='master', remote='origin') -> 'None':
 
 def commit_repo(
   repo_dir: str,
-  names: List[str],
+  message: str,
 ):
   """Commit all changes to a specified repository.
   
   :param repo_dir: The location of the repository on the disk you wish to commit changes to and push to its remote.
   :type repo_dir: str
-  :param names: The names of the assignments you are pushing
-  :type names: list
+  :param message: The commit message for your 
+  :type names: str
   :returns: Nothing, side effects performed.
   :rtype: None
   """
@@ -167,8 +167,8 @@ def commit_repo(
   if re.search('nothing to commit', repo_status) is not None:
     print(f'Nothing to commit for repo \"{os.path.split(repo_dir)[1]}\".')
   else:
-    print(f"assignment names: {' '.join(names)}")
-    repo.git.commit("-m", f"Assigning {' '.join(names)}")
+    print(message)
+    repo.git.commit("-m", message)
 
 
 def push_repo(
