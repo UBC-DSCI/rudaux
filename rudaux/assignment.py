@@ -549,7 +549,9 @@ class Assignment:
         snapshot_name
       )
 
-    assignment_collection_header = ['Student ID', 'Collection Status']
+    assignment_collection_header = [
+      ['Student ID', 'Collection Status']
+    ]
     assignment_collection_status = []
 
     # get the assignment path for each student ID in Canvas
@@ -616,7 +618,9 @@ class Assignment:
     This essentially run `nbgrader autograde`.
     """
 
-    assn_grade_header = ['Student ID', 'Grading Status']
+    assn_grade_header = [
+      ['Student ID', 'Grading Status']
+    ]
     assn_grade_status = []
 
     try:
@@ -651,7 +655,9 @@ class Assignment:
     Generate feedback reports for student assignments.  
     """
 
-    assn_feedback_header = ['Student ID', 'Feedback Status']
+    assn_feedback_header = [
+      ['Student ID', 'Feedback Status']
+    ]
     assn_feedback_status = []  
 
     try:
