@@ -18,10 +18,10 @@ from typing import Union, List, Optional, Dict
 
 from nbgrader.apps import NbGraderAPI
 from nbgrader import utils as nbutils
+import nbgrader.converters.base as nbbase
 
 from traitlets.config import Config
 from traitlets.config.application import Application
-
 
 # Import my own utility functions from this module
 import rudaux
@@ -643,12 +643,11 @@ class Assignment:
           assignment_id=self.name,
           student_id=student_id
         )
-      except Exception:
+      # fail on anything!
+      except nbbase.NbGraderException:
         print(res.get('error'))
         assn_grade_status.append([student_id, f'{utils.color.RED}failure{utils.color.END}'])
       else:
-        print(res.get('error'))
-        print(res.get('success'))
         assn_grade_status.append([student_id, f'{utils.color.GREEN}success{utils.color.END}'])
 
     table = SingleTable(assn_grade_header + assn_grade_status)
