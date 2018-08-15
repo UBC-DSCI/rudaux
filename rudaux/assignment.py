@@ -585,9 +585,9 @@ class Assignment:
       # if no assignment for that student, fail
       #* NOTE: could also be due to incorrect directory structure.
       except FileNotFoundError:
-        assignment_collection_status.append(student_id, 'failure')
+        assignment_collection_status.append([student_id, 'failure'])
       else: 
-        assignment_collection_status.append(student_id, 'success')
+        assignment_collection_status.append([student_id, 'success'])
 
     table = SingleTable(assignment_collection_header + assignment_collection_status)
     table.title = 'Assignment Collection'
