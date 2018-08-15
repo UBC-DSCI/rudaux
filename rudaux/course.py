@@ -221,7 +221,7 @@ class Course:
 
     #! this is cheating a bit, but we can get the repo name this way
     #! Fix me in the future
-    self.stu_repo_name = os.path.split(self.stu_launch_url.get('plain_https'))[1]
+    self.stu_repo_name = os.path.split(self.stu_launch_url)[1]
 
     #=======================================#
     #       Check For Required Params       #
