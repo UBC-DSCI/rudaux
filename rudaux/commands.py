@@ -40,16 +40,16 @@ def grade(args):
   :param args: Arguments passed in from the command line parser.
   """
 
-  course = Course()
+  this_course = Course()
 
-  course                                   \
+  this_course = this_course                \
     .get_external_tool_id()                \
     .get_students_from_canvas()            \
     .sync_nbgrader()
 
   # Subclass assignment for this course:
   class CourseAssignment(Assignment):
-    course = course
+    course = this_course
 
   assignment = CourseAssignment(
     name=args.assignment_name,
