@@ -692,7 +692,7 @@ class Assignment:
     # Commit & Push Changes to Instructors Repo #
     #===========================================#
 
-    utils.commit_repo(self.course.working_directory, 'message')
+    utils.commit_repo(self.course.working_directory, f'Autograded {self.name}')
     print('\n')
     utils.push_repo(self.course.working_directory)
 
@@ -737,7 +737,7 @@ class Assignment:
     # Commit & Push Changes to Instructors Repo #
     #===========================================#
 
-    utils.commit_repo(self.course.working_directory, 'message')
+    utils.commit_repo(self.course.working_directory, f"Generated feedback for {self.name}")
     print('\n')
     utils.push_repo(self.course.working_directory)
 
