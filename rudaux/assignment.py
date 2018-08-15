@@ -595,17 +595,18 @@ class Assignment:
     table.title = 'Assignment Collection'
     print(table.table)
 
+    # What I just did WAS collecting the assignment.
     # Finally, collect the assignment
-    res = self.course.nb_api.collect(self.name)
+    # res = self.course.nb_api.collect(self.name)
 
-    if res.get('success'):
-      print(f'Successfully collected {self.name}.')
-    if res.get('error') is not None:
-      print(f'There was an error collecting {self.name}.')
-      print(res.get('error'))
-    if res.get('log') is not None:
-      print(f'Log result of collecting {self.name}.')
-      print(res.get('log'))
+    # if res.get('success'):
+    #   print(f'Successfully collected {self.name}.')
+    # if res.get('error') is not None:
+    #   print(f'There was an error collecting {self.name}.')
+    #   print(res.get('error'))
+    # if res.get('log') is not None:
+    #   print(f'Log result of collecting {self.name}.')
+    #   print(res.get('log'))
 
     # Commit repo
     # Push Repo
