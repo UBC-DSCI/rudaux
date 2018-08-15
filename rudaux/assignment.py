@@ -635,58 +635,37 @@ class Assignment:
   def grade(self):
     """
     Autograde an assignment via the nbgrader API.
-    This essentially run `nbgrader autograde`.
+    This runs `nbgrader autograde` within a docker container.
     """
 
     print(utils.banner(f"Autograding {self.name}"))
 
-    assn_grade_header = [
-      ['Student ID', 'Grading Status']
-    ]
-    assn_grade_status = []
-
     try:
-      student_ids = map(lambda stu: stu.get('id'), self.course.students)
-    except Exception:
-      sys.exit("No students found. Please run `course.get_students_from_canvas()` before collecting an assignment.")
-
-    for student_id in student_ids:
-      try:
-        subprocess.run(
-          [
-            "docker",
-            "run",
-            "--rm",
-            "-u",
-            "jupyter",
-            "-v",
-            f"/home/jupyter/{self.course.ins_repo_name}:/assignments/",
-            self.course.grading_image,
-            "autograde",
-            self.name
-          ],
-          check=True
-        )
-        # res = self.course.nb_api.autograde(
-        #   assignment_id=self.name,
-        #   student_id=student_id
-        # )
-      # except NbGraderException:
-      # I believe there is something wrong with the NbGraderException
-      # implementation, and thus isn't being caught properly
-      except subprocess.CalledProcessError:
-        assn_grade_status.append([student_id, f'{utils.color.RED}failure{utils.color.END}'])
-      else:
-        # # Handle everything here:
-        # if res.get('error') is not None:
-        #   print(res.get('error'))
-        #   assn_grade_status.append([student_id, f'{utils.color.RED}failure{utils.color.END}'])
-        # else:
-          assn_grade_status.append([student_id, f'{utils.color.GREEN}success{utils.color.END}'])
-
-    table = SingleTable(assn_grade_header + assn_grade_status)
-    table.title = 'Assignment Grading'
-    print(table.table)
+      res = subprocess.run(
+        [
+          "docker",
+          "run",
+          "--rm",
+          "-u",
+          "jupyter",
+          "-v",
+          f"/home/jupyter/{self.course.ins_repo_name}:/assignments/",
+          self.course.grading_image,
+          "autograde",
+          self.name
+        ],
+        check=True
+      )
+    except subprocess.CalledProcessError:
+      print(f"Error autograding {self.name}")
+      if res.stderr:
+        print(res.stderr)
+    else: 
+      if res.returncode != 0:
+        print(f"Unspecified error autograding {self.name}")
+        print(res.stdout)
+      else: 
+        print(f"Successfully autograded {self.name}")
 
     #===========================================#
     # Commit & Push Changes to Instructors Repo #
