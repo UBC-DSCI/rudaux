@@ -587,9 +587,9 @@ class Assignment:
       # if no assignment for that student, fail
       #* NOTE: could also be due to incorrect directory structure.
       except FileNotFoundError:
-        assignment_collection_status.append([student_id, 'failure'])
+        assignment_collection_status.append([student_id, f'{utils.color.RED}success{utils.color.END}'])
       else: 
-        assignment_collection_status.append([student_id, 'success'])
+        assignment_collection_status.append([student_id, f'{utils.color.GREEN}success{utils.color.END}'])
 
     table = SingleTable(assignment_collection_header + assignment_collection_status)
     table.title = 'Assignment Collection'
@@ -634,10 +634,10 @@ class Assignment:
         student_id=student_id
       )
       if res.get('success'):
-        assn_grade_status.append([student_id, 'success'])
+        assn_grade_status.append([student_id, f'{utils.color.GREEN}success{utils.color.END}'])
       elif res.get('error') is not None:
         print(res.get('error'))
-        assn_grade_status.append([student_id, 'failure'])
+        assn_grade_status.append([student_id, f'{utils.color.RED}failure{utils.color.END}'])
       else:
         print(res.get('log'))
         assn_grade_status.append([student_id, 'error (see log)'])
@@ -671,10 +671,10 @@ class Assignment:
         student_id=student_id
       )
       if res.get('success'):
-        assn_feedback_status.append([student_id, 'success'])
+        assn_feedback_status.append([student_id, f'{utils.color.GREEN}success{utils.color.END}'])
       elif res.get('error') is not None:
         print(res.get('error'))
-        assn_feedback_status.append([student_id, 'failure'])
+        assn_feedback_status.append([student_id, f'{utils.color.RED}success{utils.color.END}'])
       else:
         print(res.get('log'))
         assn_feedback_status.append([student_id, 'error (see log)'])
