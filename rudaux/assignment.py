@@ -661,15 +661,15 @@ class Assignment:
         check=True
       )
     except subprocess.CalledProcessError:
-      print(f"Error autograding {self.name}")
+      print(f"{utils.color.RED}Error autograding {self.name}{utils.color.END}")
       if res.stderr:
         print(res.stderr)
     else: 
       if res.returncode != 0:
-        print(f"Unspecified error autograding {self.name}")
+        print(f"{utils.color.RED}Unspecified error autograding {self.name}{utils.color.END}")
         print(res.stdout)
       else: 
-        print(f"Successfully autograded {self.name}")
+        print(f"{utils.color.GREEN}Successfully autograded {self.name}{utils.color.END}")
 
     #===========================================#
     # Commit & Push Changes to Instructors Repo #
