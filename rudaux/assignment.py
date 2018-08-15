@@ -10,6 +10,7 @@ import pendulum
 import time
 import urllib.parse as urlparse
 
+from terminaltables import AsciiTable, SingleTable
 from dateutil.parser import parse
 from weir import zfs
 from pathlib import Path
@@ -548,6 +549,9 @@ class Assignment:
         snapshot_name
       )
 
+    assignment_collection_header = ['Student ID', 'Collection Status']
+    assignment_collection_status = []
+
     # get the assignment path for each student ID in Canvas
     for student_id in student_ids:
 
@@ -578,11 +582,16 @@ class Assignment:
             student_id
           )
         )
-      # make sure we've got our directories correct
-      except FileNotFoundError as e:
-        print("We had trouble locating your students' assignment.")
-        # and fail loudly if not
-        raise e
+      # if no assignment for that student, fail
+      #* NOTE: could also be due to incorrect directory structure.
+      except FileNotFoundError:
+        assignment_collection_status.append(student_id, 'failure')
+      else: 
+        assignment_collection_status.append(student_id, 'success')
+
+    table = SingleTable(assignment_collection_header + assignment_collection_status)
+    table.title = 'Assignment Collection'
+    print(table.table)
 
     # Finally, collect the assignment
     res = self.course.nb_api.collect(self.name)
