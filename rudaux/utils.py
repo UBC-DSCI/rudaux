@@ -7,6 +7,7 @@ import shutil
 import urllib.parse as urlparse
 from git import Repo
 from typing import List
+from terminaltables import SingleTable
 
 # The functions here are not attached to a class as per advice:
 # https://stackoverflow.com/questions/19620498/how-to-create-an-utility-class-correctly
@@ -277,3 +278,12 @@ def _generate_sections_of_url(url: str):
     # Insert at the beginning to keep the proper url order
     sections.insert(0, temp[1])
   return sections
+
+
+def banner(message: str):
+  """Generate a banner message.
+  
+  :param message: The banner header text.
+  :type message: str
+  """
+  return SingleTable([[message]]).table

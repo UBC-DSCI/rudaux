@@ -535,6 +535,8 @@ class Assignment:
     This essentially copies the notebooks to a new location
     """
 
+    print(utils.banner(f"Collecting {self.name}"))
+
     try:
       student_ids = map(lambda stu: stu.get('id'), self.course.students)
     except Exception:
@@ -628,6 +630,8 @@ class Assignment:
     This essentially run `nbgrader autograde`.
     """
 
+    print(utils.banner(f"Autograding {self.name}"))
+
     assn_grade_header = [
       ['Student ID', 'Grading Status']
     ]
@@ -664,6 +668,8 @@ class Assignment:
     """
     Generate feedback reports for student assignments.  
     """
+
+    print(utils.banner(f"Generating Feedback for {self.name}"))
 
     assn_feedback_header = [
       ['Student ID', 'Feedback Status']

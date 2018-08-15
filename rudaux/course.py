@@ -419,7 +419,7 @@ class Course:
     """Find the ID of the external tool created in Canvas that represents your JupyterHub server."""
 
     # PRINT BANNER
-    print(SingleTable([['Finding External Tool in Canvas']]).table)
+    print(utils.banner('Finding External Tool in Canvas'))
 
     resp = requests.get(
       url=urlparse.urljoin(
@@ -464,7 +464,7 @@ class Course:
     Get the student list for a course. 
     """
     # PRINT BANNER
-    print(SingleTable([['Getting Student List From Canvas']]).table)
+    print(utils.banner('Getting Student List From Canvas'))
 
     # List all of the students in the course
     resp = requests.get(
@@ -521,7 +521,7 @@ class Course:
     """
 
     # PRINT BANNER
-    print(SingleTable([['Syncing With NBgrader']]).table)
+    print(utils.banner('Syncing With NBgrader'))
 
     # nbgrader API docs: 
     # https://nbgrader.readthedocs.io/en/stable/api/gradebook.html#nbgrader.api.Gradebook
@@ -667,7 +667,7 @@ class Course:
     """
 
     # PRINT BANNER
-    print(SingleTable([['Creating Student Assignments']]).table)
+    print(utils.banner('Creating Student Assignments'))
 
     # Make sure we've got assignments to assign
     if not assignments:
@@ -792,7 +792,7 @@ class Course:
     """
 
     # PRINT BANNER
-    print(SingleTable([['Creating/updating assignments in Canvas']]).table)
+    print(utils.banner('Creating/updating assignments in Canvas'))
 
     # Initialize status table that we can push to as we go
     assignment_header = [
@@ -822,7 +822,7 @@ class Course:
     """
 
     # PRINT BANNER
-    print(SingleTable([['Scheduling Autograding']]).table)
+    print(utils.banner('Scheduling Autograding'))
 
     # It would probably make more sense to use `at` instead of `cron` except that:
     # 1. CentOS has `cron` by default, but not `at`
