@@ -73,7 +73,7 @@ def grade(args):
     .collect()              \
     .grade()
 
-  if not args.manual:
-    assignment = assignment \
-      .feedback()           \
-      .submit()
+  # if not args.manual:
+  #   assignment = assignment \
+  #     .feedback()           \
+  #     .submit()
