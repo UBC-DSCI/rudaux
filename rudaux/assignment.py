@@ -453,9 +453,10 @@ class Assignment:
     # ============================================== #
 
     # pretty print the due date/close_time in the course timezone
-    status['close_time'] = close_time \
-      .in_tz(self.course.course_timezone) \
-      .to_day_datetime_string()
+    close_time_course_time = close_time   \
+      .in_tz(self.course.course_timezone)
+
+    status['close_time'] = close_time_course_time.to_day_datetime_string()
 
     # Could potentially fall back to closing at course end date, but doesn't seem particularly helpful
     # elif self.course.get('end_at') is not None:
@@ -482,7 +483,11 @@ class Assignment:
     man_graded = ' -m' if self.manual else ''
 
     # Construct the grade command for cron to run
-    grade_command = f"rudaux grade '{self.name}' --dir {self.course.working_directory}{man_graded}"
+    grade_command = f"rudaux grade '{self.name}' "          + \
+      f"--dir {self.course.working_directory}{man_graded} " + \
+      f">> {self.course.working_directory}"                 + \
+      f"/{close_time_course_time.format('YYYY-MM-DD-HHmm')}-autograde-{self.name}.log"
+      # Make sure we log the results!
 
     # Then add our new job
     new_autograde_job = self.course.cron.new(
