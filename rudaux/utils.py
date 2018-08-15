@@ -6,6 +6,7 @@ import sys
 import shutil
 import urllib.parse as urlparse
 from git import Repo
+from git.exc import GitCommandError
 from typing import List
 from terminaltables import SingleTable
 
@@ -132,7 +133,11 @@ def pull_repo(repo_dir: str, branch='master', remote='origin') -> 'None':
   :rtype: None
   """
   repo = Repo(repo_dir)
-  repo.git.pull(remote, branch)
+  try:
+    repo.git.pull(remote, branch)
+  except GitCommandError as e:
+    print(f"There was an error pulling {repo_dir}.")
+    print(e)
 
 
 def commit_repo(
@@ -152,7 +157,11 @@ def commit_repo(
   # instantiate our repository
   repo = Repo(repo_dir)
   # add all changes
-  repo.git.add("--all")  # or A=True
+  try:
+    repo.git.add("--all")  # or A=True
+  except GitCommandError as e:
+    print(f"There was an error adding changes to {repo_dir}.")
+    print(e)
   # get repo status with frontmatter removed. We can use regex for this
   # because the output will be consistent as we are always adding ALL changes
   repo_status = re.sub(r"(.*\n)+.+to unstage\)", "", repo.git.status())
@@ -168,7 +177,11 @@ def commit_repo(
     print(f'Nothing to commit for repo \"{os.path.split(repo_dir)[1]}\".')
   else:
     print(message)
-    repo.git.commit("-m", message)
+    try:
+      repo.git.commit("-m", message)
+    except GitCommandError as e:
+      print(f"There was an error committing changes in {repo_dir}.")
+      print(e)
 
 
 def push_repo(
@@ -195,7 +208,12 @@ def push_repo(
   # instantiate our repository
   repo = Repo(repo_dir)
   print(f"Pushing changes on {branch} to {remote}...")
-  repo.git.push(remote, branch)
+
+  try:
+    repo.git.push(remote, branch)
+  except GitCommandError as e:
+    print(f"There was an error pushing {repo_dir}.")
+    print(e)
 
   # split_url = urlparse.urlsplit(repo_url)
   # if not split_url.netloc:
