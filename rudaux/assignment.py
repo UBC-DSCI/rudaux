@@ -571,18 +571,26 @@ class Assignment:
         # Check that we're using ZFS
         assignment_path = os.path.join(
           student_path, 
-          zfs_path
-          # self.name
+          zfs_path,
+          self.name
         )
       # otherwise just use the student's work directly
       else:
         assignment_path = os.path.join(
-          student_path
-          # self.name
+          student_path,
+          self.name
         )
 
-      submission_path = os.path.join(self.course.working_directory, 'submitted', student_id)
+      submission_path = os.path.join(self.course.working_directory, 'submitted', student_id, self.name)
       # then copy the work into the submitted directory + student_id + assignment_name
+
+      # Since we're JUST copying the current assignment, we can safely overwrite it
+      try:
+        shutil.rmtree(submission_path)
+      # Doesn't matter if it doesn't exist though
+      except:
+        pass
+
       try:
         shutil.copytree(assignment_path, submission_path)
       # if no assignment for that student, fail
