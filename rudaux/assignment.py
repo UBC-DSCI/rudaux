@@ -605,6 +605,9 @@ class Assignment:
       print(f'Log result of collecting {self.name}.')
       print(res.get('log'))
 
+    # Commit repo
+    # Push Repo
+
     return self
 
   def grade(self):
@@ -639,6 +642,10 @@ class Assignment:
     table.title = 'Assignment Grading'
     print(table.table)
 
+    # Commit repo
+    # Push repo
+    return self
+
   def feedback(self):
     """
     Generate feedback reports for student assignments.  
@@ -669,6 +676,10 @@ class Assignment:
     table = SingleTable(assn_feedback_header + assn_feedback_status)
     table.title = 'Assignment Feedback'
     print(table.table)
+
+    # Commit Repo
+    # Push Repo
+    return self
 
   def submit(self):
     """

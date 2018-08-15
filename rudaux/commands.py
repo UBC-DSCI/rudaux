@@ -69,9 +69,11 @@ def grade(args):
   #   status='unassigned',
   # )
 
-  assignment.collect()
-  assignment.grade()
+  assignment = assignment   \
+    .grade()                \
+    .collect()
 
   if not args.manual:
-    assignment.feedback()
-    assignment.submit()
+    assignment = assignment \
+      .feedback()           \
+      .submit()
