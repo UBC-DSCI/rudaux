@@ -483,7 +483,10 @@ class Assignment:
     man_graded = ' -m' if self.manual else ''
 
     # Construct the grade command for cron to run
-    grade_command = f"bash -l -c \" "                       + \
+    grade_command = f"bash -l -c \""                        + \
+      "eval `ssh-agent` && "                                + \
+      "ssh-add /home/jupyter/.ssh/instructors && "          + \
+      "ssh-add /home/jupyter/.ssh/students && "             + \
       f"rudaux grade '{self.name}' --cron "                 + \
       f"--dir {self.course.working_directory}{man_graded} " + \
       f">> {self.course.working_directory}"                 + \
