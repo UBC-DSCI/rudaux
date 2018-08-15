@@ -644,21 +644,36 @@ class Assignment:
 
     for student_id in student_ids:
       try:
-        res = self.course.nb_api.autograde(
-          assignment_id=self.name,
-          student_id=student_id
+        subprocess.run(
+          [
+            "docker",
+            "run",
+            "--rm",
+            "-u",
+            "jupyter",
+            "-v",
+            f"/home/jupyter/{self.course.ins_repo_name}:/assignments/",
+            self.course.grading_image,
+            "autograde",
+            self.name
+          ],
+          check=True
         )
+        # res = self.course.nb_api.autograde(
+        #   assignment_id=self.name,
+        #   student_id=student_id
+        # )
       # except NbGraderException:
-      # I believe NbGraderException is implemented poorly, and thus isn't being caught properly
-      except:
-        # This will never get triggered
-        pass
+      # I believe there is something wrong with the NbGraderException
+      # implementation, and thus isn't being caught properly
+      except subprocess.CalledProcessError:
+        assn_grade_status.append([student_id, f'{utils.color.RED}failure{utils.color.END}'])
       else:
-        # Handle everything here:
-        if res.get('error') is not None:
-          print(res.get('error'))
-          assn_grade_status.append([student_id, f'{utils.color.RED}failure{utils.color.END}'])
-        else:
+        # # Handle everything here:
+        # if res.get('error') is not None:
+        #   print(res.get('error'))
+        #   assn_grade_status.append([student_id, f'{utils.color.RED}failure{utils.color.END}'])
+        # else:
           assn_grade_status.append([student_id, f'{utils.color.GREEN}success{utils.color.END}'])
 
     table = SingleTable(assn_grade_header + assn_grade_status)

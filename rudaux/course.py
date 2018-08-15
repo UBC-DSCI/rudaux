@@ -176,6 +176,7 @@ class Course:
 
     ## COURSE PARAMS
 
+    self.grading_image = config.get('Course', {}).get('grading_image')
     self.tmp_dir = config.get('Course', {}).get('tmp_dir')
     assignment_list = config.get('Course', {}).get('assignments')
 
@@ -213,15 +214,6 @@ class Course:
           {value}
           """
         )
-
-    # Since we are using the student repo URL for the Launch URLs 
-    # (i.e. telling nbgitpuller where to find the notebook), 
-    # if the user provided an SSH url, we need the https version as well.
-    self.stu_launch_url = utils.generate_git_urls(self.stu_repo_url).get('plain_https')
-
-    #! this is cheating a bit, but we can get the repo name this way
-    #! Fix me in the future
-    self.stu_repo_name = os.path.split(self.stu_launch_url)[1]
 
     #=======================================#
     #       Check For Required Params       #
@@ -278,6 +270,11 @@ class Course:
         "default": 'US/Pacific',
         "config_name": "Course.timezone"
       },
+      "grading_image": {
+        "value": self.grading_image,
+        "default": 'ubcdsci/r-dsci-grading',
+        "config_name": "Course.grading_image"
+      },
       "tmp_dir": {
         "value": self.tmp_dir,
         "default": os.path.join(Path.home(), 'tmp'),
@@ -304,49 +301,15 @@ class Course:
     self.assignment_release_path = re.sub(r"/$", "", self.assignment_release_path)
     self.assignment_release_path = re.sub(r"^/", "", self.assignment_release_path)
 
-    # check for tokens
-    # github_token_name = config.get('GitHub').get('github_token_name')
-    # token_names = config.get('GitHub').get('token_names')
-        
-    # #=======================================#
-    # #           Set GitHub Token            #
-    # #=======================================#
+    # Since we are using the student repo URL for the Launch URLs 
+    # (i.e. telling nbgitpuller where to find the notebook), 
+    # if the user provided an SSH url, we need the https version as well.
+    self.stu_launch_url = utils.generate_git_urls(self.stu_repo_url).get('plain_https')
 
-    # # If the config file specifies multiple tokens, use those
-    # if token_names is not None:
-    #   # instantiate our token object as empty
-    #   self.tokens = []
-    #   # Then for each token specified...
-    #   for token_name in token_names:
-    #     # Create a token object with the domain and token necessary
-    #     self.tokens.append({
-    #       "domain": token_name.get('domain'),
-    #       "token": self._get_token(token_name.get('token_name'))
-    #     })
-    # # otherwise we'll use the same token for both github domains
-    # else:
-    #   if github_token_name is None:
-    #     self.github_tokens = None
-    #     # Only look for PAT if it is specified by the user
-    #     # This way we can prompt for user/pass if no token is available
-    #       # if the user didn't specify a token_name, use 'GITHUB_PAT'
-    #       # print("Searching for default GitHub token, GITHUB_PAT...")
-    #       # github_token_name = 'GITHUB_PAT'
-    #   else: 
-    #     # get the single token we'll be using
-    #     token = self._get_token(github_token_name)
-
-    #     # Then specify that we're using the same token for each domain
-    #     self.github_tokens = [
-    #       {
-    #         "domain": urlparse.urlsplit(self.stu_repo_url).netloc,
-    #         "token": token
-    #       }, 
-    #       {
-    #         "domain": urlparse.urlsplit(self.ins_repo_url).netloc,
-    #         "token": token
-    #       }
-    #     ]
+    #! this is cheating a bit, but we can get the repo name this way
+    #! Fix me in the future
+    self.ins_repo_name = os.path.split(utils.generate_git_urls(self.ins_repo_url).get('plain_https'))[1]
+    self.stu_repo_name = os.path.split(self.stu_launch_url)[1]
 
     #=======================================#
     #           Set Canvas Token            #
@@ -751,7 +714,7 @@ class Course:
     # Commit & Push Changes to Instructors Repo #
     #===========================================#
 
-    utils.commit_repo(self.working_directory, assignment_names)
+    utils.commit_repo(self.working_directory, f"Assigning {' '.join(assignment_names)}")
     print('\n')
     utils.push_repo(self.working_directory)
 
@@ -759,7 +722,7 @@ class Course:
     # Commit & Push Changes to Students Repo #
     #========================================#
 
-    utils.commit_repo(stu_repo_dir, assignment_names)
+    utils.commit_repo(stu_repo_dir, f"Assigning {' '.join(assignment_names)}")
     print('\n')
     utils.push_repo(stu_repo_dir)
 
