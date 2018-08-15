@@ -613,6 +613,9 @@ class Assignment:
     This essentially run `nbgrader autograde`.
     """
 
+    assn_grade_header = ['Student ID', 'Grading Status']
+    assn_grade_status = []
+
     try:
       student_ids = map(lambda stu: stu.get('id'), self.course.students)
     except Exception:
@@ -624,18 +627,26 @@ class Assignment:
         student_id=student_id
       )
       if res.get('success'):
-        print(f'Successfully autograded {self.name} for {student_id}.')
-      if res.get('error') is not None:
-        print(f'There was an error autograding {self.name} for {student_id}.')
+        assn_grade_status.append([student_id, 'success'])
+      elif res.get('error') is not None:
         print(res.get('error'))
-      if res.get('log') is not None:
-        print(f'Log result of autograding {self.name} for {student_id}.')
+        assn_grade_status.append([student_id, 'failure'])
+      else:
         print(res.get('log'))
+        assn_grade_status.append([student_id, 'error (see log)'])
+
+    table = SingleTable(assn_grade_header + assn_grade_status)
+    table.title = 'Assignment Grading'
+    print(table.table)
 
   def feedback(self):
     """
     Generate feedback reports for student assignments.  
     """
+
+    assn_feedback_header = ['Student ID', 'Feedback Status']
+    assn_feedback_status = []  
+
     try:
       student_ids = map(lambda stu: stu.get('id'), self.course.students)
     except Exception:
@@ -647,13 +658,17 @@ class Assignment:
         student_id=student_id
       )
       if res.get('success'):
-        print(f'Successfully autograded {self.name} for {student_id}.')
-      if res.get('error') is not None:
-        print(f'There was an error autograding {self.name} for {student_id}.')
+        assn_feedback_status.append([student_id, 'success'])
+      elif res.get('error') is not None:
         print(res.get('error'))
-      if res.get('log') is not None:
-        print(f'Log result of autograding {self.name} for {student_id}.')
+        assn_feedback_status.append([student_id, 'failure'])
+      else:
         print(res.get('log'))
+        assn_feedback_status.append([student_id, 'error (see log)'])
+
+    table = SingleTable(assn_feedback_header + assn_feedback_status)
+    table.title = 'Assignment Feedback'
+    print(table.table)
 
   def submit(self):
     """
