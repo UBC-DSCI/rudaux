@@ -219,6 +219,10 @@ class Course:
     # if the user provided an SSH url, we need the https version as well.
     self.stu_launch_url = utils.generate_git_urls(self.stu_repo_url).get('plain_https')
 
+    #! this is cheating a bit, but we can get the repo name this way
+    #! Fix me in the future
+    self.stu_repo_name = os.path.split(self.stu_launch_url.get('plain_https'))[1]
+
     #=======================================#
     #       Check For Required Params       #
     #=======================================#

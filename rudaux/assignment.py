@@ -557,7 +557,12 @@ class Assignment:
     # get the assignment path for each student ID in Canvas
     for student_id in student_ids:
 
-      student_path = os.path.join(self.course.storage_path, student_id)
+      student_path = os.path.join(
+        self.course.storage_path,
+        student_id,
+        self.course.stu_repo_name,
+        self.course.assignment_release_path
+      )
 
       # If zfs, use the student + zfs + assignment name path
       if self.course.zfs and os.path.exists(os.path.join(student_path, '.zfs')):
@@ -583,7 +588,7 @@ class Assignment:
       # if no assignment for that student, fail
       #* NOTE: could also be due to incorrect directory structure.
       except FileNotFoundError:
-        assignment_collection_status.append([student_id, f'{utils.color.RED}success{utils.color.END}'])
+        assignment_collection_status.append([student_id, f'{utils.color.RED}failure{utils.color.END}'])
       else: 
         assignment_collection_status.append([student_id, f'{utils.color.GREEN}success{utils.color.END}'])
 
@@ -671,7 +676,7 @@ class Assignment:
         assn_feedback_status.append([student_id, f'{utils.color.GREEN}success{utils.color.END}'])
       elif res.get('error') is not None:
         print(res.get('error'))
-        assn_feedback_status.append([student_id, f'{utils.color.RED}success{utils.color.END}'])
+        assn_feedback_status.append([student_id, f'{utils.color.RED}failure{utils.color.END}'])
       else:
         print(res.get('log'))
         assn_feedback_status.append([student_id, 'error (see log)'])
