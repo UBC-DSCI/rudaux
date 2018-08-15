@@ -18,7 +18,8 @@ from typing import Union, List, Optional, Dict
 
 from nbgrader.apps import NbGraderAPI
 from nbgrader import utils as nbutils
-import nbgrader.converters.base as nbbase
+# This is not working properly for some reason
+# from nbgrader.converters.base import NbGraderException
 
 from traitlets.config import Config
 from traitlets.config.application import Application
@@ -643,8 +644,9 @@ class Assignment:
           assignment_id=self.name,
           student_id=student_id
         )
-      # fail on anything!
-      except nbbase.NbGraderException:
+      # except NbGraderException:
+      # Can't seem to get this exception to fail, so fail on all
+      except:
         print(res.get('error'))
         assn_grade_status.append([student_id, f'{utils.color.RED}failure{utils.color.END}'])
       else:
