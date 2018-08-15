@@ -129,6 +129,16 @@ class Course:
     #           Set Config Params           #
     #=======================================#
 
+    ## NBGRADER PARAMS
+
+    # If the user set the exchange, perform home user expansion if necessary
+    if config.get('Exchange', {}).get('root') is not None:
+      # perform home user expansion. Should not throw an error, but may
+      try:
+        # expand home user in-place
+        config['Exchange']['root'] = os.path.expanduser(config['Exchange']['root'])
+
+
     ## CANVAS PARAMS
 
     # Before we continue, make sure we have all of the necessary parameters.
