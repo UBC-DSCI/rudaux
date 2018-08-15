@@ -569,19 +569,17 @@ class Assignment:
         # Check that we're using ZFS
         assignment_path = os.path.join(
           student_path, 
-          zfs_path, 
-          self.name
+          zfs_path
+          # self.name
         )
       # otherwise just use the student's work directly
       else:
         assignment_path = os.path.join(
-          student_path, 
-          self.name
+          student_path
+          # self.name
         )
 
       submission_path = os.path.join(self.course.working_directory, 'submitted', student_id)
-      print(f"Copying {assignment_path}...")
-      print(f"...to {submission_path}")
       # then copy the work into the submitted directory + student_id + assignment_name
       try:
         shutil.copytree(assignment_path, submission_path)
