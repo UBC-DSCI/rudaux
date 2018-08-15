@@ -638,7 +638,7 @@ class Course:
     gradebook.close()
     return self
 
-  def assign_all(
+  def assign(
     self, 
     assignments=None,
     overwrite=False,

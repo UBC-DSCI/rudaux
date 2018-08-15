@@ -554,7 +554,8 @@ class Assignment:
       student_path = os.path.join(self.course.storage_path, student_id)
 
       # If zfs, use the student + zfs + assignment name path
-      if self.course.zfs:
+      if self.course.zfs and os.path.exists(os.path.join(student_path, '.zfs')):
+        # Check that we're using ZFS
         assignment_path = os.path.join(
           student_path, 
           zfs_path, 
@@ -566,15 +567,22 @@ class Assignment:
           student_path, 
           self.name
         )
+
       # then copy the work into the submitted directory + student_id + assignment_name
-      shutil.copytree(
-        assignment_path, 
-        os.path.join(
-          self.course.working_directory, 
-          'submitted',
-          student_id
+      try:
+        shutil.copytree(
+          assignment_path, 
+          os.path.join(
+            self.course.working_directory, 
+            'submitted',
+            student_id
+          )
         )
-      )
+      # make sure we've got our directories correct
+      except FileNotFoundError as e:
+        print("We had trouble locating your students' assignment.")
+        # and fail loudly if not
+        raise e
 
     # Finally, collect the assignment
     res = self.course.nb_api.collect(self.name)
@@ -591,4 +599,56 @@ class Assignment:
     return self
 
   def grade(self):
-    print('grading...')
+    """
+    Autograde an assignment via the nbgrader API.
+    This essentially run `nbgrader autograde`.
+    """
+
+    try:
+      student_ids = map(lambda stu: stu.get('id'), self.course.students)
+    except Exception:
+      sys.exit("No students found. Please run `course.get_students_from_canvas()` before collecting an assignment.")
+
+    for student_id in student_ids:
+      res = self.course.nb_api.autograde(
+        assignment_id=self.name,
+        student_id=student_id
+      )
+      if res.get('success'):
+        print(f'Successfully autograded {self.name} for {student_id}.')
+      if res.get('error') is not None:
+        print(f'There was an error autograding {self.name} for {student_id}.')
+        print(res.get('error'))
+      if res.get('log') is not None:
+        print(f'Log result of autograding {self.name} for {student_id}.')
+        print(res.get('log'))
+
+  def feedback(self):
+    """
+    Generate feedback reports for student assignments.  
+    """
+    try:
+      student_ids = map(lambda stu: stu.get('id'), self.course.students)
+    except Exception:
+      sys.exit("No students found. Please run `course.get_students_from_canvas()` before collecting an assignment.")
+
+    for student_id in student_ids:
+      res = self.course.nb_api.feedback(
+        assignment_id=self.name,
+        student_id=student_id
+      )
+      if res.get('success'):
+        print(f'Successfully autograded {self.name} for {student_id}.')
+      if res.get('error') is not None:
+        print(f'There was an error autograding {self.name} for {student_id}.')
+        print(res.get('error'))
+      if res.get('log') is not None:
+        print(f'Log result of autograding {self.name} for {student_id}.')
+        print(res.get('log'))
+
+  def submit(self):
+    """
+    Upload grades to Canvas.  
+    """
+
+    print('submitting...')

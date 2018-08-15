@@ -23,7 +23,7 @@ def initialize_course(args):
     .get_external_tool_id()                \
     .get_students_from_canvas()            \
     .sync_nbgrader()                       \
-    .assign_all(overwrite=args.overwrite)  \
+    .assign(overwrite=args.overwrite)      \
     .create_canvas_assignments()           \
     .schedule_grading()
 
@@ -40,11 +40,16 @@ def grade(args):
   :param args: Arguments passed in from the command line parser.
   """
 
-  this_course = Course()
+  course = Course()
+
+  course                                   \
+    .get_external_tool_id()                \
+    .get_students_from_canvas()            \
+    .sync_nbgrader()
 
   # Subclass assignment for this course:
   class CourseAssignment(Assignment):
-    course = this_course
+    course = course
 
   assignment = CourseAssignment(
     name=args.assignment_name,
@@ -53,8 +58,9 @@ def grade(args):
     status='unassigned',
   )
 
-  if this_course.zfs:
-    assignment.snapshot_zfs()
-
   assignment.collect()
   assignment.grade()
+
+  if not args.manual:
+    assignment.feedback()
+    assignment.submit()
