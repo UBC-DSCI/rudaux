@@ -102,6 +102,12 @@ class Assignment:
     self.points = points
     self.manual = manual
 
+    # Only overwrite class property none present. Second check (course is not
+    # None) is not necessary, since we should have exited by now if both were
+    # None, but just want to be sure.
+    if (self.course is None) and (course is not None):
+      self.course = course
+
     #============================#
     #      Datetime Parsing      #
     #============================#
@@ -113,12 +119,6 @@ class Assignment:
     # We need to convert the course due date to the server/system due date as
     # well, so that our cron job will run at the correct time.
     self.system_due_date = self.duedate.in_tz(self.course.system_timezone)
-
-    # Only overwrite class property none present. Second check (course is not
-    # None) is not necessary, since we should have exited by now if both were
-    # None, but just want to be sure.
-    if (self.course is None) and (course is not None):
-      self.course = course
 
     self.launch_url = self._generate_launch_url()
 

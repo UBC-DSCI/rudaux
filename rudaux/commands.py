@@ -1,3 +1,4 @@
+import sys
 from subprocess import CalledProcessError
 from rudaux import Course, Assignment
 
@@ -48,15 +49,25 @@ def grade(args):
     .sync_nbgrader()
 
   # Subclass assignment for this course:
-  class CourseAssignment(Assignment):
-    course = this_course
+  # class CourseAssignment(Assignment):
+  #   course = this_course
 
-  assignment = CourseAssignment(
-    name=args.assignment_name,
-    manual=args.manual,
-    course=None,
-    status='unassigned',
+  # find assignment in config assignment list
+  assignment = list(
+    filter(lambda assn: assn.name == args.assignment_name, this_course.assignments)
   )
+
+  if len(assignment) <= 0:
+    sys.exit(f"No assignment named \"{args.assignment_name}\" found")
+  else:
+    assignment = assignment[0]
+
+  # assignment = CourseAssignment(
+  #   name=args.assignment_name,
+  #   manual=args.manual,
+  #   course=None,
+  #   status='unassigned',
+  # )
 
   assignment.collect()
   assignment.grade()
