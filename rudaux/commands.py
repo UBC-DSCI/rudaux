@@ -70,8 +70,8 @@ def grade(args):
   # )
 
   assignment = assignment   \
-    .grade()                \
-    .collect()
+    .collect()              \
+    .grade()
 
   if not args.manual:
     assignment = assignment \
