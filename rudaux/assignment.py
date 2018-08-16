@@ -688,34 +688,13 @@ class Assignment:
 
     print(utils.banner(f"Generating Feedback for {self.name}"))
 
-    assn_feedback_header = [
-      ['Student ID', 'Feedback Status']
-    ]
-    assn_feedback_status = []  
+    res = self.course.nb_api.feedback(assignment_id=self.name)
 
-    try:
-      student_ids = map(lambda stu: stu.get('id'), self.course.students)
-    except Exception:
-      sys.exit("No students found. Please run `course.get_students_from_canvas()` before collecting an assignment.")
-
-    for student_id in student_ids:
-      res = self.course.nb_api.feedback(
-        assignment_id=self.name,
-        student_id=student_id
-      )
-      if res.get('success'):
-        assn_feedback_status.append([student_id, f'{utils.color.GREEN}success{utils.color.END}'])
-      elif res.get('error') is not None:
-        print(res.get('error'))
-        assn_feedback_status.append([student_id, f'{utils.color.RED}failure{utils.color.END}'])
-      else:
-        print(res.get('log'))
-        assn_feedback_status.append([student_id, 'error (see log)'])
-
-    table = SingleTable(assn_feedback_header + assn_feedback_status)
-    table.title = 'Assignment Feedback'
-    print(table.table)
-
+    if res.get('error') is not None:
+      print(f"{utils.color.RED}Error generating feedback for {self.name}{utils.color.END}")
+      print(res.get('error'))
+    else: 
+      print(f"{utils.color.GREEN}Successfully generated feedback for {self.name}{utils.color.END}")
     #===========================================#
     # Commit & Push Changes to Instructors Repo #
     #===========================================#

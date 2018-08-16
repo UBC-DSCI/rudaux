@@ -69,11 +69,48 @@ def grade(args):
   #   status='unassigned',
   # )
 
+  # collect and grade the assignment
   assignment = assignment   \
     .collect()              \
     .grade()
 
-  # if not args.manual:
-  #   assignment = assignment \
-  #     .feedback()           \
-  #     .submit()
+  # and if no manual feedback is required, generate feedback reports
+  # and submit grades
+  if not args.manual:
+    assignment = assignment \
+      .feedback()           \
+      .submit()
+
+
+def submit(args):
+  """Generate feedback for and submit an assignment.
+  
+  :param args: Arguments passed in from the command line parser.
+  """
+
+  # no cron arg needed, this would only ever be run after manual feedback, and
+  # thus not as a cron job
+  this_course = Course(course_dir=args.directory)
+
+  this_course = this_course                \
+    .get_external_tool_id()                \
+    .get_students_from_canvas()            \
+    .sync_nbgrader()
+
+  # Subclass assignment for this course:
+  # class CourseAssignment(Assignment):
+  #   course = this_course
+
+  # find assignment in config assignment list
+  assignment = list(
+    filter(lambda assn: assn.name == args.assignment_name, this_course.assignments)
+  )
+
+  if len(assignment) <= 0:
+    sys.exit(f"No assignment named \"{args.assignment_name}\" found")
+  else:
+    assignment = assignment[0]
+
+    assignment = assignment \
+      .feedback()           \
+      .submit()

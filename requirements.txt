@@ -1,5 +1,5 @@
 GitPython==2.1.11
-nbgrader==0.5.4
+nbgrader==0.6.0.dev0
 pendulum==2.0.3
 pytest==3.6.3
 python-crontab==2.3.4

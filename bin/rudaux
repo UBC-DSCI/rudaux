@@ -115,6 +115,44 @@ grade_parser.add_argument(
   help="Manual grading is necessary."
 )
 
+## Submit an assignment
+
+# If manual grading is required, feedback will not be generated as part of
+# autograding, and the grades will not be submitted. It is therefore necessary
+# to run this command after manual feedback.
+
+submit_parser = subparsers.add_parser(
+  'submit', help='Generate feedback for and submit an assignment.'
+)
+submit_parser.set_defaults(func=commands.submit)
+
+# Submission options
+
+submit_parser.add_argument(
+  'assignment_name',
+  metavar='name',
+  action='store',
+  type=str,
+  help="Name of the assignment to grade."
+)
+
+submit_parser.add_argument(
+  '--no-feedback',
+  '-n',
+  dest='no_feedback',
+  action='store_true',
+  default=False,
+  help="Skip feedback generation."
+)
+
+submit_parser.add_argument(
+  '--dir',
+  dest='directory',
+  action='store',
+  default=os.getcwd(),
+  help="The directory containing configuration files."
+)
+
 # Parse the arguments!
 args = parser.parse_args()
 
