@@ -710,4 +710,74 @@ class Assignment:
     Upload grades to Canvas.  
     """
 
-    print('submitting...')
+    # Print banner
+    print(utils.banner(f"Submitting {self.name}"))
+
+    # Check that we have the canvas_assignment containing the assignment_id
+    # ...and if we don't, get it!
+    if not hasattr(self, 'canvas_assignment'):
+      self.canvas_assignment = self._search_canvas_assignment()
+    elif self.canvas_assignment is None:
+      self.canvas_assignment = self._search_canvas_assignment()
+
+    # Pull out the assignment ID
+    assignment_id = self.canvas_assignment.get('id')
+
+    # get the student IDs
+    try:
+      student_ids = map(lambda stu: stu.get('id'), self.course.students)
+    except Exception:
+      sys.exit("No students found. Please run `course.get_students_from_canvas()` before collecting an assignment.")
+
+    gradebook = self.course.nb_api.gradebook
+
+    try:
+      # Get the students' grades from nbgrader
+      
+      for student_id in student_ids:
+        gradebook.find_grade(
+          # grade_cell='one', 
+          notebook='r_notebook',
+          assignment=self.name,
+          student=student_id
+        )
+      gradebook.close()
+    except Exception as e:
+      gradebook.close()
+      raise e
+
+    # Set up status reporting
+    submission_header = [
+      ['Student ID', 'Collection Status']
+    ]
+    submission_status = []
+
+    # for each student
+    for student_id in student_ids:
+      # upload their grade
+      resp = requests.put(
+        url=urlparse.urljoin(
+          self.course.canvas_url, 
+          f"/api/v1/courses/{self.course.course_id}/assignments/{assignment_id}/submissions/{student_id}"
+        ),
+        headers={
+          "Authorization": f"Bearer {self.course.canvas_token}",
+          "Accept": "application/json+canvas-string-ids"
+        },
+        json={
+          "submission": {
+            "posted_grade": '4'
+          }
+        }
+      )
+
+      if resp.status_code == 200:
+        submission_status.append([student_id, f'{utils.color.GREEN}success{utils.color.END}'])
+      else:
+        submission_status.append([student_id, f'{utils.color.RED}failure{utils.color.END}'])
+
+    table = SingleTable(submission_header + submission_status)
+    table.title = 'Assignment Submission'
+    print(table.table)
+
+    return self
