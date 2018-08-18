@@ -741,22 +741,7 @@ class Assignment:
     except Exception:
       sys.exit("No students found. Please run `course.get_students_from_canvas()` before collecting an assignment.")
 
-    gradebook = self.course.nb_api.gradebook
-
-    try:
-      # Get the students' grades from nbgrader
-      
-      for student_id in student_ids:
-        gradebook.find_grade(
-          # grade_cell='one', 
-          notebook='r_notebook',
-          assignment=self.name,
-          student=student_id
-        )
-      gradebook.close()
-    except Exception as e:
-      gradebook.close()
-      raise e
+    grades = self._get_grades(student_ids)
 
     # Set up status reporting
     submission_header = [
@@ -765,12 +750,12 @@ class Assignment:
     submission_status = []
 
     # for each student
-    for student_id in student_ids:
+    for grade in grades:
       # upload their grade
       resp = requests.put(
         url=urlparse.urljoin(
           self.course.canvas_url, 
-          f"/api/v1/courses/{self.course.course_id}/assignments/{assignment_id}/submissions/{student_id}"
+          f"/api/v1/courses/{self.course.course_id}/assignments/{assignment_id}/submissions/{grade.get('student_id')}"
         ),
         headers={
           "Authorization": f"Bearer {self.course.canvas_token}",
@@ -778,18 +763,85 @@ class Assignment:
         },
         json={
           "submission": {
-            "posted_grade": '4'
+            "posted_grade": grade.get('grade')
           }
         }
       )
 
       if resp.status_code == 200:
-        submission_status.append([student_id, f'{utils.color.GREEN}success{utils.color.END}'])
+        submission_status.append([grade.get('student_id'), f'{utils.color.GREEN}success{utils.color.END}'])
       else:
-        submission_status.append([student_id, f'{utils.color.RED}failure{utils.color.END}'])
+        submission_status.append([grade.get('student_id'), f'{utils.color.RED}failure{utils.color.END}'])
 
-    table = SingleTable(submission_header + submission_status)
+    table = AsciiTable(submission_header + submission_status)
     table.title = 'Assignment Submission'
     print(table.table)
 
     return self
+
+
+  def _get_grades(self, student_ids: List[Union[str, int]]) -> Dict[str, Union[str, int]]:
+    """Get the grade of an assignment for a list of students.
+    
+    :param student_ids: A list of your student IDs as strs or ints.
+    :type student_ids: List[Union[str, int]]
+    :return: A dictionary with each student's grade for the assignment.
+    :rtype: Dict[str, Union[str, int]]
+    """
+
+    gradebook = self.course.nb_api.gradebook
+
+    grades = []
+
+    # wrap gradebook commands in a try/except to properly close gradebook
+    # connection if an error occurs
+    try:
+      # get gradebook's copy of the assignment
+      assignment = gradebook.find_assignment(self.name)
+
+      # find grade for each student
+      # Loop over each student in the database
+      for student_id in student_ids:
+        # Create a dictionary that will store information about this
+        # student's submitted assignment
+        score = {
+          'student_id': student_id,
+          'max_score': assignment.max_score
+        }
+
+        # Try to find the submission in the database. If it doesn't
+        # exist, the `MissingEntry` exception will be raised, which
+        # means the student didn't submit anything, so we assign them a
+        # score of zero.
+        try:
+          submission = gradebook.find_submission(self.name, student_id)
+          print(submission.__dict__)
+
+        except nbgrader.api.MissingEntry:
+          print(f"No submission found for {student_id}")
+          score['timestamp'] = ''
+          score['raw_score'] = 0.0
+          score['late_submission_penalty'] = 0.0
+          score['score'] = 0.0
+        else:
+          penalty = submission.late_submission_penalty
+          score['timestamp'] = submission.timestamp
+          score['raw_score'] = submission.score
+          score['late_submission_penalty'] = penalty
+          score['score'] = max(0.0, submission.score - penalty)
+
+        for key in score:
+          if score[key] is None:
+            score[key] = ''
+          if not isinstance(score[key], str):
+            score[key] = str(score[key])
+    # unless we reach an error...
+    except Exception as e:
+      # Then close the connection
+      gradebook.close()
+      # and raise the exception
+      raise e
+    else:
+      # otherwise
+      gradebook.close()
+      return grades
