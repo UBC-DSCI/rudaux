@@ -802,6 +802,7 @@ class Assignment:
       for student_id in student_ids:
         # Create a dictionary that will store information about this
         # student's submitted assignment
+
         score = {
           'student_id': student_id,
           'max_score': assignment.max_score
@@ -813,7 +814,6 @@ class Assignment:
         # score of zero.
         try:
           submission = gradebook.find_submission(self.name, student_id)
-          print(submission.__dict__)
 
         except nbgrader.api.MissingEntry:
           print(f"No submission found for {student_id}")
@@ -833,6 +833,7 @@ class Assignment:
             score[key] = ''
           if not isinstance(score[key], str):
             score[key] = str(score[key])
+        grades.append(score)
     # unless we reach an error...
     except Exception as e:
       # Then close the connection

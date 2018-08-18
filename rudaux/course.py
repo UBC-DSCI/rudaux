@@ -686,7 +686,17 @@ class Course:
       assignment_names.append(assignment.name)
 
       # assign the given assignment!
-      self.nb_api.assign(assignment.name)
+      try:
+        resp = self.nb_api.assign(assignment.name, force=True, create=True)
+      except Exception as e:
+        raise e
+      else:
+        if resp.get('error'):
+          print(f"assigning {assignment.name} failed")
+          print(resp.get('error'))
+        if not resp.get('success'):
+          print(resp.get('log'))
+
 
     ### END LOOP ###
 
