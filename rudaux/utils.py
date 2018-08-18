@@ -8,7 +8,7 @@ import urllib.parse as urlparse
 from git import Repo
 from git.exc import GitCommandError
 from typing import List
-from terminaltables import SingleTable
+from terminaltables import AsciiTable
 
 # The functions here are not attached to a class as per advice:
 # https://stackoverflow.com/questions/19620498/how-to-create-an-utility-class-correctly
@@ -304,4 +304,4 @@ def banner(message: str):
   :param message: The banner header text.
   :type message: str
   """
-  return SingleTable([[message]]).table
+  return AsciiTable([[message]]).table

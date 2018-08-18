@@ -10,7 +10,7 @@ import pendulum
 import time
 import urllib.parse as urlparse
 
-from terminaltables import AsciiTable, SingleTable
+from terminaltables import AsciiTable
 from dateutil.parser import parse
 from weir import zfs
 from pathlib import Path
@@ -614,7 +614,7 @@ class Assignment:
       else: 
         assignment_collection_status.append([student_id, f'{utils.color.GREEN}success{utils.color.END}'])
 
-    table = SingleTable(assignment_collection_header + assignment_collection_status)
+    table = AsciiTable(assignment_collection_header + assignment_collection_status)
     table.title = 'Assignment Collection'
     print(table.table)
 

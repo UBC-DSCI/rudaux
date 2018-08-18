@@ -15,7 +15,7 @@ from weir import zfs
 from git import Repo
 # For setting up autograding
 from crontab import CronTab
-from terminaltables import AsciiTable, SingleTable
+from terminaltables import AsciiTable
 # For decoding base64-encoded files from GitHub API
 from base64 import b64decode
 # for urlencoding query strings to persist through user-redirect
@@ -83,7 +83,7 @@ class Course:
         sys.exit("Exiting...")
 
     # PRINT BANNER
-    print(SingleTable([['Initializing Course and Pulling Instructors Repo']]).table)
+    print(AsciiTable([['Initializing Course and Pulling Instructors Repo']]).table)
 
     # pull the latest copy of the repo
     utils.pull_repo(repo_dir=self.working_directory)
@@ -546,7 +546,7 @@ class Course:
       # sort the status list
       student_status = sorted(student_status, key=lambda k: k[0]) 
 
-      table = SingleTable(student_header + student_status)
+      table = AsciiTable(student_header + student_status)
       table.title = 'Students'
       print(table.table)
 
@@ -601,7 +601,7 @@ class Course:
       # Finally, sort the status list
       assignment_status = sorted(assignment_status, key=lambda k: k[0]) 
 
-      table = SingleTable(assignment_header + assignment_status)
+      table = AsciiTable(assignment_header + assignment_status)
       table.title = 'Assignments'
       print(table.table)
 
@@ -772,7 +772,7 @@ class Course:
     assignment_status = sorted(assignment_status, key=lambda k: k[0]) 
 
     ## Print status for reporting:
-    table = SingleTable(assignment_header + assignment_status)
+    table = AsciiTable(assignment_header + assignment_status)
     table.title = 'Assignments'
     print("\n")
     print(table.table)
@@ -809,7 +809,7 @@ class Course:
       ])
 
     ## Print status for reporting:
-    status_table = SingleTable(scheduling_status)
+    status_table = AsciiTable(scheduling_status)
     status_table.title = 'Grading Scheduling'
     print("\n")
     print(status_table.table)
