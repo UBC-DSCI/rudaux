@@ -674,8 +674,6 @@ class Assignment:
       )
     except subprocess.CalledProcessError:
       print(f"{utils.color.RED}Error autograding {self.name}{utils.color.END}")
-      if res.stderr:
-        print(res.stderr)
     else: 
       if res.returncode != 0:
         print(f"{utils.color.RED}Unspecified error autograding {self.name}{utils.color.END}")
