@@ -761,7 +761,7 @@ class Assignment:
         },
         json={
           "submission": {
-            "posted_grade": grade.get('grade')
+            "posted_grade": grade.get('score')
           }
         }
       )
