@@ -573,6 +573,18 @@ class Assignment:
     # get the assignment path for each student ID in Canvas
     for student_id in student_ids:
 
+      # **CRUCIALLY IMPORTANT**
+      # Create submission in gradebook for student.
+      # If this is never done, then autograding doesn't
+      # record grades in the gradebook.
+
+      try:
+        self.course.nb_api.gradebook.add_submission(self.name, student_id)
+        self.course.nb_api.gradebook.close()
+      except Exception as e:
+        self.course.nb_api.gradebook.close()
+        raise e
+
       student_path = os.path.join(
         self.course.storage_path,
         student_id,
