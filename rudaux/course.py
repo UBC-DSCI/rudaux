@@ -48,7 +48,7 @@ class Course:
   def __init__(
     self, 
     course_dir=None,
-    cron=False
+    auto=False
   ):
     """
     :param course_dir: The directory your course. If none, defaults to current working directory. 
@@ -69,9 +69,9 @@ class Course:
     repo = Repo(self.working_directory)
 
     # Before we do ANYTHING, make sure our working directory is clean with no
-    # untracked files! Unless we're running a cron job, in which case we don't
-    # want to fail for an unexpected reason.
-    if (repo.is_dirty() or repo.untracked_files) and (not cron):
+    # untracked files! Unless we're running a automated job, in which case we
+    # don't want to fail for an unexpected reason.
+    if (repo.is_dirty() or repo.untracked_files) and (not auto):
       continue_with_dirty = input(
         """
         Your repository is currently in a dirty state (modifications or

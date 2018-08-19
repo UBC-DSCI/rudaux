@@ -57,9 +57,9 @@ init_parser.add_argument(
 )
 
 init_parser.add_argument(
-  '--cron',
-  '-c',
-  dest='cron',
+  '--auto',
+  '-a',
+  dest='auto',
   action='store_true',
   default=False,
   help='Tell rudaux this is not an interactive shell, do not prompt!'
@@ -98,9 +98,9 @@ grade_parser.add_argument(
 )
 
 grade_parser.add_argument(
-  '--cron',
-  '-c',
-  dest='cron',
+  '--auto',
+  '-a',
+  dest='auto',
   action='store_true',
   default=False,
   help='Tell rudaux this is not an interactive shell, do not prompt!'

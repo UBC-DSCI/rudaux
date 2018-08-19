@@ -383,8 +383,6 @@ class Assignment:
   def schedule_grading(self) -> 'Assignment':
     """Schedule grading of an assignment.
     
-    :param cron: Crontab of your server
-    :type cron: Cron
     :return: self
     :rtype: Assignment
     """
@@ -476,7 +474,7 @@ class Assignment:
       "ssh-add /home/jupyter/.ssh/instructors && "          + \
       "ssh-add /home/jupyter/.ssh/students && "             + \
       f"bash -l -c \""                                      + \
-      f"rudaux grade '{self.name}' --cron "                 + \
+      f"rudaux grade '{self.name}' --auto "                 + \
       f"--dir {self.course.working_directory}{man_graded} " + \
       f">> {self.course.working_directory}"                 + \
       f"/{close_time_course_time.format('YYYY-MM-DD-HHmm')}-autograde-{self.name}.log\""

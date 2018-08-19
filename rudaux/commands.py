@@ -16,7 +16,7 @@ def initialize_course(args):
   :param args: Arguments passed in from the command line parser.
   """
 
-  course = Course(course_dir=args.directory, cron=args.cron)
+  course = Course(course_dir=args.directory, auto=args.auto)
 
   # course.schedule_grading()
 
@@ -41,7 +41,7 @@ def grade(args):
   :param args: Arguments passed in from the command line parser.
   """
 
-  this_course = Course(course_dir=args.directory, cron=args.cron)
+  this_course = Course(course_dir=args.directory, auto=args.auto)
 
   this_course = this_course                \
     .get_external_tool_id()                \
@@ -81,7 +81,7 @@ def submit(args):
   :param args: Arguments passed in from the command line parser.
   """
 
-  # no cron arg needed, this would only ever be run after manual feedback, and
+  # no auto arg needed, this would only ever be run after manual feedback, and
   # thus not as a cron job
   this_course = Course(course_dir=args.directory)
 
