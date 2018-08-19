@@ -1,0 +1,470 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>rudaux package &#8212; Rudaux  documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="rudaux-package">
+<h1>rudaux package<a class="headerlink" href="#rudaux-package" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="module-rudaux.assignment">
+<span id="rudaux-assignment-module"></span><h2>rudaux.assignment module<a class="headerlink" href="#module-rudaux.assignment" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="rudaux.assignment.Assignment">
+<em class="property">class </em><code class="descclassname">rudaux.assignment.</code><code class="descname">Assignment</code><span class="sig-paren">(</span><em>name: str</em>, <em>duedate=None</em>, <em>duetime=None</em>, <em>points=1</em>, <em>manual=False</em>, <em>course=None</em>, <em>status='unassigned'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/rudaux/assignment.html#Assignment"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#rudaux.assignment.Assignment" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Assignment object for maniuplating assignments.</p>
+<dl class="method">
+<dt id="rudaux.assignment.Assignment.autograde">
+<code class="descname">autograde</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/rudaux/assignment.html#Assignment.autograde"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#rudaux.assignment.Assignment.autograde" title="Permalink to this definition">¶</a></dt>
+<dd><p>Initiate automated grading with nbgrader.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="rudaux.assignment.Assignment.collect">
+<code class="descname">collect</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/rudaux/assignment.html#Assignment.collect"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#rudaux.assignment.Assignment.collect" title="Permalink to this definition">¶</a></dt>
+<dd><p>Collect an assignment via the nbgrader API.
+This essentially copies the notebooks to a new location</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="rudaux.assignment.Assignment.course">
+<code class="descname">course</code><em class="property"> = None</em><a class="headerlink" href="#rudaux.assignment.Assignment.course" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="rudaux.assignment.Assignment.feedback">
+<code class="descname">feedback</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/rudaux/assignment.html#Assignment.feedback"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#rudaux.assignment.Assignment.feedback" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate feedback reports for student assignments.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="rudaux.assignment.Assignment.grade">
+<code class="descname">grade</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/rudaux/assignment.html#Assignment.grade"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#rudaux.assignment.Assignment.grade" title="Permalink to this definition">¶</a></dt>
+<dd><p>Autograde an assignment via the nbgrader API.
+This runs <cite>nbgrader autograde</cite> within a docker container.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="rudaux.assignment.Assignment.schedule_grading">
+<code class="descname">schedule_grading</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; rudaux.assignment.Assignment<a class="reference internal" href="_modules/rudaux/assignment.html#Assignment.schedule_grading"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#rudaux.assignment.Assignment.schedule_grading" title="Permalink to this definition">¶</a></dt>
+<dd><p>Schedule grading of an assignment.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>cron</strong> (<em>Cron</em>) – Crontab of your server</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">self</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="#rudaux.assignment.Assignment" title="rudaux.assignment.Assignment">Assignment</a></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="rudaux.assignment.Assignment.submit">
+<code class="descname">submit</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/rudaux/assignment.html#Assignment.submit"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#rudaux.assignment.Assignment.submit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Upload grades to Canvas.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="rudaux.assignment.Assignment.update_or_create_canvas_assignment">
+<code class="descname">update_or_create_canvas_assignment</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; str<a class="reference internal" href="_modules/rudaux/assignment.html#Assignment.update_or_create_canvas_assignment"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#rudaux.assignment.Assignment.update_or_create_canvas_assignment" title="Permalink to this definition">¶</a></dt>
+<dd><p>Update or create an assignment, depending on whether or not it was found</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-rudaux.commands">
+<span id="rudaux-commands-module"></span><h2>rudaux.commands module<a class="headerlink" href="#module-rudaux.commands" title="Permalink to this headline">¶</a></h2>
+<dl class="function">
+<dt id="rudaux.commands.grade">
+<code class="descclassname">rudaux.commands.</code><code class="descname">grade</code><span class="sig-paren">(</span><em>args</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/rudaux/commands.html#grade"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#rudaux.commands.grade" title="Permalink to this definition">¶</a></dt>
+<dd><p>Grade an assignment.
+1. If we are using a ZFS storage system, snapshot with ZFS.
+2. ? Copy to a temporary directory
+3. Collect assignments with nbgrader
+4. Grade assignments with nbgrader
+5. If no manual input, generate forms
+6. If no manual input, return forms and submit grades</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>args</strong> – Arguments passed in from the command line parser.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="rudaux.commands.initialize_course">
+<code class="descclassname">rudaux.commands.</code><code class="descname">initialize_course</code><span class="sig-paren">(</span><em>args</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/rudaux/commands.html#initialize_course"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#rudaux.commands.initialize_course" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fully Initialize a course. This involves:
+0. Reading your configuration file and ensuring all parameters are valid.
+1. Identifying the tool name used for your JupyterHub installation in Canvas.
+2. Pulling your student list from Canvas.  
+3. Syncing Canvas with nbgrader (students &amp; assignments).
+4. Assigning all of the assignments listed in your config file.
+5. Creating the assignments listed in your config file in Canvas.
+6. Schedule automated grading of your assignments.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>args</strong> – Arguments passed in from the command line parser.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="rudaux.commands.submit">
+<code class="descclassname">rudaux.commands.</code><code class="descname">submit</code><span class="sig-paren">(</span><em>args</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/rudaux/commands.html#submit"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#rudaux.commands.submit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate feedback for and submit an assignment.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>args</strong> – Arguments passed in from the command line parser.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+<div class="section" id="module-rudaux.course">
+<span id="rudaux-course-module"></span><h2>rudaux.course module<a class="headerlink" href="#module-rudaux.course" title="Permalink to this headline">¶</a></h2>
+<p>Manage an entire course at once.</p>
+<dl class="class">
+<dt id="rudaux.course.Course">
+<em class="property">class </em><code class="descclassname">rudaux.course.</code><code class="descname">Course</code><span class="sig-paren">(</span><em>course_dir=None</em>, <em>cron=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/rudaux/course.html#Course"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#rudaux.course.Course" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Course object for manipulating an entire Canvas/JupyterHub/nbgrader course</p>
+<dl class="method">
+<dt id="rudaux.course.Course.assign">
+<code class="descname">assign</code><span class="sig-paren">(</span><em>assignments=None</em>, <em>overwrite=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/rudaux/course.html#Course.assign"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#rudaux.course.Course.assign" title="Permalink to this definition">¶</a></dt>
+<dd><p>Assign assignments for a course</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>assignments</strong> (<em>str</em><em>, </em><em>List</em><em>[</em><em>str</em><em>]</em>) – The name or names of the assignments you wish to assign.</li>
+<li><strong>overwrite</strong> (<em>bool</em>) – Whether or not you wish to overwrite preexisting directories</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="rudaux.course.Course.create_canvas_assignments">
+<code class="descname">create_canvas_assignments</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="_modules/rudaux/course.html#Course.create_canvas_assignments"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#rudaux.course.Course.create_canvas_assignments" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create assignments for a course.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="rudaux.course.Course.get_external_tool_id">
+<code class="descname">get_external_tool_id</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; rudaux.course.Course<a class="reference internal" href="_modules/rudaux/course.html#Course.get_external_tool_id"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#rudaux.course.Course.get_external_tool_id" title="Permalink to this definition">¶</a></dt>
+<dd><p>Find the ID of the external tool created in Canvas that represents your JupyterHub server.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="rudaux.course.Course.get_students_from_canvas">
+<code class="descname">get_students_from_canvas</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; rudaux.course.Course<a class="reference internal" href="_modules/rudaux/course.html#Course.get_students_from_canvas"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#rudaux.course.Course.get_students_from_canvas" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the student list for a course.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="rudaux.course.Course.schedule_grading">
+<code class="descname">schedule_grading</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/rudaux/course.html#Course.schedule_grading"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#rudaux.course.Course.schedule_grading" title="Permalink to this definition">¶</a></dt>
+<dd><p>Schedule assignment grading tasks in crontab.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="rudaux.course.Course.sync_nbgrader">
+<code class="descname">sync_nbgrader</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/rudaux/course.html#Course.sync_nbgrader"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#rudaux.course.Course.sync_nbgrader" title="Permalink to this definition">¶</a></dt>
+<dd><p>Enter information into the nbgrader gradebook database about the assignments and the students.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-rudaux.utils">
+<span id="rudaux-utils-module"></span><h2>rudaux.utils module<a class="headerlink" href="#module-rudaux.utils" title="Permalink to this headline">¶</a></h2>
+<p>Utility functions for Rudaux</p>
+<dl class="function">
+<dt id="rudaux.utils.banner">
+<code class="descclassname">rudaux.utils.</code><code class="descname">banner</code><span class="sig-paren">(</span><em>message: str</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/rudaux/utils.html#banner"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#rudaux.utils.banner" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate a banner message.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>message</strong> (<em>str</em>) – The banner header text.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="rudaux.utils.clone_repo">
+<code class="descclassname">rudaux.utils.</code><code class="descname">clone_repo</code><span class="sig-paren">(</span><em>repo_url: str</em>, <em>target_dir: str</em>, <em>overwrite: bool</em>, <em>github_pat=None</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="_modules/rudaux/utils.html#clone_repo"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#rudaux.utils.clone_repo" title="Permalink to this definition">¶</a></dt>
+<dd><p>Clone a repository</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>repo_url</strong> (<em>str</em>) – The ssh or https url for the repository you wish to clone.</li>
+<li><strong>target_dir</strong> (<em>str</em>) – The directory you wish to clone your repository to.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="class">
+<dt id="rudaux.utils.color">
+<em class="property">class </em><code class="descclassname">rudaux.utils.</code><code class="descname">color</code><a class="reference internal" href="_modules/rudaux/utils.html#color"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#rudaux.utils.color" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="attribute">
+<dt id="rudaux.utils.color.BLUE">
+<code class="descname">BLUE</code><em class="property"> = '\x1b[94m'</em><a class="headerlink" href="#rudaux.utils.color.BLUE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="rudaux.utils.color.BOLD">
+<code class="descname">BOLD</code><em class="property"> = '\x1b[1m'</em><a class="headerlink" href="#rudaux.utils.color.BOLD" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="rudaux.utils.color.CYAN">
+<code class="descname">CYAN</code><em class="property"> = '\x1b[96m'</em><a class="headerlink" href="#rudaux.utils.color.CYAN" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="rudaux.utils.color.DARKCYAN">
+<code class="descname">DARKCYAN</code><em class="property"> = '\x1b[36m'</em><a class="headerlink" href="#rudaux.utils.color.DARKCYAN" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="rudaux.utils.color.END">
+<code class="descname">END</code><em class="property"> = '\x1b[0m'</em><a class="headerlink" href="#rudaux.utils.color.END" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="rudaux.utils.color.GREEN">
+<code class="descname">GREEN</code><em class="property"> = '\x1b[92m'</em><a class="headerlink" href="#rudaux.utils.color.GREEN" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="rudaux.utils.color.PURPLE">
+<code class="descname">PURPLE</code><em class="property"> = '\x1b[95m'</em><a class="headerlink" href="#rudaux.utils.color.PURPLE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="rudaux.utils.color.RED">
+<code class="descname">RED</code><em class="property"> = '\x1b[91m'</em><a class="headerlink" href="#rudaux.utils.color.RED" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="rudaux.utils.color.UNDERLINE">
+<code class="descname">UNDERLINE</code><em class="property"> = '\x1b[4m'</em><a class="headerlink" href="#rudaux.utils.color.UNDERLINE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="rudaux.utils.color.YELLOW">
+<code class="descname">YELLOW</code><em class="property"> = '\x1b[93m'</em><a class="headerlink" href="#rudaux.utils.color.YELLOW" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="function">
+<dt id="rudaux.utils.commit_repo">
+<code class="descclassname">rudaux.utils.</code><code class="descname">commit_repo</code><span class="sig-paren">(</span><em>repo_dir: str</em>, <em>message: str</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/rudaux/utils.html#commit_repo"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#rudaux.utils.commit_repo" title="Permalink to this definition">¶</a></dt>
+<dd><p>Commit all changes to a specified repository.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>repo_dir</strong> (<em>str</em>) – The location of the repository on the disk you wish to commit changes to and push to its remote.</li>
+<li><strong>message</strong> – The commit message for your</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">Nothing, side effects performed.</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">None</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="rudaux.utils.generate_git_urls">
+<code class="descclassname">rudaux.utils.</code><code class="descname">generate_git_urls</code><span class="sig-paren">(</span><em>url</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/rudaux/utils.html#generate_git_urls"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#rudaux.utils.generate_git_urls" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="rudaux.utils.pull_repo">
+<code class="descclassname">rudaux.utils.</code><code class="descname">pull_repo</code><span class="sig-paren">(</span><em>repo_dir: str</em>, <em>branch='master'</em>, <em>remote='origin'</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="_modules/rudaux/utils.html#pull_repo"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#rudaux.utils.pull_repo" title="Permalink to this definition">¶</a></dt>
+<dd><p>Pull a repository</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">None</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">None</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="rudaux.utils.push_repo">
+<code class="descclassname">rudaux.utils.</code><code class="descname">push_repo</code><span class="sig-paren">(</span><em>repo_dir: str</em>, <em>branch='master'</em>, <em>remote='origin'</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="_modules/rudaux/utils.html#push_repo"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#rudaux.utils.push_repo" title="Permalink to this definition">¶</a></dt>
+<dd><p>Commit changes and push a specific repository to its remote.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>repo_dir</strong> (<em>str</em>) – The location of the repository on the disk you wish to commit changes to and push to its remote.</li>
+<li><strong>repo_url</strong> (<em>str</em>) – The remote url of the location you’re pushing to.</li>
+<li><strong>branch</strong> (<em>str</em>) – The branch you wish to commit changes to.</li>
+<li><strong>remote</strong> (<em>str</em>) – The remote you with to push changes to.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">Nothing, side effects performed.</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">None</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="rudaux.utils.safely_delete">
+<code class="descclassname">rudaux.utils.</code><code class="descname">safely_delete</code><span class="sig-paren">(</span><em>path: str</em>, <em>overwrite: bool</em><span class="sig-paren">)</span> &#x2192; None<a class="reference internal" href="_modules/rudaux/utils.html#safely_delete"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#rudaux.utils.safely_delete" title="Permalink to this definition">¶</a></dt>
+<dd><p>Safely delete a directory</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>path</strong> (<em>str</em>) – The directory to delete.</li>
+<li><strong>overwrite</strong> (<em>bool</em>) – A boolean override to bypass prompt.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+<div class="section" id="module-rudaux">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-rudaux" title="Permalink to this headline">¶</a></h2>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Rudaux</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2018, Sam Hinshaw.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.7.7</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.11</a>
+      
+      |
+      <a href="_sources/rudaux.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
