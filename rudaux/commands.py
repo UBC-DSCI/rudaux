@@ -62,13 +62,6 @@ def grade(args):
   else:
     assignment = assignment[0]
 
-  # assignment = CourseAssignment(
-  #   name=args.assignment_name,
-  #   manual=args.manual,
-  #   course=None,
-  #   status='unassigned',
-  # )
-
   # collect and grade the assignment
   assignment = assignment   \
     .collect()              \

@@ -357,7 +357,6 @@ class Course:
         duetime=_assignment.get('duetime', '23:59:59'), # default is 1 sec to midnight
         points=_assignment.get('points', 0), # default is zero points
         manual=_assignment.get('manual', False), # default is no manual grading
-        status='unknown'
       )
       instantiated_assignments.append(assignment)
 

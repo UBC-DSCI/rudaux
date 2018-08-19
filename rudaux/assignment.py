@@ -46,7 +46,6 @@ class Assignment:
     points=1,
     manual=False,
     course=None,
-    status='unassigned',
   ) -> 'self':
     """
     Assignment object for manipulating Assignments.
@@ -63,9 +62,6 @@ class Assignment:
     :type manual: bool
     :param course: The course the assignment belongs to.
     :type course: Course
-
-    :param status: The status of the assignment. Options: ['unassigned', 'assigned', 'collected', 'graded', 'returned']
-    :type status: str
 
     :returns: An assignment object for performing different operations on a given assignment.
     """
@@ -101,7 +97,6 @@ class Assignment:
 
     # First self assign user specified parameters
     self.name = name
-    self.status = status
     self.points = points
     self.manual = manual
 
@@ -222,13 +217,7 @@ class Assignment:
 
   #   utils.push_repo(stu_repo_dir)
 
-  #   #=======================================#
-  #   #        Update Assignment Status       #
-  #   #=======================================#
-
-  #   self.status = 'assigned'
-
-  #   return None
+  #   return self
 
   def _generate_launch_url(self):
     """
@@ -401,7 +390,7 @@ class Assignment:
     """
 
     # Initialize dict for status reporting
-    status = {}
+    scheduling_status = {}
 
     # Initialize an empty value for close_time
     close_time = ''
@@ -442,11 +431,11 @@ class Assignment:
       print(
         f'Could not find a due date or lock date for {self.name}, automatic grading will not be scheduled.'
       )
-      status['close_time'] = 'None'
-      status['action'] = 'None'
+      scheduling_status['close_time'] = 'None'
+      scheduling_status['action'] = 'None'
       
       # Exit early if no due date found!
-      return status
+      return scheduling_status
 
     # ============================================== #
     #     Done looking for due date (close time)     #
@@ -456,7 +445,7 @@ class Assignment:
     close_time_course_time = close_time   \
       .in_tz(self.course.course_timezone)
 
-    status['close_time'] = close_time_course_time.to_day_datetime_string()
+    scheduling_status['close_time'] = close_time_course_time.to_day_datetime_string()
 
     # Could potentially fall back to closing at course end date, but doesn't seem particularly helpful
     # elif self.course.get('end_at') is not None:
@@ -469,7 +458,7 @@ class Assignment:
 
     # Check to see if we found any preexisting jobs
     if (len(list(existing_jobs)) > 0):
-      status['action'] = f'{utils.color.PURPLE}updated{utils.color.END}'
+      scheduling_status['action'] = f'{utils.color.PURPLE}updated{utils.color.END}'
 
       # if so, delete the previously scheduled jobs before setting a new command
       for job in existing_jobs:  
@@ -477,7 +466,7 @@ class Assignment:
 
     # Otherwise just go ahead and set the job
     else:
-      status['action'] = f'{utils.color.DARKCYAN}created{utils.color.END}'
+      scheduling_status['action'] = f'{utils.color.DARKCYAN}created{utils.color.END}'
 
     # If we require manual grading, set the flag
     man_graded = ' -m' if self.manual else ''
@@ -504,11 +493,11 @@ class Assignment:
       new_autograde_job.setall(close_time)
       self.course.cron.write()
     else: 
-      status['action'] = 'failed'
+      scheduling_status['action'] = 'failed'
       print(f'Automatic grading for {self.name} failed due to invalid cron job formatting:')
       print(new_autograde_job)
     
-    return status
+    return scheduling_status
 
   # These functions are intended only to be run from commands.grade(), 
   # which is intended only to be run from a system-level crontab
