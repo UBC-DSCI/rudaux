@@ -504,7 +504,7 @@ class Course:
       # could only happen if they had withdrawn from the course)
       students_withdrawn_from_course = list(set(nb_student_ids) - set(canvas_student_ids))
 
-      students_no_change = set(canvas_student_ids).union(set(nb_student_ids))
+      students_no_change = set(canvas_student_ids).intersection(set(nb_student_ids))
 
       student_header = [
         ["Student ID", "Status", "Action"]
@@ -559,7 +559,7 @@ class Course:
       assignments_missing_from_nbgrader = list(set(config_assignments) - set(nb_assignments))
       assignments_withdrawn_from_config = list(set(nb_assignments) - set(config_assignments))
 
-      assignments_no_change = set(config_assignments).union(set(nb_assignments))
+      assignments_no_change = set(config_assignments).intersection(set(nb_assignments))
 
       assignment_header = [
         ["Assignment", "Status", "Action"]
