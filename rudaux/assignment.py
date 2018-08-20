@@ -12,7 +12,6 @@ import urllib.parse as urlparse
 
 from terminaltables import AsciiTable
 from dateutil.parser import parse
-from weir import zfs
 from pathlib import Path
 from typing import Union, List, Optional, Dict
 
@@ -54,8 +53,8 @@ class Assignment:
     :type name: str
     :param duedate: The assignment's due date. (default: None)
     :type duedate: str
-    :param duedate: The assignment's due time. (default: None)
-    :type duedate: str
+    :param duetime: The assignment's due time. (default: None)
+    :type duetime: str
     :param points: The number of points the assignment is worth. (default: 1)
     :type points: int
     :param manual: Is manual grading required? (default: False)
@@ -497,7 +496,12 @@ class Assignment:
     
     return scheduling_status
 
-  # These functions are intended only to be run from commands.grade(), 
+  # This function is defunct. We are only mounting the ZFS fileserver 
+  # to the grading server via a NFS mount, so we do not have access to 
+  # ZFS commands. Instead, snapshots will be taken daily at 12:03am, 
+  # and rudaux will look for the closest snapshot after the close date.
+  # (see Assignment.collect())
+
   # which is intended only to be run from a system-level crontab
   # OR with sudo permissions.
   # def snapshot_zfs(self):
@@ -545,10 +549,13 @@ class Assignment:
     except Exception:
       sys.exit("No students found. Please run `course.get_students_from_canvas()` before collecting an assignment.")
 
+    # If we're using a ZFS fileserver, we need to look for the relevant snapshots
     if self.course.zfs:
-      # This is the snapshot name for this assignment. This may be an hourly
-      # snapshot that corresponds to the due date, or it might be the
-      # assignment name.
+      # List all of the snapshots available and parse their dates
+      snapshots = os.listdir(os.path.join(self.course.storage_path, '.zfs' 'snapshot'))
+
+      snapshot = self._find_closest_snapshot(snapshots=snapshots)
+
       snapshot_name = self.name
       zfs_path = os.path.join(
         '.zfs', 
@@ -867,3 +874,37 @@ class Assignment:
       # otherwise
       gradebook.close()
       return grades
+
+  def _find_closest_snapshot(
+    self,
+    snapshots: List[str],
+    snapshot_prefix=r'^zfs-auto-snap_[a-z]+-',
+    snapshot_pattern='YYYY-MM-DD-HHmm'
+  ):
+    # If no snapshot prefix was specified, then we will 
+    # parse the snapshot names directly as the datetimes
+    if snapshot_prefix is None:
+      unparsed_times = snapshots
+    else:
+      # Remove the specified prefix
+      unparsed_times = map(
+        lambda snapshot: re.sub(snapshot_prefix, '', snapshot),
+        snapshots
+      )
+    
+    # parse the strings into pendulum datetime objects
+    parsed_times = map(
+      lambda unparsed_time: pendulum.from_format(unparsed_time, snapshot_pattern, tz=self.course.system_timezone),
+      unparsed_times
+    )
+
+    # Calculate the difference in time between the due date and the snapshot time
+    # This will return the number of seconds difference. 
+    # Positive results mean that the snapshot was taken AFTER the due date
+    # Negative results mean that the snapshot was taken BEFORE the due date
+    time_diffs = map(
+      lambda parsed_time: self.system_due_date.diff(parsed_time, False).in_seconds(),
+      parsed_times
+    )
+
+    return parsed_times
