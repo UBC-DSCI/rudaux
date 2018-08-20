@@ -531,7 +531,11 @@ class Assignment:
   def collect(self):
     """
     Collect an assignment via the nbgrader API.
-    This essentially copies the notebooks to a new location
+    This essentially copies the notebooks to a new location.
+    
+    IMPORTANT:
+    This also creates a submission in the gradebook on behalf of each student.
+    If this is never done, then autograding doesn't record grades in the gradebook.
     """
 
     print(utils.banner(f"Collecting {self.name}"))
@@ -559,18 +563,6 @@ class Assignment:
 
     # get the assignment path for each student ID in Canvas
     for student_id in student_ids:
-
-      # **CRUCIALLY IMPORTANT**
-      # Create submission in gradebook for student.
-      # If this is never done, then autograding doesn't
-      # record grades in the gradebook.
-
-      try:
-        self.course.nb_api.gradebook.add_submission(self.name, student_id)
-        self.course.nb_api.gradebook.close()
-      except Exception as e:
-        self.course.nb_api.gradebook.close()
-        raise e
 
       student_path = os.path.join(
         self.course.storage_path,
@@ -609,9 +601,23 @@ class Assignment:
       # if no assignment for that student, fail
       #* NOTE: could also be due to incorrect directory structure.
       except FileNotFoundError:
+        assignment_collected = False
         assignment_collection_status.append([student_id, f'{utils.color.RED}failure{utils.color.END}'])
       else: 
+        assignment_collected = True
         assignment_collection_status.append([student_id, f'{utils.color.GREEN}success{utils.color.END}'])
+
+      # **CRUCIALLY IMPORTANT**
+      # If the assignment was successfully collected, create a submission in gradebook for the student.
+      # If this is never done, then autograding doesn't
+      # record grades in the gradebook.
+      if assignment_collected: 
+        try:
+          self.course.nb_api.gradebook.add_submission(self.name, student_id)
+          self.course.nb_api.gradebook.close()
+        except Exception as e:
+          self.course.nb_api.gradebook.close()
+          raise e
 
     table = AsciiTable(assignment_collection_header + assignment_collection_status)
     table.title = 'Assignment Collection'
