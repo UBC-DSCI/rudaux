@@ -552,11 +552,10 @@ class Assignment:
     # If we're using a ZFS fileserver, we need to look for the relevant snapshots
     if self.course.zfs:
       # List all of the snapshots available and parse their dates
-      snapshots = os.listdir(os.path.join(self.course.storage_path, '.zfs' 'snapshot'))
+      snapshot_names = os.listdir(os.path.join(self.course.storage_path, '.zfs' 'snapshot'))
 
-      snapshot = self._find_closest_snapshot(snapshot_names=snapshots)
+      snapshot_name = self._find_closest_snapshot(snapshot_names)
 
-      snapshot_name = self.name
       zfs_path = os.path.join(
         '.zfs', 
         'snapshot', 
@@ -579,6 +578,7 @@ class Assignment:
       )
 
       # If zfs, use the student + zfs + assignment name path
+      # This works because our ZFS snapshots are recursive.
       if self.course.zfs and os.path.exists(os.path.join(student_path, '.zfs')):
         # Check that we're using ZFS
         assignment_path = os.path.join(
