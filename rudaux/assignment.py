@@ -554,7 +554,7 @@ class Assignment:
       # List all of the snapshots available and parse their dates
       snapshots = os.listdir(os.path.join(self.course.storage_path, '.zfs' 'snapshot'))
 
-      snapshot = self._find_closest_snapshot(snapshots=snapshots)
+      snapshot = self._find_closest_snapshot(snapshot_names=snapshots)
 
       snapshot_name = self.name
       zfs_path = os.path.join(
@@ -877,34 +877,57 @@ class Assignment:
 
   def _find_closest_snapshot(
     self,
-    snapshots: List[str],
+    snapshot_names: List[str],
     snapshot_prefix=r'^zfs-auto-snap_[a-z]+-',
-    snapshot_pattern='YYYY-MM-DD-HHmm'
+    datetime_pattern='YYYY-MM-DD-HHmm'
   ):
     # If no snapshot prefix was specified, then we will 
     # parse the snapshot names directly as the datetimes
+
+    snapshots = []
+
     if snapshot_prefix is None:
-      unparsed_times = snapshots
-    else:
-      # Remove the specified prefix
-      unparsed_times = map(
-        lambda snapshot: re.sub(snapshot_prefix, '', snapshot),
+      for snap in snapshot_names:
+        snapshots.append({
+          'snapshot_name': snap,
+          'unparsed_time': snap
+        })
+    else: 
+     for snap in snapshot_names:
+        snapshots.append({
+          'snapshot_name': snap,
+          'unparsed_time': re.sub(snapshot_prefix, '', snap)
+        })
+
+    for snap in snapshots:
+      # parse the datetime strings into pendulum datetime objects
+      snap['parsed_time'] = pendulum.from_format(
+        snap['unparsed_time'], 
+        datetime_pattern, 
+        tz=self.course.system_timezone
+      )
+
+      # Calculate the difference in time between the due date and the snapshot time
+      # This will return the number of seconds difference. 
+      # Positive results mean that the snapshot was taken AFTER the due date
+      # Negative results mean that the snapshot was taken BEFORE the due date
+      snap['time_diff'] = self.system_due_date.diff(snap['parsed_time'], False).in_seconds()
+    
+    # Filter out snapshots that were taken before due date
+    snapshots = list(
+      filter(
+        lambda snap: snap.get('time_diff', -1) > 0,
         snapshots
       )
-    
-    # parse the strings into pendulum datetime objects
-    parsed_times = map(
-      lambda unparsed_time: pendulum.from_format(unparsed_time, snapshot_pattern, tz=self.course.system_timezone),
-      unparsed_times
     )
 
-    # Calculate the difference in time between the due date and the snapshot time
-    # This will return the number of seconds difference. 
-    # Positive results mean that the snapshot was taken AFTER the due date
-    # Negative results mean that the snapshot was taken BEFORE the due date
-    time_diffs = map(
-      lambda parsed_time: self.system_due_date.diff(parsed_time, False).in_seconds(),
-      parsed_times
-    )
+    # Find the index of the snapshot with the smallest time difference.
+    # Since we've filtered out negative values, this will find the snapshot 
+    # that was closest to the assignment due date, but not before.
+    closest_snap_index = snapshots.index(min(snapshots, key=lambda snap: snap['time_diff']))
 
-    return parsed_times
+    # Pull out the closest snap given the index
+    closest_snap = snapshots[closest_snap_index]
+
+    # Return the name of the closest snapshot
+    return closest_snap.get('snapshot_name')
