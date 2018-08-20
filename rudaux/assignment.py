@@ -623,21 +623,23 @@ class Assignment:
     table.title = 'Assignment Collection'
     print(table.table)
 
-    # What I just did WAS collecting the assignment.
-    # Finally, collect the assignment
-    # res = self.course.nb_api.collect(self.name)
+    # Do not exit if either of these operations fails. We wish to be able to
+    # finish autograding even if we can't commit/push.
 
-    # if res.get('success'):
-    #   print(f'Successfully collected {self.name}.')
-    # if res.get('error') is not None:
-    #   print(f'There was an error collecting {self.name}.')
-    #   print(res.get('error'))
-    # if res.get('log') is not None:
-    #   print(f'Log result of collecting {self.name}.')
-    #   print(res.get('log'))
+    try:
+      utils.commit_repo(self.course.working_directory, f'Collected {self.name}')
+    except Exception as e:
+      print('\n')
+      print('Error committing to your instructors repository:')
+      print(e)
+    else:
+      print('\n')
 
-    # Commit repo
-    # Push Repo
+    try:
+      utils.push_repo(self.course.working_directory)
+    except Exception as e:
+      print('Error pushing your repository:')
+      print(e)
 
     return self
 
@@ -677,10 +679,24 @@ class Assignment:
     #===========================================#
     # Commit & Push Changes to Instructors Repo #
     #===========================================#
+    
+    # Do not exit if either of these operations fails. We wish to be able to
+    # finish autograding even if we can't commit/push.
 
-    utils.commit_repo(self.course.working_directory, f'Autograded {self.name}')
-    print('\n')
-    utils.push_repo(self.course.working_directory)
+    try:
+      utils.commit_repo(self.course.working_directory, f'Autograded {self.name}')
+    except Exception as e:
+      print('\n')
+      print('Error committing to your instructors repository:')
+      print(e)
+    else:
+      print('\n')
+
+    try:
+      utils.push_repo(self.course.working_directory)
+    except Exception as e:
+      print('Error pushing your repository:')
+      print(e)
 
     return self
 
@@ -702,9 +718,23 @@ class Assignment:
     # Commit & Push Changes to Instructors Repo #
     #===========================================#
 
-    utils.commit_repo(self.course.working_directory, f"Generated feedback for {self.name}")
-    print('\n')
-    utils.push_repo(self.course.working_directory)
+    # Do not exit if either of these operations fails. We wish to be able to
+    # finish autograding even if we can't commit/push.
+
+    try:
+      utils.commit_repo(self.course.working_directory, f'Generated feedback for {self.name}')
+    except Exception as e:
+      print('\n')
+      print('Error committing to your instructors repository:')
+      print(e)
+    else:
+      print('\n')
+
+    try:
+      utils.push_repo(self.course.working_directory)
+    except Exception as e:
+      print('Error pushing your repository:')
+      print(e)
 
     return self
 

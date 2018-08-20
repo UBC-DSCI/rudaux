@@ -56,9 +56,10 @@ def grade(args):
   if len(assignment) <= 0:
     sys.exit(f"No assignment named \"{args.assignment_name}\" found")
   else:
-    # Take the first result
+    # Take the first result.
     assignment = assignment[0]
-    # If we run into this situation, there's probably a lot of other weird things going wrong already.
+    # But notify if more than one was found
+    # Though this should never happen--assignment names must be unique.
     if len(assignment) > 1:
       print(
         f"Multiple assignments named \"{args.assignment_name}\" were found. Grading the first one!"
