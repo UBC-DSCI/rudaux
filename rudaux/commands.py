@@ -41,20 +41,16 @@ def grade(args):
   :param args: Arguments passed in from the command line parser.
   """
 
-  this_course = Course(course_dir=args.directory, auto=args.auto)
+  course = Course(course_dir=args.directory, auto=args.auto)
 
-  this_course = this_course                \
-    .get_external_tool_id()                \
-    .get_students_from_canvas()            \
+  course = course               \
+    .get_external_tool_id()     \
+    .get_students_from_canvas() \
     .sync_nbgrader()
-
-  # Subclass assignment for this course:
-  # class CourseAssignment(Assignment):
-  #   course = this_course
 
   # find assignment in config assignment list
   assignment = list(
-    filter(lambda assn: assn.name == args.assignment_name, this_course.assignments)
+    filter(lambda assn: assn.name == args.assignment_name, course.assignments)
   )
 
   if len(assignment) <= 0:
