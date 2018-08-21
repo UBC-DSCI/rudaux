@@ -19,8 +19,11 @@ def safely_delete(path: str, overwrite: bool) -> 'None':
   
   :param path: The directory to delete.
   :type path: str
-  :param overwrite: A boolean override to bypass prompt.
+  :param overwrite: A boolean override to bypass overwrite prompt.
   :type overwrite: bool
+
+  :return: None, called for side-effects
+  :rtype: None
   """
 
   # If the path exists...
@@ -41,7 +44,26 @@ def safely_delete(path: str, overwrite: bool) -> 'None':
         sys.exit("Will not overwrite specified directory.\nExiting...")
 
 
-def generate_git_urls(url):
+def generate_git_urls(url) -> 'Dict[str, str]':
+  """Generate git URLs from a single URL
+
+  Determine what type of URL was provided and generate the remaining URLs
+  needed.
+
+  Example return:
+  {
+    "plain_https": "https://github.com/samhinshaw/rudaux",
+    "git_https": "https://github.com/samhinshaw/rudaux.git", 
+    "git_ssh": "git@github.com:samhinshaw/rudaux.git",
+    "gitpython_ssh": ssh://git@github.com/samhinshaw/rudaux.git
+  }
+
+  :param url: The URL you wish to generate git URLs from.
+  :type url: str
+
+  :return: A dictionary with containing multiple URl formats.
+  :rtype: Dict[str, str]
+  """
 
   # If starts with git@, then an SSH GIT URL
   if re.search(r"git@", url) is not None:
@@ -82,15 +104,18 @@ def generate_git_urls(url):
     }
 
 
-def clone_repo(
-  repo_url: str, target_dir: str, overwrite: bool, github_pat=None
-) -> 'None':
+def clone_repo(repo_url: str, target_dir: str, overwrite: bool) -> 'None':
   """Clone a repository
   
   :param repo_url: The ssh or https url for the repository you wish to clone.
   :type repo_url: str
   :param target_dir: The directory you wish to clone your repository to.
   :type target_dir: str
+  :param overwrite: A boolean override to bypass overwrite prompt.
+  :type overwrite: bool
+
+  :return: None, called for side effects.
+  :rtype: None
   """
 
   safely_delete(target_dir, overwrite)
@@ -127,9 +152,16 @@ def clone_repo(
 
 
 def pull_repo(repo_dir: str, branch='master', remote='origin') -> 'None':
-  """Pull a repository
+  """Pull a repository.
 
-  :return: None
+  :param repo_dir: The directory of the repository you wish to pull.
+  :type repo_dir: str
+  :param branch: The name of the branch you wish to pull from.
+  :type branch: str
+  :param remote: The name of the remote you wish to pull from.
+  :type remote: str
+
+  :return: None, called for side effects
   :rtype: None
   """
   repo = Repo(repo_dir)
@@ -145,12 +177,16 @@ def commit_repo(
   message: str,
 ):
   """Commit all changes to a specified repository.
+
+  Note: this will add ALL changes before committing. In the future I hope to 
+  change this function to allow specifying which files/dirs you wish to add.
   
   :param repo_dir: The location of the repository on the disk you wish to commit changes to and push to its remote.
   :type repo_dir: str
-  :param message: The commit message for your 
+  :param message: The commit message.
   :type names: str
-  :returns: Nothing, side effects performed.
+
+  :returns: None, called for side effects.
   :rtype: None
   """
 
@@ -186,8 +222,6 @@ def commit_repo(
 
 def push_repo(
   repo_dir: str,
-  # repo_url: str,
-  # github_pat=None,
   branch='master',
   remote='origin',
 ) -> 'None':
@@ -195,13 +229,12 @@ def push_repo(
   
   :param repo_dir: The location of the repository on the disk you wish to commit changes to and push to its remote.
   :type repo_dir: str
-  :param repo_url: The remote url of the location you're pushing to.
-  :type repo_url: str
-  :param branch: The branch you wish to commit changes to.
+  :param branch: The name of the branch you wish to commit changes to.
   :type branch: str
-  :param remote: The remote you with to push changes to.
+  :param remote: The name of the remote you with to push changes to.
   :type remote: str
-  :returns: Nothing, side effects performed.
+
+  :returns: None, called for side effects.
   :rtype: None
   """
 
@@ -215,54 +248,12 @@ def push_repo(
     print(f"There was an error pushing {repo_dir}.")
     print(e)
 
-  # split_url = urlparse.urlsplit(repo_url)
-  # if not split_url.netloc:
-  #   # If using ssh, go ahead and clone.
-  #   print('SSH URL detected, assuming SSH keys are accounted for.')
-  #   print(f"Pushing changes on {branch} to {remote}...")
-  #   repo.git.push(remote, branch)
-  # # Otherwise, we can get the github username from the API and use username/PAT
-  # # combo to authenticate.
-  # elif github_pat is not None:
-  #   github_username = find_github_username(repo_url, github_pat)
-  #   repo_url_auth = f"https://{github_username}:{github_pat}@{split_url.netloc}{split_url.path}.git"
-  #   print(f"Pushing changes on {branch} to {repo_url}...")
-  #   repo.git.push(repo_url_auth, branch)
-  # # Otherwise we can just prompt for user/pass
-  # else:
-  #   print(f"Pushing changes on {branch} to {repo_url}...")
-  #   repo_url_auth = f"https://{split_url.netloc}{split_url.path}.git"
-  #   repo.git.push(repo_url_auth, branch)
-
   return None
 
 
-# def find_github_username(url: str, pat: str) -> 'str':
-#   """Find a github username through the github api.
-
-#   :param url: Any github or github enterprise url.
-#   :type url: str
-#   :param pat: A personal access token for the account in question.
-#   :type pat: str
-#   :return: The username of the PAT holder.
-#   :rtype: str
-#   """
-
-#   split_url = urlparse.urlsplit(url)
-#   # If we're trying to clone from github.com...
-#   if split_url.netloc == 'github.com':
-#     # Github() default is api.github.com
-#     github_username = Github(pat).get_user().login
-#   # Otherwise, use the GHE Domain
-#   else:
-#     github_username = Github(
-#       base_url=urlparse.urljoin(url, "/api/v3"), login_or_token=pat
-#     ).get_user().login
-
-#   return github_username
-
-
 class color:
+  """A utility class for printing styled messages to the command line."""
+
   PURPLE = '\033[95m'
   CYAN = '\033[96m'
   DARKCYAN = '\033[36m'
@@ -276,13 +267,14 @@ class color:
 
 
 # courtesy of https://stackoverflow.com/questions/7894384/python-get-url-path-sections
-def _generate_sections_of_url(url: str):
+def _generate_sections_of_url(url: str) -> 'List[str]':
   """Generate Sections of a URL's path
   
   :param url: The URL you wish to split
   :type url: str
+
   :return: A list of url paths
-  :rtype: list
+  :rtype: List[str]
   """
 
   path = urlparse.urlsplit(url).path
@@ -298,10 +290,13 @@ def _generate_sections_of_url(url: str):
   return sections
 
 
-def banner(message: str):
+def banner(message: str) -> 'str':
   """Generate a banner message.
   
   :param message: The banner header text.
   :type message: str
+
+  :return: A terminaltables.AsciiTable banner with the specified message.
+  :type: str
   """
   return AsciiTable([[message]]).table
