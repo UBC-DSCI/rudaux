@@ -40,7 +40,7 @@ class Assignment:
     self,
     name: str,
     duedate=None,
-    duetime=None,
+    duetime='23:59:59',
     points=1,
     manual=False,
     course=None,
@@ -61,7 +61,7 @@ class Assignment:
     :param course: The course the assignment belongs to. Optional, recommended usage is to subclass Assignment with the course as a class variable.
     :type course: Course
 
-    :returns: An assignment object for performing different operations on a given assignment.
+    :return: An assignment object for performing different operations on a given assignment.
     :rtype: Assignment
     """
 
@@ -267,7 +267,9 @@ class Assignment:
     return resp.json()
 
   def update_or_create_canvas_assignment(self) -> 'str':
-    """Update or create an assignment, depending on whether or not it was found
+    """Update or create an assignment in Canvas.
+
+    Search for an assignment in Canvas by assignment name. If an assignment is found, update it. If not, create it.
 
     :return: A reporting status, whether the assignment was updated or created.
     :rtype: str
@@ -418,7 +420,7 @@ class Assignment:
     This also creates a submission in the gradebook on behalf of each student.
     If this is not done, then autograding doesn't record grades in the gradebook.
 
-    :returns: The assignment object to allow for method chaining.
+    :return: The assignment object to allow for method chaining.
     :rtype: Assignment
     """
 
@@ -434,7 +436,11 @@ class Assignment:
       # List all of the snapshots available and parse their dates
       snapshot_names = os.listdir(os.path.join(self.course.storage_path, '.zfs' 'snapshot'))
 
-      snapshot_name = self._find_closest_snapshot(snapshot_names)
+      snapshot_name = self._find_closest_snapshot(
+        snapshot_names,
+        snapshot_regex=self.course.zfs_regex, 
+        datetime_pattern=self.course.zfs_datetime_pattern
+      )
 
       zfs_path = os.path.join(
         '.zfs', 
@@ -535,7 +541,7 @@ class Assignment:
     **Commits Instructors**
     **Pushes Instructors**
 
-    :returns: The assignment object to allow for method chaining.
+    :return: The assignment object to allow for method chaining.
     :rtype: Assignment
     """
 
@@ -590,9 +596,13 @@ class Assignment:
 
     return self
 
-  def feedback(self):
-    """
-    Generate feedback reports for student assignments.  
+  def feedback(self) -> 'Assignment':
+    """Generate feedback reports for student assignments.  
+    **Commits Instructors**
+    **Pushes Instructors**
+
+    :return: The assignment object to allow for method chaining.
+    :rtype: Assignment
     """
 
     print(utils.banner(f"Generating Feedback for {self.name}"))
@@ -631,8 +641,8 @@ class Assignment:
   def submit(self) -> 'Assignment':
     """Upload students' grades to Canvas.  
 
-    :returns: The assignment object to allow for method chaining.
-    :rtype: Assignmeny
+    :return: The assignment object to allow for method chaining.
+    :rtype: Assignment
     """
 
     # Print banner
@@ -770,7 +780,7 @@ class Assignment:
 
     :param snapshot_names: A list of snapshot names
     :type snapshot_names: List[str]
-    :param snapshot_prefix: A regular expression that matches the snapshot timestamp. Use None if the snapshot name is a timestamp.
+    :param snapshot_prefix: A regular expression that matches your snapshot timestamp. Use None if the snapshot name is a timestamp.
     :type snapshot_prefix: str
     :param datetime_pattern: The pattern of your timestamp in token format, for pendulum parsing: https://pendulum.eustace.io/docs/#tokens
     :type datetime_pattern: str

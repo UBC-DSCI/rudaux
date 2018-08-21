@@ -166,7 +166,9 @@ class Course:
     self.hub_url = re.sub(r"/$", "", self.hub_url)
     # Get Storage directory & type
     self.storage_path = config.get('JupyterHub', {}).get('storage_path', )
-    self.zfs = config.get('JupyterHub', {}).get('zfs') # default is false!
+    self.zfs = config.get('JupyterHub', {}).get('zfs') # Optional, default is false!
+    self.zfs_regex = config.get('JupyterHub', {}).get('zfs_regex') # default is false!
+    self.zfs_datetime_pattern = config.get('JupyterHub', {}).get('zfs_datetime_pattern') # default is false!
     # Note hub_prefix, not base_url, to avoid any ambiguity
     self.hub_prefix = config.get('JupyterHub', {}).get('base_url')
     # If prefix was set, make sure it has no trailing slash, but a preceding
@@ -266,6 +268,16 @@ class Course:
         "value": self.zfs,
         "default": False,
         "config_name": "JupyterHub.zfs"
+      },
+      "zfs_regex": {
+        "value": self.zfs_regex,
+        "default": r'\d{4}-\d{2}-\d{2}-\d{4}',
+        "config_name": "JupyterHub.zfs_regex"
+      },
+      "zfs_datetime_pattern": {
+        "value": self.zfs_datetime_pattern,
+        "default": 'YYYY-MM-DD-HHmm',
+        "config_name": "JupyterHub.zfs_datetime_pattern"
       },
       "course_timezone": {
         "value": self.course_timezone,
