@@ -49,10 +49,12 @@ class Course:
     self, 
     course_dir=None,
     auto=False
-  ):
-    """
+  ) -> 'Course':
+    """Initialize a course from a config file. 
     :param course_dir: The directory your course. If none, defaults to current working directory. 
     :type course_dir: str
+    :param auto: Automatically answer yes to all prompts.
+    :type auto: bool
 
     :returns: A Course object for performing operations on an entire course at once.
     :rtype: Course
@@ -366,7 +368,7 @@ class Course:
 
   # Get the canvas token from the environment
   @staticmethod
-  def _get_token(token_name: str):
+  def _get_token(token_name: str) -> 'str':
     """
     Get an API token from an environment variable.
     """
@@ -477,7 +479,7 @@ class Course:
 
   #   return self
 
-  def sync_nbgrader(self):
+  def sync_nbgrader(self) -> 'Course':
     """
     Enter information into the nbgrader gradebook database about the assignments and the students.
     """
@@ -619,7 +621,7 @@ class Course:
     self, 
     assignments=None,
     overwrite=False,
-  ):
+  ) -> 'Course':
     """Assign assignments for a course
     
     :param assignments: The name or names of the assignments you wish to assign.
@@ -759,7 +761,7 @@ class Course:
   #   assignments = pd.read_csv(path)
   #   print(assignments)
 
-  def create_canvas_assignments(self) -> 'None':
+  def create_canvas_assignments(self) -> 'Course':
     """Create assignments for a course.
     """
 
@@ -786,9 +788,10 @@ class Course:
     print("\n")
     print(table.table)
     print("\n")
+    
     return self
 
-  def schedule_grading(self):
+  def schedule_grading(self) -> 'Course':
     """
     Schedule assignment grading tasks in crontab. 
     """
@@ -824,6 +827,8 @@ class Course:
     print(status_table.table)
     print("\n")
 
+    return self
+
 
   # def _get_course(self):
   #   """
@@ -843,3 +848,4 @@ class Course:
   #   # pull out the response JSON
   #   course = resp.json()
   #   return course
+  
