@@ -42,7 +42,7 @@ from rudaux import utils
 # Must be instantiated with a course ID
 class Course:
   """
-  Course object for manipulating an entire Canvas/JupyterHub/nbgrader course
+  Course object for manipulating an entire Canvas/JupyterHub/nbgrader course.
   """
 
   def __init__(
@@ -53,7 +53,7 @@ class Course:
     """Initialize a course from a config file. 
     :param course_dir: The directory your course. If none, defaults to current working directory. 
     :type course_dir: str
-    :param auto: Automatically answer yes to all prompts.
+    :param auto: Suppress all prompts, automatically answering yes.
     :type auto: bool
 
     :returns: A Course object for performing operations on an entire course at once.
@@ -440,7 +440,7 @@ class Course:
     return self
 
   def get_students_from_canvas(self) -> 'Course':
-    """Get the student list for a course. 
+    """Get the course student list from Canvas. 
 
     :returns: The course object to allow for method chaining.
     :rtype: Course
@@ -498,7 +498,7 @@ class Course:
   #   return self
 
   def sync_nbgrader(self) -> 'Course':
-    """Enter information into the nbgrader gradebook database about the assignments and the students.
+    """Sync student and assignment lists between nbgrader and Canvas.
 
     :returns: The course object to allow for method chaining.
     :rtype: Course
@@ -642,11 +642,11 @@ class Course:
     assignments=None,
     overwrite=False,
   ) -> 'Course':
-    """Assign assignments for a course
+    """Assign assignments for a course.
     
     :param assignments: The name or names of the assignments you wish to assign. Defaults to all assignments.
     :type assignments: str, List[str]
-    :param overwrite: Whether or not you wish to overwrite preexisting temporary directories.
+    :param overwrite: Bypass overwrite prompts and nuke preexisting directories.
     :type overwrite: bool
 
     :returns: The course object to allow for method chaining.
@@ -785,7 +785,7 @@ class Course:
   #   print(assignments)
 
   def create_canvas_assignments(self) -> 'Course':
-    """Create assignments for a course.
+    """Create assignments in Canvas.
 
     :returns: The course object to allow for method chaining.
     :rtype: Course
@@ -818,7 +818,7 @@ class Course:
     return self
 
   def schedule_grading(self) -> 'Course':
-    """Schedule assignment grading tasks in crontab. 
+    """Schedule auto-grading cron jobs for all assignments. 
 
     :returns: The course object to allow for method chaining.
     :rtype: Course

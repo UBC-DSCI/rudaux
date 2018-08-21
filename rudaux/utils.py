@@ -19,7 +19,7 @@ def safely_delete(path: str, overwrite: bool) -> 'None':
   
   :param path: The directory to delete.
   :type path: str
-  :param overwrite: A boolean override to bypass overwrite prompt.
+  :param overwrite: Bypass overwrite prompts and nuke preexisting directories.
   :type overwrite: bool
 
   :return: None, called for side-effects
