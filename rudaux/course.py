@@ -632,9 +632,9 @@ class Course:
   ) -> 'Course':
     """Assign assignments for a course
     
-    :param assignments: The name or names of the assignments you wish to assign.
+    :param assignments: The name or names of the assignments you wish to assign. Defaults to all assignments.
     :type assignments: str, List[str]
-    :param overwrite: Whether or not you wish to overwrite preexisting directories
+    :param overwrite: Whether or not you wish to overwrite preexisting temporary directories.
     :type overwrite: bool
 
     :returns: The course object to allow for method chaining.
@@ -807,7 +807,7 @@ class Course:
 
   def schedule_grading(self) -> 'Course':
     """Schedule assignment grading tasks in crontab. 
-    
+
     :returns: The course object to allow for method chaining.
     :rtype: Course
     """

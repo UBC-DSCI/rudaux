@@ -4,16 +4,16 @@ from rudaux import Course, Assignment
 
 
 def initialize_course(args):
-  """Fully Initialize a course. This involves:
-  0. Reading your configuration file and ensuring all parameters are valid.
-  1. Identifying the tool name used for your JupyterHub installation in Canvas.
-  2. Pulling your student list from Canvas.  
-  3. Syncing Canvas with nbgrader (students & assignments).
-  4. Assigning all of the assignments listed in your config file.
-  5. Creating the assignments listed in your config file in Canvas.
-  6. Schedule automated grading of your assignments.
-
+  """Fully Initialize a course. 
   :param args: Arguments passed in from the command line parser.
+
+  0. Read your course configuration file and ensure all parameters are valid.
+  1. Identify the tool name used for your JupyterHub installation in Canvas.
+  2. Pull your student list from Canvas.  
+  3. Sync students & assignments between Canvas and nbgrader.
+  4. Assign all of the assignments listed in your config file.
+  5. Create the assignments listed in your config file in Canvas.
+  6. Schedule automated grading of your assignments.
   """
 
   course = Course(course_dir=args.directory, auto=args.auto)
@@ -31,14 +31,23 @@ def initialize_course(args):
 
 def grade(args):
   """Grade an assignment.
-  1. If we are using a ZFS storage system, snapshot with ZFS.
-  2. ? Copy to a temporary directory
-  3. Collect assignments with nbgrader
-  4. Grade assignments with nbgrader
-  5. If no manual input, generate forms
-  6. If no manual input, return forms and submit grades
-  
   :param args: Arguments passed in from the command line parser.
+
+  First, initialize the course:
+  0. Read your course configuration file and ensure all parameters are valid.
+  1. Identify the tool name used for your JupyterHub installation in Canvas.
+  2. Pull your student list from Canvas.  
+  3. Sync students & assignments between Canvas and nbgrader.
+
+  Because course initialization instantiates Assignment objects, we can search
+  for our assignment by name.
+
+  Next, start grading:
+  1. Collect assignments
+  2. Grade assignments
+  3. If no manual input, generate forms
+  4. If no manual input, return forms and submit grades
+    TODO: Use Canvas File Upload API to upload feedback forms along with grades.
   """
 
   course = Course(course_dir=args.directory, auto=args.auto)
@@ -80,8 +89,21 @@ def grade(args):
 
 def submit(args):
   """Generate feedback for and submit an assignment.
-  
   :param args: Arguments passed in from the command line parser.
+
+  First, initialize the course:
+  0. Read your course configuration file and ensure all parameters are valid.
+  1. Identify the tool name used for your JupyterHub installation in Canvas.
+  2. Pull your student list from Canvas.  
+  3. Sync students & assignments between Canvas and nbgrader.
+
+  Because course initialization instantiates Assignment objects, we can search
+  for our assignment by name.
+
+  Next:
+  1. Generate forms
+  2. Return forms and submit grades
+    TODO: Use Canvas File Upload API to upload feedback forms along with grades.
   """
 
   # no auto arg needed, this would only ever be run after manual feedback, and
