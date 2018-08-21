@@ -380,7 +380,11 @@ class Course:
       raise e
 
   def get_external_tool_id(self) -> 'Course': 
-    """Find the ID of the external tool created in Canvas that represents your JupyterHub server."""
+    """Find the ID of the external tool created in Canvas that represents your JupyterHub server.
+
+    :returns: The course object to allow for method chaining.
+    :rtype: Course
+    """
 
     # PRINT BANNER
     print(utils.banner('Finding External Tool in Canvas'))
@@ -424,8 +428,10 @@ class Course:
     return self
 
   def get_students_from_canvas(self) -> 'Course':
-    """
-    Get the student list for a course. 
+    """Get the student list for a course. 
+
+    :returns: The course object to allow for method chaining.
+    :rtype: Course
     """
     # PRINT BANNER
     print(utils.banner('Getting Student List From Canvas'))
@@ -480,8 +486,10 @@ class Course:
   #   return self
 
   def sync_nbgrader(self) -> 'Course':
-    """
-    Enter information into the nbgrader gradebook database about the assignments and the students.
+    """Enter information into the nbgrader gradebook database about the assignments and the students.
+
+    :returns: The course object to allow for method chaining.
+    :rtype: Course
     """
 
     # PRINT BANNER
@@ -628,6 +636,9 @@ class Course:
     :type assignments: str, List[str]
     :param overwrite: Whether or not you wish to overwrite preexisting directories
     :type overwrite: bool
+
+    :returns: The course object to allow for method chaining.
+    :rtype: Course
     """
 
     # PRINT BANNER
@@ -763,6 +774,9 @@ class Course:
 
   def create_canvas_assignments(self) -> 'Course':
     """Create assignments for a course.
+
+    :returns: The course object to allow for method chaining.
+    :rtype: Course
     """
 
     # PRINT BANNER
@@ -788,12 +802,14 @@ class Course:
     print("\n")
     print(table.table)
     print("\n")
-    
+
     return self
 
   def schedule_grading(self) -> 'Course':
-    """
-    Schedule assignment grading tasks in crontab. 
+    """Schedule assignment grading tasks in crontab. 
+    
+    :returns: The course object to allow for method chaining.
+    :rtype: Course
     """
 
     # PRINT BANNER

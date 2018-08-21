@@ -1,4 +1,3 @@
-import pprint
 import requests
 import re
 import nbgrader
@@ -45,7 +44,7 @@ class Assignment:
     points=1,
     manual=False,
     course=None,
-  ) -> 'self':
+  ) -> 'Assignment':
     """
     Assignment object for manipulating Assignments.
 
@@ -53,16 +52,17 @@ class Assignment:
     :type name: str
     :param duedate: The assignment's due date. (default: None)
     :type duedate: str
-    :param duetime: The assignment's due time. (default: None)
+    :param duetime: The assignment's due time. (default: 23:59:59)
     :type duetime: str
     :param points: The number of points the assignment is worth. (default: 1)
     :type points: int
     :param manual: Is manual grading required? (default: False)
     :type manual: bool
-    :param course: The course the assignment belongs to.
+    :param course: The course the assignment belongs to. Optional, recommended usage is to subclass Assignment with the course as a class variable.
     :type course: Course
 
     :returns: An assignment object for performing different operations on a given assignment.
+    :rtype: Assignment
     """
 
     if (self.course is None) and (course is None):
@@ -119,111 +119,15 @@ class Assignment:
 
     self.launch_url = self._generate_launch_url()
 
-  def autograde(self):
-    """
-    Initiate automated grading with nbgrader.
-    """
-
-    return False
-
-  # def assign(
-  #   self,
-  #   tmp_dir=os.path.join(Path.home(), 'tmp'),
-  #   overwrite=False,
-  # ) -> 'None':
-  #   """
-  #   Assign assignment to students (generate student copy from instructors
-  #   repository and push to public repository). Only provide SSH URLs if you have
-  #   an SSH-key within sshd on this machine. Otherwise we will use your Github
-  #   Personal Access Token.
-
-  #   :param tmp_dir: A temporary directory to clone your instructors repo to. 
-  #   The default dir is located within the users directory so as to ensure write 
-  #   permissions. 
-  #   """
-
-  #   self.overwrite = overwrite
-
-  #   #=======================================#
-  #   #       Set up Parameters & Config      #
-  #   #=======================================#
-
-  #   # First things first, make the temporary directories
-  #   ins_repo_dir = os.path.join(tmp_dir, 'instructors')
-  #   stu_repo_dir = os.path.join(tmp_dir, 'students')
-
-  #   #=======================================#
-  #   #       Clone from Instructors Repo     #
-  #   #=======================================#
-
-  #   try:
-  #     utils.clone_repo(self.course.ins_repo_url, ins_repo_dir, self.overwrite)
-  #   except Exception as e:
-  #     print("There was an error cloning your instructors repository")
-  #     raise e
-
-  #   #=======================================#
-  #   #          Make Student Version         #
-  #   #=======================================#
-
-  #   # Make sure we're running our nbgrader commands within our instructors repo.
-  #   # this will contain our gradebook database, our source directory, and other
-  #   # things.
-  #   custom_config = Config()
-  #   custom_config.CourseDirectory.root = ins_repo_dir
-
-  #   # use the traitlets Application class directly to load nbgrader config file.
-  #   # reference:
-  #   # https://github.com/jupyter/nbgrader/blob/41f52873c690af716c796a6003d861e493d45fea/nbgrader/server_extensions/validate_assignment/handlers.py#L35-L37
-  #   for config in Application._load_config_files('nbgrader_config', path=ins_repo_dir):
-  #     # merge it with our custom config
-  #     custom_config.merge(config)
-
-  #   # set up the nbgrader api with our merged config files
-  #   nb_api = NbGraderAPI(config=custom_config)
-
-  #   # assign the given assignment!
-  #   nb_api.assign(self.name)
-
-  #   generated_assignment_dir = os.path.join(ins_repo_dir, 'release', self.name)
-  #   student_assignment_dir = os.path.join(stu_repo_dir, self.name)
-  #   # make sure we assigned properly
-  #   if not os.path.exists(generated_assignment_dir):
-  #     sys.exit(
-  #       f"nbgrader failed to assign {self.name}, please make sure your directory structure is set up properly in nbgrader"
-  #     )
-
-  #   #=======================================#
-  #   #   Move Assignment to Students Repo    #
-  #   #=======================================#
-
-  #   try:
-  #     utils.clone_repo(self.course.stu_repo_url, stu_repo_dir, self.overwrite)
-  #   except Exception as e:
-  #     print("There was an error cloning your students repository")
-  #     raise e
-
-  #   utils.safely_delete(student_assignment_dir, self.overwrite)
-
-  #   # Finally, copy to the directory, as we've removed any preexisting ones or
-  #   # exited if we didn't want to.
-  #   # shutil.shutil.copytree doesn't need the directory to exist beforehand
-  #   shutil.copytree(generated_assignment_dir, student_assignment_dir)
-
-  #   #=======================================#
-  #   #      Push Changes to Students Repo    #
-  #   #=======================================#
-
-  #   utils.push_repo(stu_repo_dir)
-
-  #   return self
-
-  def _generate_launch_url(self):
+  def _generate_launch_url(self) -> 'str':
     """
     Generate assignment links for assigned assignments. 
 
     This will search your instructors repository for the source assignment and
     then generate the link to the student copy of the assignment.
+
+    :return: The full launch URL including the nbgitpuller next parameter.
+    :rtype: str
     """
 
     # Given an assignment name, look in that assignment's folder and pull out
@@ -252,11 +156,9 @@ class Assignment:
     return full_launch_url
 
   def _search_canvas_assignment(self) -> 'Dict[str, str]':
-    """Find a Canvas assignment by its name.
+    """Search for an assignment in Canvas with this assignment's name.
     
-    :param name: The name of the canvas assignment
-    :type name: str
-    :return: The canvas assignment object
+    :return: The canvas assignment object.
     :rtype: Dict[str, str]
     """
 
@@ -271,6 +173,8 @@ class Assignment:
       params={"search_term": self.name}
     )
 
+    resp.raise_for_status()
+    
     # Check to see if we found an assignment with this name
     if len(resp.json()) > 0:
       first_result = resp.json()[0]
@@ -289,15 +193,11 @@ class Assignment:
     else: 
       return None
 
-    resp.raise_for_status()
-
-  def _create_canvas_assignment(self) -> 'None':
-    """Create an assignment in Canvas.
+  def _create_canvas_assignment(self) -> 'Dict[str, str]':
+    """Create an assignment in Canvas via the Canvas API. 
     
-    :param name: The name of the assignment
-    :type name: str
-    :return: None: called for side-effects.
-    :rtype: None
+    :return: The response JSON from the Canvas API.
+    :rtype: Dict[str, str]
     """
 
     resp = requests.post(
@@ -327,14 +227,14 @@ class Assignment:
 
     return resp.json()
 
-  def _update_canvas_assignment(self, assignment_id: int) -> 'None':
-    """
-    Update an assignment.
+  def _update_canvas_assignment(self, assignment_id: int) -> 'Dict[str, str]':
+    """Update an assignment in Canvas via the Canvas API.
 
     :param assignment_id: The numeric ID of the assignment in Canvas
     :type assignment_id: int
-    :return: No return, called for side-effects.
-    :rtype: None
+
+    :return: The response JSON from the Canvas API.
+    :rtype: Dict[str, str]
     """
 
     resp = requests.put(
@@ -368,6 +268,9 @@ class Assignment:
 
   def update_or_create_canvas_assignment(self) -> 'str':
     """Update or create an assignment, depending on whether or not it was found
+
+    :return: A reporting status, whether the assignment was updated or created.
+    :rtype: str
     """
 
     self.canvas_assignment = self._search_canvas_assignment()
@@ -379,11 +282,20 @@ class Assignment:
       self.canvas_assignment = self._create_canvas_assignment()
       return f'{utils.color.DARKCYAN}created{utils.color.END}'
 
-  def schedule_grading(self) -> 'Assignment':
-    """Schedule grading of an assignment.
+  def schedule_grading(self) -> 'Dict[str, str]':
+    """Schedule grading of an assignment by adding cron jobs to initialize autograding.
+
+    If no auto-grading job for that assignment exists in cron, create a job.
+    If an auto-grading job for that assignment is already scheduled in cron, update the job.
+    The job will be scheduled to run at the assignment's due datetime.
+
+    The job takes the following format:
+    1. Initialize SSH agent
+    2. Add instructors & students SSH-keys to SSH agent 
+    3. Run `rudaux grade` with output redirected to a log file in the instructors' repository
     
-    :return: self
-    :rtype: Assignment
+    :return: A status reporting object with the keys 'close_time' and 'action'
+    :rtype: Dict[str, str]
     """
 
     # Initialize dict for status reporting
@@ -496,50 +408,18 @@ class Assignment:
     
     return scheduling_status
 
-  # This function is defunct. We are only mounting the ZFS fileserver 
-  # to the grading server via a NFS mount, so we do not have access to 
-  # ZFS commands. Instead, snapshots will be taken daily at 12:03am, 
-  # and rudaux will look for the closest snapshot after the close date.
-  # (see Assignment.collect())
+  def collect(self) -> 'Assignment':
+    """Collect an assignment.
+    **Commits Instructors**
+    **Pushes Instructors**
 
-  # which is intended only to be run from a system-level crontab
-  # OR with sudo permissions.
-  # def snapshot_zfs(self):
-  #   """Snapshot the ZFS filesystem.
+    Copy your students' notebooks from the fileserver into the instructors repo `submitted/` directory.
     
-  #   """
-
-  #   # construct command for zfs.
-  #   # ZFS refers to its 'datasets' without a preceding slash
-  #   dataset = re.sub('^/', '', self.course.storage_path)
-  #   snapshot_name = f"{dataset}@{self.name}"
-
-  #   # Now, we can use Weir to check for preexisting snapshots
-  #   existing_snapshots = zfs.open(dataset).snapshots()
-
-  #   # The whole reason we are doing this is because our snapshot names must be unique
-  #   # So if we DO have a hit, there can only be one!
-  #   preexisting_snapshots = list(filter(lambda snap: snap.name == snapshot_name, existing_snapshots))
-
-  #   # so if we have a hit, get the date of that snap
-  #   if len(preexisting_snapshots) > 0:
-  #     preexisting_snapshot = preexisting_snapshots[0]
-  #     snap_date = preexisting_snapshot.getprop('creation').get('value')
-  #     snap_time = time.strftime(r'%Y-%m-%d %H:%M:%S', time.localtime(int(snap_date)))
-  #     print(f'Using preexisting snapshot for this assignment created at {snap_time} (server time).')
-  #   else: 
-  #     # we'll name the snapshot after the assignment being graded
-  #     #! I feel like we can't run a sudo command from the user crontab
-  #     subprocess.run(["sudo", "zfs", "snapshot", snapshot_name], check=True)
-
-  def collect(self):
-    """
-    Collect an assignment via the nbgrader API.
-    This essentially copies the notebooks to a new location.
-    
-    IMPORTANT:
     This also creates a submission in the gradebook on behalf of each student.
-    If this is never done, then autograding doesn't record grades in the gradebook.
+    If this is not done, then autograding doesn't record grades in the gradebook.
+
+    :returns: The assignment object to allow for method chaining.
+    :rtype: Assignment
     """
 
     print(utils.banner(f"Collecting {self.name}"))
@@ -650,10 +530,13 @@ class Assignment:
 
     return self
 
-  def grade(self):
-    """
-    Autograde an assignment via the nbgrader API.
-    This runs `nbgrader autograde` within a docker container.
+  def grade(self) -> 'Assignment':
+    """Auto-grade an assignment within a docker container.
+    **Commits Instructors**
+    **Pushes Instructors**
+
+    :returns: The assignment object to allow for method chaining.
+    :rtype: Assignment
     """
 
     print(utils.banner(f"Autograding {self.name}"))
@@ -745,9 +628,11 @@ class Assignment:
 
     return self
 
-  def submit(self):
-    """
-    Upload grades to Canvas.  
+  def submit(self) -> 'Assignment':
+    """Upload students' grades to Canvas.  
+
+    :returns: The assignment object to allow for method chaining.
+    :rtype: Assignmeny
     """
 
     # Print banner
@@ -878,15 +763,28 @@ class Assignment:
   def _find_closest_snapshot(
     self,
     snapshot_names: List[str],
-    snapshot_prefix=r'^zfs-auto-snap_[a-z]+-',
+    snapshot_regex=r'\d{4}-\d{2}-\d{2}-\d{4}',
     datetime_pattern='YYYY-MM-DD-HHmm'
-  ):
+  ) -> 'str':
+    """Find the snapshot that is closest to the assignment due date (only snaps after due).
+
+    :param snapshot_names: A list of snapshot names
+    :type snapshot_names: List[str]
+    :param snapshot_prefix: A regular expression that matches the snapshot timestamp. Use None if the snapshot name is a timestamp.
+    :type snapshot_prefix: str
+    :param datetime_pattern: The pattern of your timestamp in token format, for pendulum parsing: https://pendulum.eustace.io/docs/#tokens
+    :type datetime_pattern: str
+    
+    :return: The name of the snapshot closest to your assignment due date.
+    :rtype: str
+    """
+
     # If no snapshot prefix was specified, then we will 
     # parse the snapshot names directly as the datetimes
 
     snapshots = []
 
-    if snapshot_prefix is None:
+    if snapshot_regex is None:
       for snap in snapshot_names:
         snapshots.append({
           'snapshot_name': snap,
@@ -894,10 +792,15 @@ class Assignment:
         })
     else: 
      for snap in snapshot_names:
-        snapshots.append({
-          'snapshot_name': snap,
-          'unparsed_time': re.sub(snapshot_prefix, '', snap)
-        })
+        regex_match = re.search(snapshot_regex, snap)
+        if regex_match is not None:
+          snapshots.append({
+            'snapshot_name': snap,
+            'unparsed_time': regex_match.group(1)
+          })
+        else: 
+          sys.exit(f'No timestamp was found matching the regular expression: {snapshot_regex}')
+
 
     for snap in snapshots:
       # parse the datetime strings into pendulum datetime objects
