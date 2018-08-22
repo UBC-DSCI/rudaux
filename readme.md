@@ -1,15 +1,24 @@
 # Rudaux
 
-Rudaux is a course management module to interface the Canvas Learning Management System (LMS) with JupyterHub. Rudaux helps you programmatially administer a course being taught in JupyterHub
+Rudaux helps you programmatically administer a course by integrating:
 
-Rudaux assists in:
+- [Canvas](https://www.canvaslms.com/) - a learning management system
+- [JupyterHub](https://github.com/jupyterhub/jupyterhub) - a multi-user Jupyter notebook Server
+- [nbgrader](https://github.com/jupyter/nbgrader) - a Jupyter notebook auto-grader
+- [nbgitpuller](https://github.com/data-8/nbgitpuller) - a JupyterHub extension to pull Jupyter notebooks from git repositories
 
-- true autograding - scheduling `cron` events to kick off [`nbgrader`](https://github.com/jupyter/nbgrader) autograding
-- creating assignments in Canvas with links to your JupyterHub notebooks using [`nbgitpuller`](https://github.com/data-8/nbgitpuller)
+Rudaux was designed to simplify course management generally, but there are a few operations in particular that would be nearly impossible without rudaux.
 
-Rudaux is named after the French artist and astronomer Lucien Rudaux who was a pioneer in space artistry and one of the first artists to paint Jupiter.
+- Syncing students and assignments between Canvas and nbgrader.
+- Creating assignments in Canvas with JupyterHub/nbgitpuller links.
+- Scheduled automated grading of Jupyter notebooks with nbgrader.
 
-![Jupiter Seen from Io by Lucien Rudaux](rudaux_jupiter.jpg)
+Rudaux is named after the French artist and astronomer Lucien Rudaux, a pioneer in space artistry and one of the first artists to paint Jupiter.
+
+<figure>
+  <img src="rudaux_jupiter.jpg" alt='"Jupiter Seen from Io" by Lucien Rudaux' style="border-radius: 20px;">
+  <figcaption>"Jupiter Seen from Io" by Lucien Rudaux</figcaption>
+</figure>
 
 ## Documentation
 
@@ -47,9 +56,9 @@ See [command-line interface](https://samhinshaw.github.io/rudaux-docs/cli/).
 rudaux {init, grade, submit}
 ```
 
-#### Module Import
+#### Python API
 
-See [modules](https://samhinshaw.github.io/rudaux-docs/modules/).
+See [API](https://samhinshaw.github.io/rudaux-docs/api/).
 
 ```py
 from rudaux import Course, Assignment
