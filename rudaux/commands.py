@@ -1,6 +1,5 @@
 import sys
-from subprocess import CalledProcessError
-from rudaux import Course, Assignment
+from rudaux import Course
 
 
 def initialize_course(args):

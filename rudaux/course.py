@@ -5,26 +5,21 @@ import sys
 import re
 import shutil
 import pendulum
-import textwrap
 from pathlib import Path
 # For parsing assignments from CSV
 # import pandas as pd
 # For progress bar
 from tqdm import tqdm
-from weir import zfs
 from git import Repo
 # For setting up autograding
 from crontab import CronTab
 from terminaltables import AsciiTable
-# For decoding base64-encoded files from GitHub API
-from base64 import b64decode
 # for urlencoding query strings to persist through user-redirect
 import urllib.parse as urlparse
 
 # Bring in nbgrader API
 from nbgrader.apps import NbGraderAPI
 # Don't reinvent the wheel! Use nbgrader's method for finding notebooks
-from nbgrader import utils as nbutils
 
 # Bring in Traitlet Configuration methods
 from traitlets.config import Config

@@ -6,24 +6,17 @@ import sys
 import subprocess
 import shutil
 import pendulum
-import time
 import urllib.parse as urlparse
 
 from terminaltables import AsciiTable
-from dateutil.parser import parse
-from pathlib import Path
-from typing import Union, List, Optional, Dict
+from typing import Dict, List, Union
 
-from nbgrader.apps import NbGraderAPI
 from nbgrader import utils as nbutils
 # This is not working properly for some reason
 # from nbgrader.converters.base import NbGraderException
 
-from traitlets.config import Config
-from traitlets.config.application import Application
 
 # Import my own utility functions from this module
-import rudaux
 from rudaux import utils
 
 # from course import Course
