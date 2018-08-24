@@ -6,7 +6,7 @@ with open('requirements.txt', 'r') as in_:
 
 setup(
   name='rudaux',
-  version='0.2',
+  version='0.3',
   description='Canvas Course Management with JupyterHub & nbgrader.',
   long_description=
   'This packages provides automation for managing a course that uses JupyterHub & nbgrader along with the Canvas Learning Management System.',
