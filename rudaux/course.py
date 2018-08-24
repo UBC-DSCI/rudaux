@@ -464,34 +464,6 @@ class Course:
     self.students = students
     return self
 
-  # def get_assignments_from_canvas(self):
-  #   """
-  #   Get all assignments for a course.
-  #   """
-  #   resp = requests.get(
-  #     url=f"{self.canvas_url}/api/v1/courses/{self.course_id}/assignments",
-  #     headers={
-  #       "Authorization": f"Bearer {self.canvas_token}",
-  #       "Accept": "application/json+canvas-string-ids"
-  #     }
-  #   )
-
-  #   # Make sure our request didn't fail silently
-  #   resp.raise_for_status()
-
-  #   # pull out the response JSON
-  #   canvas_assignments = resp.json()
-
-  #   # Create an assignment object from each assignment
-  #   # `canvas_assignments` is a list of objects (dicts) so `**` is like the object spread operator (`...` in JS)
-  #   assignments = map(
-  #     lambda assignment: Assignment(**assignment),
-  #     canvas_assignments
-  #   )
-  #   self.assignments = assignments
-
-  #   return self
-
   def sync_nbgrader(self) -> 'Course':
     """Sync student and assignment lists between nbgrader and Canvas.
 
@@ -757,28 +729,6 @@ class Course:
 
     return self
 
-  # def get_assignments_from_csv(self, path: str):
-  #   """
-  #   Bring in assignments from a CSV file. 
-  #   CSV file should contain the following columns: 
-    
-  #   [required]
-  #   - name (str): the name of the assignment
-  #   - duedate (str): due date for the assignment
-  #   - notebook_path (str): github URL at which the jupyter notebook lives
-  #   - points_possible (int): the number of possible points
-
-  #   [optional]
-  #   - published (bool): whether the assignment should be published
-  #   - description (str): a description of the assignment
-  #   - unlock_at (str): a date at which the assignment becomes available
-  #   - lock_at (str): date after the due date to which students can submit their assignment for partial credit
-
-  #   :param path: Path to the CSV file. 
-  #   """
-  #   assignments = pd.read_csv(path)
-  #   print(assignments)
-
   def create_canvas_assignments(self) -> 'Course':
     """Create assignments in Canvas.
 
@@ -852,23 +802,4 @@ class Course:
 
     return self
 
-
-  # def _get_course(self):
-  #   """
-  #   Get the basic course information from Canvas
-  #   """
-  #   resp = requests.get(
-  #     url=f"{self.canvas_url}/api/v1/courses/{self.course_id}",
-  #     headers={
-  #       "Authorization": f"Bearer {self.canvas_token}",
-  #       "Accept": "application/json+canvas-string-ids"
-  #     }
-  #   )
-
-  #   # Make sure our request didn't fail silently
-  #   resp.raise_for_status()
-    
-  #   # pull out the response JSON
-  #   course = resp.json()
-  #   return course
   
