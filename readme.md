@@ -84,3 +84,19 @@ Make sure you change the options in your config file to match your test environm
 - `c.Canvas.token_name` = name of the environment variable storing your Canvas token
 
 Then, go for it! One important thing to note is that if you run `.schedule_grading()`, which is part of `rudaux init`, rudaux will schedule jobs to your crontab. You should be aware of this, and may want to delete them manually upon conclusion of your testing.
+
+## Contributing
+
+To develop rudaux, clone this repository. Then, you can install it locally and begin testing it!
+
+### Deployment to PyPI
+
+- Update the version number in setup.py.
+- Then, run the following commands.
+
+  ```sh
+  python setup.py sdist upload
+  python setup.py bdist_wheel upload
+  ```
+
+- When prompted for password, enter your PyPI password.
