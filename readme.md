@@ -63,3 +63,24 @@ See [API](https://samhinshaw.github.io/rudaux-docs/api/).
 ```py
 from rudaux import Course, Assignment
 ```
+
+## Testing with Rudaux
+
+You can test out rudaux on your own computer without the need to set up any servers! To get started, you will need a few things.
+
+1. Access to a [Canvas test environment](https://community.canvaslms.com/docs/DOC-13011-4152719755).
+2. A test instructors' repository with your source assignments and your [config file](https://ubc-dsci.github.io/rudaux-docs/config/).
+3. A test students' repository.
+4. Docker, `rudaux` and `nbgrader` installed.
+5. Your Docker grading image installed from DockerHub.
+6. A [token](https://canvas.instructure.com/doc/api/file.oauth.html#manual-token-generation) from your Canvas test environment.
+
+Make sure you change the options in your config file to match your test environment. Some important options include:
+
+- `c.Canvas.canvas_url` = url of your Canvas test environment
+- `c.JupyterHub.storage_path` = location on your computer where student submissions would be collected from
+- `c.GitHub.ins_repo_url` = test instructors repo
+- `c.GitHub.stu_repo_url` = test students repo
+- `c.Canvas.token_name` = name of the environment variable storing your Canvas token
+
+Then, go for it! One important thing to note is that if you run `.schedule_grading()`, which is part of `rudaux init`, rudaux will schedule jobs to your crontab. You should be aware of this, and may want to delete them manually upon conclusion of your testing.
