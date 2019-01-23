@@ -1,4 +1,5 @@
 import sys
+from warnings import warn
 from rudaux import Course
 
 
@@ -57,32 +58,33 @@ def grade(args):
     .sync_nbgrader()
 
   # find assignment in config assignment list
-  assignment = list(
+  matchedAssignments = list(
     filter(lambda assn: assn.name == args.assignment_name, course.assignments)
   )
 
-  if len(assignment) <= 0:
+  # If we didn't fined any assignments, exit.
+  if len(matchedAssignments) <= 0:
     sys.exit(f"No assignment named \"{args.assignment_name}\" found")
   else:
-    # Take the first result.
-    assignment = assignment[0]
-    # But notify if more than one was found
-    # Though this should never happen--assignment names must be unique.
-    if len(assignment) > 1:
-      print(
+    # If we had many results we should warn the user
+    if len(matchedAssignments) > 1:
+      warn(
         f"Multiple assignments named \"{args.assignment_name}\" were found. Grading the first one!"
       )
+    # But whether we have ONE result or MULTIPLE, matchedAssignments is a list,
+    # so we have to extract the Assignment object we want.
+    assignment = matchedAssignments[0]
 
   # collect and grade the assignment
-  assignment = assignment \
-    .collect()            \
+  gradedAssignment = assignment \
+    .collect()                  \
     .grade()
 
   # and if no manual feedback is required, generate feedback reports
   # and submit grades
   if not args.manual:
-    assignment    \
-      .feedback() \
+    gradedAssignment \
+      .feedback()    \
       .submit()
 
 
