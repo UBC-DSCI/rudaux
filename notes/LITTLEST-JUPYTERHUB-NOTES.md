@@ -2,6 +2,10 @@
 
 This document details process changes that diverge from the instructions given in the [Littlest Jupyterhub](http://tljh.jupyter.org/en/latest/) setup instructions given by Jupyter.
 
+## Passwords/Accounts
+
+* The documentation is unclear on this, but you should enter the password you wish to use during your FIRST login; the docs make it appear as though you will be prompted to enter your password after you login, but this is not the case
+
 ## Security Groups
 
 **ERROR:**
