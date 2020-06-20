@@ -5,7 +5,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
     <meta charset="utf-8" />
-    <title>Setting up Assignments on Canvas</title>
+    <title>Welcome to Rudaux!</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.11.2/css/all.min.css" integrity="sha384-KA6wR/X5RY4zFAHpv/CnoG2UW1uogYfdnP67Uv7eULvTveboZJg0qUpmJZb5VqzN" crossorigin="anonymous">
     <link href="../_static/css/index.css" rel="stylesheet">
     <link rel="stylesheet" href="../_static/sphinx-book-theme.css" type="text/css" />
@@ -31,8 +31,7 @@
     <link rel="shortcut icon" href="../_static/rudaux_jupiter.jpg"/>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Running the course" href="03-running-the-course.html" />
-    <link rel="prev" title="Course Infrastructure" href="01-infrastructure.html" />
+    <link rel="next" title="Course Infrastructure" href="01-infrastructure.html" />
 
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="docsearch:language" content="en">
@@ -68,8 +67,8 @@
   <li class="">
     <a href="01-infrastructure.html">1. Course Infrastructure</a>
   </li>
-  <li class="active">
-    <a href="">2. Setting up Assignments on Canvas</a>
+  <li class="">
+    <a href="02-setting-up-assignments.html">2. Setting up Assignments on Canvas</a>
   </li>
   <li class="">
     <a href="03-running-the-course.html">3. Running the course</a>
@@ -97,23 +96,30 @@
     </div>
     <div class="col pl-2 topbar-main">
         
-        <button id="navbar-toggler" class="navbar-toggler ml-0" type="button" data-toggle="collapse" data-toggle="tooltip" data-placement="bottom" data-target=".site-navigation" aria-controls="navbar-menu" aria-expanded="true" aria-label="Toggle navigation" aria-controls="site-navigation" title="Toggle navigation" data-toggle="tooltip" data-placement="left">
+        <button id="navbar-toggler" class="navbar-toggler ml-0" type="button" data-toggle="collapse"
+            data-toggle="tooltip" data-placement="bottom" data-target=".site-navigation" aria-controls="navbar-menu"
+            aria-expanded="true" aria-label="Toggle navigation" aria-controls="site-navigation"
+            title="Toggle navigation" data-toggle="tooltip" data-placement="left">
             <i class="fas fa-bars"></i>
             <i class="fas fa-arrow-left"></i>
             <i class="fas fa-arrow-up"></i>
         </button>
         
         <div class="dropdown-buttons-trigger">
-            <button id="dropdown-buttons-trigger" class="btn btn-secondary topbarbtn" aria-label="Download this page"><i class="fas fa-download"></i></button>
+            <button id="dropdown-buttons-trigger" class="btn btn-secondary topbarbtn" aria-label="Download this page"><i
+                    class="fas fa-download"></i></button>
 
             
             <div class="dropdown-buttons">
                 <!-- ipynb file if we had a myst markdown file -->
                 
                 <!-- Download raw file -->
-                <a class="dropdown-buttons" href="../_sources/content/02-setting-up-assignments.ipynb"><button type="button" class="btn btn-secondary topbarbtn" title="Download source file" data-toggle="tooltip" data-placement="left">.ipynb</button></a>
+                <a class="dropdown-buttons" href="../_sources/content/00-preface.ipynb"><button type="button"
+                        class="btn btn-secondary topbarbtn" title="Download source file" data-toggle="tooltip"
+                        data-placement="left">.ipynb</button></a>
                 <!-- Download PDF via print -->
-                <button type="button" id="download-print" class="btn btn-secondary topbarbtn" title="Print to PDF" onClick="window.print()" data-toggle="tooltip" data-placement="left">.pdf</button>
+                <button type="button" id="download-print" class="btn btn-secondary topbarbtn" title="Print to PDF"
+                    onClick="window.print()" data-toggle="tooltip" data-placement="left">.pdf</button>
             </div>
             
         </div>
@@ -121,17 +127,26 @@
         <!-- Source interaction buttons -->
         
         <div class="dropdown-buttons-trigger">
-            <button id="dropdown-buttons-trigger" class="btn btn-secondary topbarbtn" aria-label="Connect with source repository"><i class="fab fa-github"></i></button>
+            <button id="dropdown-buttons-trigger" class="btn btn-secondary topbarbtn"
+                aria-label="Connect with source repository"><i class="fab fa-github"></i></button>
             <div class="dropdown-buttons sourcebuttons">
-                <a class="repository-button" href="https://github.com/UBC-DSCI/rudaux"><button type="button" class="btn btn-secondary topbarbtn" data-toggle="tooltip" data-placement="left" title="Source repository"><i class="fab fa-github"></i>repository</button></a>
-                <a class="issues-button" href="https://github.com/UBC-DSCI/rudaux/issues/new?title=Issue%20on%20page%20%2Fcontent/02-setting-up-assignments.html&body=Your%20issue%20content%20here."><button type="button" class="btn btn-secondary topbarbtn" data-toggle="tooltip" data-placement="left" title="Open an issue"><i class="fas fa-lightbulb"></i>open issue</button></a>
+                <a class="repository-button"
+                    href="https://github.com/UBC-DSCI/rudaux"><button type="button" class="btn btn-secondary topbarbtn"
+                        data-toggle="tooltip" data-placement="left" title="Source repository"><i
+                            class="fab fa-github"></i>repository</button></a>
+                <a class="issues-button"
+                    href="https://github.com/UBC-DSCI/rudaux/issues/new?title=Issue%20on%20page%20%2Fcontent/00-preface.html&body=Your%20issue%20content%20here."><button
+                        type="button" class="btn btn-secondary topbarbtn" data-toggle="tooltip" data-placement="left"
+                        title="Open an issue"><i class="fas fa-lightbulb"></i>open issue</button></a>
                 
             </div>
         </div>
         
 
         <!-- Full screen (wrap in <a> to have style consistency -->
-        <a class="full-screen-button"><button type="button" class="btn btn-secondary topbarbtn" data-toggle="tooltip" data-placement="bottom" onclick="toggleFullScreen()" title="Fullscreen mode"><i class="fas fa-expand"></i></button></a>
+        <a class="full-screen-button"><button type="button" class="btn btn-secondary topbarbtn" data-toggle="tooltip"
+                data-placement="bottom" onclick="toggleFullScreen()" title="Fullscreen mode"><i
+                    class="fas fa-expand"></i></button></a>
 
         <!-- Launch buttons -->
         
@@ -152,8 +167,14 @@
         
               <div>
                 
-  <div class="section" id="setting-up-assignments-on-canvas">
-<h1>Setting up Assignments on Canvas<a class="headerlink" href="#setting-up-assignments-on-canvas" title="Permalink to this headline">¶</a></h1>
+  <div class="section" id="welcome-to-rudaux">
+<h1>Welcome to Rudaux!<a class="headerlink" href="#welcome-to-rudaux" title="Permalink to this headline">¶</a></h1>
+<p><a class="reference external" href="http://tiffanytimbers.com">Tiffany Timbers</a></p>
+<p>This book documents how to set up a course where students complete homework on a JupyterHub server that they access via a course management system (via LTI authentication), and homework is graded via nbgrader (which has both manual and autograding capabilities). Grades are posted to the course management system. In its current implementation these docs support only the Canvas course management system, but they could easily be extended to other platforms that use LTI and that have a gradebook API.</p>
+<p><img alt="" src="../_images/rudaux_jupiter.jpg" /></p>
+<p><em>“Jupiter Seen from Io”</em> by Lucien Rudaux</p>
+<div class="toctree-wrapper compound">
+</div>
 </div>
 
 
@@ -165,8 +186,7 @@
     
     <div class='prev-next-bottom'>
         
-    <a class='left-prev' id="prev-link" href="01-infrastructure.html" title="previous page">Course Infrastructure</a>
-    <a class='right-next' id="next-link" href="03-running-the-course.html" title="next page">Running the course</a>
+    <a class='right-next' id="next-link" href="01-infrastructure.html" title="next page">Course Infrastructure</a>
 
     </div>
     <footer class="footer mt-5 mt-md-0">
