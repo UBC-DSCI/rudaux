@@ -1,0 +1,10 @@
+---
+    - hosts: studentHub
+      become: yes
+      become_user: root
+      tasks:
+       - name: Install Nginx
+         apt:
+           name: nginx
+           state: present
+           update_cache: true

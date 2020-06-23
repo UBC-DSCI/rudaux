@@ -1,0 +1,5 @@
+[studentHub]
+ubuntu@<STUDENT_HUB_IP>
+
+[gradingHub]
+ubuntu@<GRADING_HUB_IP>
