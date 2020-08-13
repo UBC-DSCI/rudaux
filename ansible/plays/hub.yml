@@ -132,28 +132,28 @@
       include_role:
         name: jupyterhub
 
-- name: Install and configure rrsync
-  hosts: hubs
-  become: true
-  tasks:
-    - name: Install and configure rrsync
-      include_role:
-        name: rrsync
+# - name: Install and configure rrsync
+#  hosts: hubs
+##  become: true
+ # tasks:
+  #  - name: Install and configure rrsync
+   #   include_role:
+    #    name: rrsync
 
-    - name: Update ssh config
-      ssh_config:
-        state: present
-        user: '{{ rrsync_local_user }}'
-        host: '{{ rrsync_remote_host }}'
-        hostname: '{{ rrsync_remote_host }}'
-        remote_user: '{{ rrsync_remote_user }}'
-        identity_file: "{{ rrsync_local_home}}/{{ rrsync_private_key_path }}"
-      when: rrsync_enable
-- name: Install and configure the nbgrader
-  hosts: markers
-  become: true
-  tasks:
-    - name: Install nbgrader
-      include_role:
-        name: nbgrader
+    #- name: Update ssh config
+     # ssh_config:
+      #  state: present
+       # user: '{{ rrsync_local_user }}'
+        #host: '{{ rrsync_remote_host }}'
+        #hostname: '{{ rrsync_remote_host }}'
+        #remote_user: '{{ rrsync_remote_user }}'
+        #identity_file: "{{ rrsync_local_home}}/{{ rrsync_private_key_path }}"
+      #when: rrsync_enable
+#- name: Install and configure the nbgrader
+ # hosts: markers
+ # become: true
+ # tasks:
+  #  - name: Install nbgrader
+   #   include_role:
+    #    name: nbgrader
 
