@@ -1,15 +1,14 @@
 jhub-mastodon ansible_host=centos@3.96.219.139
-mark-whippet  ansible_host=192.168.123.74
+
 
 
 [hubs]
 jhub-mastodon
 
 
-[markers]
-mark-whippet
+
 
 [production:children]
 hubs
-markers
+
 
