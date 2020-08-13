@@ -1,0 +1,3 @@
+- name: ssh_config
+  src: https://github.com/gaqzi/ansible-ssh-config
+  version: v0.4.0

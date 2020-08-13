@@ -1,0 +1,10 @@
+rrsync_enable: true
+rrsync_local_user: 'jupyter'
+rrsync_source_directory: '/tank/home/'
+rrsync_dest_directory: '/tank/backup/syzygy/{{ inventory_hostname }}/'
+rrsync_remote_host: '37zfs2.stat.ubc.ca'
+rrsync_remote_user: 'syzygy'
+rrsync_private_key_path: '.ssh/id_rrsync_backup_rsa'
+rrsync_public_key_path: '{{ rrsync_private_key_path }}.pub'
+
+rrsync_ssh_options: ',no-agent-forwarding,no-port-forwarding,no-pty,no-user-rc,no-X11-forwarding'
