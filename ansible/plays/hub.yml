@@ -1,0 +1,159 @@
+## Install and configure syzygy host
+- name: Ensure sudo is configured correctly
+  hosts: all
+  become: true
+  tasks:
+    # Settings are defined in
+    # group_vars/<group>/sudo.yml
+    - name: Configure sudo
+      tags: ['sudo', 'always']
+      include_role:
+        name: sudo
+      vars:
+        ansible_ssh_pipelining: no
+
+- name: Install and configure the hub
+  hosts: all
+  become: true
+  tasks:
+    - name: Ensure hostname is set
+      tags: ['hostname']
+      include_role:
+        name: hostname
+
+    # Add relevant keys to `ssh_public_keys`
+    # in either host_vars, group_vars, or local_vars.
+    - name: Manage SSH public keys
+      tags: ['ssh']
+      include_role:
+        name: ssh-public-keys
+
+    # This also installs EPEL
+    - name: Ensure base packages are installed
+      tags: ['base-packages']
+      include_role:
+        name: base-packages
+
+    # This will create and manage a zpool based on
+    # `zfs_disk_1` and `zfs_disk_2` defined in local_vars.yml.
+    - name: Manage ZFS
+      tags: ['zfs']
+      include_role:
+        name: zfs-snapshot
+
+    - name: Configure SELinux
+      tags: ['selinux']
+      include_role:
+        name: selinux
+      vars:
+        selinux_policy: targeted
+        selinux_state: permissive
+
+    # Enabled services are defined in
+    # group_vars/hub/firewalld.yml
+    #
+    # The jupyterhub role also enables access
+    # to `jupyterhub_api_port`.
+    - name: Ensure firewalld service is running
+      tags: ['firewalld']
+      include_role:
+        name: firewalld
+
+    # Configuration is stored in
+    # group_vars/<group>/ssh.yml.
+    - name: Ensure sshd is installed and running
+      tags: ['sshd']
+      include_role:
+        name: sshd
+
+    # Configuration is stored in
+    # group_vars/<group>/httpd.yml
+    - name: Manage Apache
+      tags: ['httpd']
+      include_role:
+        name: apache
+
+    # This requires the hub to have a resolvable FQDN.
+    - name: Configure letsencrypt
+      tags: ['ssl', 'letsencrypt', 'httpd']
+      include_role:
+        name: dehydrate-letsencrypt
+
+    - name: Manage Python3
+      tags: ['python', 'python3']
+      include_role:
+        name: ius-python3
+
+    # Manage Docker
+    - name: Manage Docker
+      include_role:
+        name: docker
+
+    - name: Add interfaces their respective zones
+      firewalld:
+        interface: '{{ item.interface }}'
+        zone: '{{ item.zone }}'
+        state: enabled
+        permanent: true
+        immediate: yes
+      with_items:
+        - { interface: '{{ docker_interface }}', zone: 'home' }
+      notify: firewalld complete reload
+
+    - name: update facts if docker0 is not defined
+      action: setup filter="ansible_docker0"
+      when: ansible_docker0 is not defined
+
+    - name: Install docker module
+      yum:
+        name: 'python-docker-py'
+        state: 'present'
+
+    - name: Manage Docker storage
+      include_role:
+        name: docker-storage
+
+    - name: Install rudaux
+      include_role:
+        name: rudaux
+    # when: canvas is being used?
+
+    # Manage Jupyterhub
+    # This role is tightly coupled to the following roles:
+    #   * dockerspawner
+    #   * ssp-idp-multi
+    #   * callysto-html
+    #   * syzygyauthenticator
+    #   * ltiauthenticator
+    # These roles should not be used independently.
+    # TODO: merge all of these roles into one?
+    - name: Manage Jupyterhub
+      tags: ['jupyter', 'jupyterhub', 'ssp', 'secrets']
+      include_role:
+        name: jupyterhub
+
+- name: Install and configure rrsync
+  hosts: hubs
+  become: true
+  tasks:
+    - name: Install and configure rrsync
+      include_role:
+        name: rrsync
+
+    - name: Update ssh config
+      ssh_config:
+        state: present
+        user: '{{ rrsync_local_user }}'
+        host: '{{ rrsync_remote_host }}'
+        hostname: '{{ rrsync_remote_host }}'
+        remote_user: '{{ rrsync_remote_user }}'
+        identity_file: "{{ rrsync_local_home}}/{{ rrsync_private_key_path }}"
+      when: rrsync_enable
+- name: Install and configure the nbgrader
+  hosts: markers
+  become: true
+  tasks:
+    - name: Install nbgrader
+      include_role:
+        name: nbgrader
+

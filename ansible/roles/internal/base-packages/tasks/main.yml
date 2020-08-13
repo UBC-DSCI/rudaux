@@ -1,0 +1,13 @@
+---
+# Install basic functionality packages
+
+- name: Include OS-specific variables.
+  include_vars: "{{ ansible_os_family }}.yml"
+
+- import_tasks: setup-RedHat.yml
+  when: ansible_os_family == 'RedHat'
+  static: no
+
+- import_tasks: setup-Debian.yml
+  when: ansible_os_family == 'Debian'
+  static: no

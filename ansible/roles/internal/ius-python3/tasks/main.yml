@@ -1,0 +1,35 @@
+---
+- name: Copy IUS repo file
+  copy:
+    src: ius.repo
+    dest: /etc/yum.repos.d/ius.repo
+
+- name: Copy IUS GPG key
+  copy:
+    src: IUS-COMMUNITY-GPG-KEY
+    dest: /etc/pki/rpm-gpg/IUS-COMMUNITY-GPG-KEY
+
+- name: Install python3
+  yum:
+    name: '{{ item.name }}'
+    state: '{{ item.state }}'
+    update_cache: yes
+  with_items: '{{ ius_python3_packages }}'
+
+- name: Symlink python3
+  file:
+    src: '/usr/bin/python3.6'
+    dest: '/usr/bin/python3'
+    state: link
+
+- name: Ensure python3.4 is removed
+  yum:
+    name: python34.x86_64
+    state: absent
+
+- name: Install extra packages via pip
+  pip: 
+    name: '{{ item }}'
+    executable: pip3.6
+  loop: '{{ ius_extra_packages | flatten(levels=1) }}'
+  when: ius_extra_packages is defined

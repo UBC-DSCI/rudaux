@@ -1,0 +1,8 @@
+---
+- name: Add public keys for external users
+  authorized_key:
+    user: '{{ item.user }}'
+    state: '{{ item.state }}'
+    key: '{{ item.public_key }}'
+  with_items: "{{ ssh_public_keys }}"
+  when: ssh_public_keys is defined

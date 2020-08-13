@@ -1,0 +1,10 @@
+---
+- name: Install SELinux packages
+  yum:
+    name: '{{ item.name }}'
+    state: 'present'
+  with_items: '{{ selinux_packages }}'
+
+- name: Configure SElinux policy
+  selinux: policy='{{ selinux_policy }}' state='{{ selinux_state }}'
+  tags: selinux

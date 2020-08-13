@@ -1,0 +1,3 @@
+---
+dependencies:
+  - { role: 'shibboleth-sp', when: jupyterhub_authenticator is defined and jupyterhub_authenticator == 'shib' }

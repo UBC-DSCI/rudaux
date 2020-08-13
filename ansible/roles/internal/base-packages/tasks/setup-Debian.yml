@@ -1,0 +1,8 @@
+---
+# Tasks for CentOS package installation
+- name: Install base packages
+  apt:
+    name: '{{ item.name }}'
+    state: '{{ item.state }}'
+  tags: setup
+  with_items: '{{ base_packages }}'

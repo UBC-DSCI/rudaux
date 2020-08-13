@@ -1,0 +1,10 @@
+---
+zfs_snapshot_tasks:
+  - name: 'wed'
+    minute: 10
+    hour: 5
+    weekday: 4
+  - name: 'sat'
+    minute: 10
+    hour: 1
+    weekday: 0

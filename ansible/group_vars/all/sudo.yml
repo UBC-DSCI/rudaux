@@ -1,0 +1,2 @@
+sudo_defaults:
+  - defaults: '!requiretty'

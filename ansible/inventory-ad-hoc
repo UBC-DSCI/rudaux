@@ -1,5 +1,14 @@
-[studentHub]
-ubuntu@<STUDENT_HUB_IP>
+jhub-mastodon ansible_host=192.168.123.59
+mark-whippet  ansible_host=192.168.123.74
 
-[gradingHub]
-ubuntu@<GRADING_HUB_IP>
+[hubs]
+jhub-mastodon
+
+
+[markers]
+mark-whippet
+
+[production:children]
+hubs
+markers
+

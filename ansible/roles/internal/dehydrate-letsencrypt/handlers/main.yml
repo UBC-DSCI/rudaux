@@ -1,0 +1,9 @@
+---
+- name: Remove existing certs
+  file:
+    path: '~{{ acme_user }}/certs/{{ inventory_hostname }}/'
+    state: absent
+
+- name: Run dehydrate
+  shell: '~{{ acme_user }}/wrapper.sh'
+  failed_when: False

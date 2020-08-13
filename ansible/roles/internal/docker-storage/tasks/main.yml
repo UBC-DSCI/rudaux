@@ -1,0 +1,57 @@
+---
+# Overlay2
+- name: Check the current filesystem
+  command: "lsblk -no fstype {{ openstack_ephemeral_docker_disk }}"
+  when: openstack_ephemeral_docker_disk != ""
+  register: filesystem_ephemeral
+  check_mode: no
+  changed_when: false
+
+- name: Create an XFS filesystem on the storage
+  filesystem:
+    fstype: xfs
+    force: true
+    dev: '{{ openstack_ephemeral_docker_disk }}'
+  when: openstack_ephemeral_docker_disk != "" and "xfs" not in filesystem_ephemeral.stdout
+  register: restartdocker_ephemeral
+
+- name: Mount the ephemeral for docker
+  mount:
+    src: '{{ openstack_ephemeral_docker_disk}}'
+    path: '/var/lib/docker'
+    fstype: 'xfs'
+    state: 'mounted'
+  when: openstack_ephemeral_docker_disk != ""
+  register: restartdocker_ephemeral
+
+# ZFS
+- name: Ensure /etc/systemd/system/docker.service.d exists
+  file:
+    path: /etc/systemd/system/docker.service.d
+    state: directory
+  when: docker_zfs_pool != ""
+
+- name: Ensure /etc/systemd/system/docker.service.d/docker.conf exists
+  template:
+    src: docker-zfs.conf.j2
+    dest: /etc/systemd/system/docker.service.d/docker.conf
+  when: docker_zfs_pool != ""
+  register: dockerconf_zfs
+
+- name: Ensure /var/lib/docker does not exist
+  file:
+    path: /var/lib/docker
+    state: absent
+  when: docker_zfs_pool != ""
+  register: restartdocker_zfs
+
+- name: systemctl reload
+  systemd: daemon_reload=yes
+  when: dockerconf_zfs.changed
+
+- name: restart docker
+  service: name=docker state=restarted
+  when: restartdocker_ephemeral.changed or restartdocker_zfs.changed or dockerconf_zfs.changed
+
+- name: Flush Handlers
+  meta: flush_handlers
