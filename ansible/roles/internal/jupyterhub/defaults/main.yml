@@ -30,13 +30,12 @@ jupyterhub_global_options:
     value: |
         [
             {
-                'name': 'cull-idle',
+                'name': 'idle-culler',
                 'admin': True,
                 'command': [
-                    'python3',
-                    '/opt/cull_idle_servers.py',
-                    '--timeout={{ jhub_docker_cull_cull_s }}',
-                    '--cull-every={{ jhub_docker_cull_run_s }}',
+                    sys.executable,
+                    '-m', 'jupyterhub_idle_culler',
+                    '--timeout={{ jhub_docker_cull_cull_s }}'
                 ]
             }
         ]

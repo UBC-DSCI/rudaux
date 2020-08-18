@@ -5,3 +5,6 @@ base_packages:
   - { name: 'vim', state: 'present' }
   - { name: 'tmux', state: 'present' }
   - { name: 'screen', state: 'present' }
+  - { name: 'python36', state: 'present' }
+  - { name: 'python36-pip', state: 'present' }
+  - { name: 'python36-devel', state: 'present' }

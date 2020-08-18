@@ -1,5 +1,5 @@
 [studentHub]
-ubuntu@<STUDENT_HUB_IP>
+centos@3.96.219.139
 
 [gradingHub]
 ubuntu@<GRADING_HUB_IP>
