@@ -5,8 +5,10 @@ TF_PATH := $(TOP)/../terraform
 
 export PATH := $(TF_PATH)/bin/$(UNAME)_$(ARCH):$(PATH)
 
-ANSIBLE_CMD  = TF_STATE=$(TF_PATH)/$(ENV) ansible --private-key=../keys/id_syzygy_stat -i ./inventory
-PLAYBOOK_CMD = TF_STATE=$(TF_PATH)/$(ENV) ansible-playbook --private-key=../keys/id_syzygy_stat -i ./inventory
+#ANSIBLE_CMD  = TF_STATE=$(TF_PATH)/$(ENV) ansible --private-key=../keys/id_syzygy_stat -i ./inventory
+#PLAYBOOK_CMD = TF_STATE=$(TF_PATH)/$(ENV) ansible-playbook --private-key=../keys/id_syzygy_stat -i ./inventory
+ANSIBLE_CMD  = TF_STATE=$(TF_PATH)/$(ENV) ansible --private-key=~/.ssh/id_rsa -i ./inventory
+PLAYBOOK_CMD = TF_STATE=$(TF_PATH)/$(ENV) ansible-playbook --private-key=~/.ssh/id_rsa -i ./inventory
 
 help: tasks
 
@@ -57,5 +59,5 @@ playbook: check-env check-playbook check-limit
 HELP: Setup ansible and refresh external roles
 ansible/setup: check-env check-limit
 	$(ANSIBLE_CMD) -m setup all
-	/bin/bash scripts/role_update.sh
+	/bin/bash scripts/role_module_update.sh
 

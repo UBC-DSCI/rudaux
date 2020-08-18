@@ -113,9 +113,9 @@
       include_role:
         name: docker-storage
 
-    - name: Install rudaux
-      include_role:
-        name: rudaux
+    # - name: Install rudaux
+    #   include_role:
+    #     name: rudaux
     # when: canvas is being used?
 
     # Manage Jupyterhub
