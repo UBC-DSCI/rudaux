@@ -8,9 +8,8 @@
   include_role:
     name: dockerspawner
 
-- name: Manage Jupyterhub Docker Cull script
-  include_role:
-    name: jhub-docker-cull
+- name: Install  Jupyterhub-idle-culler script
+  pip: name='jupyterhub-idle-culler' executable='pip3.6'
 
 - name: Get Docker image for JupyterHub containers
   docker_image:
@@ -148,7 +147,7 @@
 - name: Add User FS creation script
   template:
     src: zfs_homedir.sh.j2
-    dest: '{{ jupyterhub_srv_dir }}'
+    dest: '{{ jupyterhub_srv_dir }}/zfs_homedir.sh'
     mode: '0700'
     owner: root
     group: root
