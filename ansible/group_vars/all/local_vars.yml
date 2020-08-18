@@ -13,7 +13,7 @@ syzygy_html_longname: "UBC"
 # For the moment, we need to set the zfs and docker device letters manually.
 # Thankfully the order they're specified in the terraform config is preserved,
 # so zfs is the second device and docker is the third.
-zfs_vdev_config: /dev/vdb
-openstack_ephemeral_docker_disk: /dev/vdc
+zfs_vdev_config: /dev/nvme1n1
+openstack_ephemeral_docker_disk: /dev/nvme2n1
 
 dehydrate_test_cert: False
