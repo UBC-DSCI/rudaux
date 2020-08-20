@@ -1,0 +1,7 @@
+ius_python3_packages:
+  - { name: 'python36u', state: 'present' }
+  - { name: 'python36u-pip', state: 'present' }
+  - { name: 'python36u-devel', state: 'present' }
+#ius_extra_packages
+#  - pandas
+#  - paramkio

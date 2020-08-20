@@ -1,0 +1,7 @@
+<STUDENT_HUB_DOMAIN> ansible_host=<STUDENT_HUB_IP_ADDRESS>
+
+[hubs]
+<STUDENT_HUB_DOMAIN>
+
+[production:children]
+hubs

@@ -1,0 +1,12 @@
+---
+# The alternative would be to check which extensions are installed
+# or enabled and react accordingly. This will just install/enable whenever
+# the package is insatlled
+- name: Install nbgrader Jupyter extension
+  command: jupyter nbextension install --sys-prefix --py nbgrader --overwrite
+
+- name: Enable nbgrader Jupyter extension
+  command: jupyter nbextension enable --sys-prefix --py nbgrader
+
+- name: Install nbgrader server extension
+  command: jupyter serverextension enable --sys-prefix --py nbgrader

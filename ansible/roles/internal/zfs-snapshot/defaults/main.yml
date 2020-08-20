@@ -1,0 +1,11 @@
+---
+zfs_auto_version: 'upstream/1.2.4'
+zfs_auto_snap_dir: "/opt/zfs-auto-snapshot"
+
+zfs_snapshot_tasks: []
+
+# zfs_snapshot_tasks:
+#   - name: after_class
+#     weekday: 3
+#     hour: 18
+#     minute: 00

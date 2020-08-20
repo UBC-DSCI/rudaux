@@ -1,0 +1,21 @@
+---
+acme_user: "acme"
+acme_home: "/home/acme"
+acme_email: "{{ admin_email }}"
+dehydrate_ca_prod: "https://acme-v02.api.letsencrypt.org/directory"
+dehydrate_ca_staging: "https://acme-staging-v02.api.letsencrypt.org/directory"
+
+# By default obtain a fake certificate
+dehydrate_test_cert: True
+
+dehydrate_restore: False
+
+# One list item per machine, multiple names for the same machine
+# can be handled by space separating a single list item
+# e.g.
+#   ["a.example.com b.example.com", "c.example.com"]
+# would generate two certificate, one for a & b and another for c
+# see https://github.com/lukas2511/dehydrated/blob/master/docs/domains_txt.md
+#
+acme_domains: ["{{ inventory_hostname }}"]
+acme_secrets: ['./secret/acme']

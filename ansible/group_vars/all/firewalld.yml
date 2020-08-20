@@ -1,0 +1,3 @@
+firewalld_allow_services: 
+    - { service: 'http' }
+    - { service: 'https' }

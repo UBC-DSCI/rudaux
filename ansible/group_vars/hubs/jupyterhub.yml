@@ -1,0 +1,23 @@
+jupyterhub_authenticator: 'ltiauthenticator'
+jupyterhub_course_name: 'dsci100'
+jupyterhub_docker_image: 'ubcdsci/r-dsci-100'
+jupyterhub_docker_container: 'ubcdsci/r-dsci-100:latest'
+
+jupyterhub_spawners:
+  dockerspawner:
+    name: 'dockerspawner.DockerSpawner'
+    options:
+      - conf_object: 'DockerSpawner.extra_host_config'
+        value: "{'mem_limit': '2g', 'memswap_limit': '2g', 'cpu_period': 100000, 'cpu_quota': 100000, 'ulimits': [{'name': 'core', 'hard': 0}] }"
+      - conf_object: 'DockerSpawner.remove_containers'
+        value: True
+      - conf_object: 'DockerSpawner.use_internal_ip'
+        value: "True"
+      - conf_object: 'DockerSpawner.host_ip'
+        value: "'0.0.0.0'"
+      - conf_object: 'DockerSpawner.image'
+        value: "'{{ jupyterhub_docker_container }}'"
+      - conf_object: 'DockerSpawner.volumes'
+        value: "{'/tank/home/dsci100/{username}': '/home/jupyter'}"
+
+jupyterhub_zfs_user_quota: '2G'

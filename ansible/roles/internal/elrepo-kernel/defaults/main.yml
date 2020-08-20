@@ -1,0 +1,5 @@
+---
+elrepo_kernel_repo: "elrepo-kernel"
+elrepo_kernel_packages:
+  - { name: 'kernel-lt', state: 'present' }
+  - { name: 'kernel-lt-devel', state: 'present' }

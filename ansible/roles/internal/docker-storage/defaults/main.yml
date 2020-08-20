@@ -1,0 +1,5 @@
+# Set this to a path to use ephemeral storage
+openstack_ephemeral_docker_disk: ""
+
+# Set this to a ZFS pool to use ZFS storage
+docker_zfs_pool: ""

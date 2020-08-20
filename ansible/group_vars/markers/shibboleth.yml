@@ -1,0 +1,13 @@
+---
+shib_idp_version: 3
+shib_id_attribute: 'eduPersonPrincipalName'
+shib_auth_attribute: 'eduPersonEntitlement'
+shib_auth_values: set([
+    'https://entitlements.ubc.ca/employee',
+    'https://entitlements.ubc.ca/faculty',
+    'https://entitlements.ubc.ca/student/current',
+    'https://entitlements.ubc.ca/student'])
+shibboleth_sso_entity_id: https://authentication.ubc.ca
+shibboleth_sso_discovery_url: https://authentication.ubc.ca/idp/shibboleth
+shib_idp_metadata_uri: https://authentication.ubc.ca/idp/shibboleth
+shib_auth_logout_url: '/Shibboleth.sso/Logout?return=https://authentication.ubc.ca/idp/profile/Logout'
