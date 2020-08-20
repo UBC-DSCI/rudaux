@@ -5,6 +5,7 @@ To run a course using [`rudaux`](https://github.com/UBC-DSCI/rudaux) you will ne
 1. A Canvas course shell 
 2. Two Amazon Web Services (AWS) EC2 instances
 3. A laptop or desktop computer
+4. Two domain names that are compatible with Let's Encrypt 
 
 ### Canvas course shell
 
@@ -17,3 +18,7 @@ The two Amazon Web Services (AWS) EC2 instances will be used to host and serve t
 ### A laptop or desktop computer
 
 [`rudaux`](https://github.com/UBC-DSCI/rudaux) uses a dev ops tool named Ansible to automate much of the installation and setup of the two JupyterHubs. Ansible is run on your local laptop or desktop computer and uses the instructions in the `ansible` directory in the `rudaux` GitHub repository to send installation and configuration commands to the AWS EC2 instances to install and setup the two JupyterHubs. 
+
+### Two domain names that are compatible with [Let's Encrypt](https://letsencrypt.org/)
+
+To keep the JupyterHubs secure we use the HTTPS protocol. This is a protocol which requires browser-trusted certificates. We use the service [Let's Encrypt](https://letsencrypt.org/) to automate the process of obtaining a browser-trusted certificate. For this to work, you will need two domain names that are compatible with [Let's Encrypt](https://letsencrypt.org/).
