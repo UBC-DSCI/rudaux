@@ -1,9 +1,9 @@
 # Copyright (c) UBC-DSCI Development Team.
 # Distributed under the terms of the Modified BSD License.
-ARG BASE_CONTAINER=ubcdsci/r-dsci-100
+ARG BASE_CONTAINER=ubcdsci/dsci-student
 FROM $BASE_CONTAINER
 
-LABEL maintainer="Tiffany Timbers <tiffany.timbers@stat.ubc.ca>"
+LABEL maintainer="Tiffany Timbers <tiffany.timbers@gmail.com>"
 
 # switch to root for installation
 USER root
