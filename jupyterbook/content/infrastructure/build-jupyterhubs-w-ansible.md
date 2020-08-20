@@ -22,6 +22,11 @@
 
     > Note: you need to call `openssl rand -hex 32` twice in the terminal so that the values for `jupyterhub_lti_client_key` and `jupyterhub_lti_client_secret` are different.
 
+1. Open `ansible/group_vars/hubs/jupyterhub.yml` and edit the values for each item listed below: 
+    - jupyterhub_course_name: 'dsci100'
+    - jupyterhub_docker_image: 'ubcdsci/r-dsci-100'
+    - jupyterhub_docker_container: 'ubcdsci/r-dsci-100:latest'
+
 1. Add any public IP addresses of folks you need to access the JupyterHubs via ssh (for IT purposes) in `ansible/group_vars/all/ssh-public-keys.yml`.
 
 
