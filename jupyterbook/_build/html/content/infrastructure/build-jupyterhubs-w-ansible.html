@@ -249,6 +249,13 @@
 <div><p>Note: you need to call <code class="docutils literal notranslate"><span class="pre">openssl</span> <span class="pre">rand</span> <span class="pre">-hex</span> <span class="pre">32</span></code> twice in the terminal so that the values for <code class="docutils literal notranslate"><span class="pre">jupyterhub_lti_client_key</span></code> and <code class="docutils literal notranslate"><span class="pre">jupyterhub_lti_client_secret</span></code> are different.</p>
 </div></blockquote>
 </li>
+<li><p>Open <code class="docutils literal notranslate"><span class="pre">ansible/group_vars/hubs/jupyterhub.yml</span></code> and edit the values for each item listed below:</p>
+<ul class="simple">
+<li><p>jupyterhub_course_name: ‘dsci100’</p></li>
+<li><p>jupyterhub_docker_image: ‘ubcdsci/r-dsci-100’</p></li>
+<li><p>jupyterhub_docker_container: ‘ubcdsci/r-dsci-100:latest’</p></li>
+</ul>
+</li>
 <li><p>Add any public IP addresses of folks you need to access the JupyterHubs via ssh (for IT purposes) in <code class="docutils literal notranslate"><span class="pre">ansible/group_vars/all/ssh-public-keys.yml</span></code>.</p></li>
 </ol>
 </div>
