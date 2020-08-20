@@ -251,11 +251,19 @@
 </li>
 <li><p>Open <code class="docutils literal notranslate"><span class="pre">ansible/group_vars/hubs/jupyterhub.yml</span></code> and edit the values for each item listed below:</p>
 <ul class="simple">
-<li><p>jupyterhub_course_name: ‘dsci100’</p></li>
-<li><p>jupyterhub_docker_image: ‘ubcdsci/r-dsci-100’</p></li>
-<li><p>jupyterhub_docker_container: ‘ubcdsci/r-dsci-100:latest’</p></li>
+<li><p>jupyterhub_course_name: ‘dsci’</p></li>
+<li><p>jupyterhub_docker_image: ‘ubcdsci/dsci-student’</p></li>
+<li><p>jupyterhub_docker_container: ‘ubcdsci/dsci-student:latest’</p></li>
 </ul>
 </li>
+</ol>
+<blockquote>
+<div><p>Note: we have included an example Dockerfiles that could be used for building a Docker image for this course in the <a class="reference external" href="https://github.com/UBC-DSCI/rudaux"><code class="docutils literal notranslate"><span class="pre">rudaux</span></code></a> repository in the <code class="docutils literal notranslate"><span class="pre">dockerfiles/dsci-student</span></code> directory. The base image for this is the <code class="docutils literal notranslate"><span class="pre">r-notebook</span></code> from the <code class="docutils literal notranslate"><span class="pre">jupyter/docker-stacks</span></code> repository. Many of the Dockerfiles in that repository would also be good images (or base images) for a student JupyterHub.</p>
+</div></blockquote>
+<blockquote>
+<div><p>Note: we have included a GitHub Actions workflow in this <a class="reference external" href="https://github.com/UBC-DSCI/rudaux"><code class="docutils literal notranslate"><span class="pre">rudaux</span></code></a>, <code class="docutils literal notranslate"><span class="pre">.github/workflows/publish_docker_images.yml</span></code> which is useful for automating the building and versioning of Docker images. Specifically, this workflow is triggered when the Dockerfiles are edited on GitHub, uses Semantics versioning from the commit message to figure out how to bump the version (default is minor if you don’t add specific words to your commit to change this), creates a git tag, and GitHub release based off of the version bump. Then it builds the image and publishes it on DockerHub with the same tag as is in the Git tag and GitHub release.</p>
+</div></blockquote>
+<ol class="simple">
 <li><p>Add any public IP addresses of folks you need to access the JupyterHubs via ssh (for IT purposes) in <code class="docutils literal notranslate"><span class="pre">ansible/group_vars/all/ssh-public-keys.yml</span></code>.</p></li>
 </ol>
 </div>
