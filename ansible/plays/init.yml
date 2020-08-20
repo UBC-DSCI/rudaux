@@ -15,10 +15,6 @@
         state: latest
       ignore_errors: true
 
-    - name: Install 4.x series kernel
-      include_role:
-        name: elrepo-kernel
-
     - name: Flush any handlers before reboot
       meta: flush_handlers
 

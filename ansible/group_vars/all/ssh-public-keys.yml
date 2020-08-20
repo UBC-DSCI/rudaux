@@ -2,7 +2,7 @@
 ssh_public_keys:
   - user: 'centos'
     state: 'present'
-    public_key: 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC9azSTIRSq/m75SHACvs7qtm5H7TR8tybtofHJcctQ5Ksp+U3SnZiTu+USuGc6EbYbsQfNjuGwXBmNuRmkXVMbX0AZNCKTAiBUzoCCO4KVJqztnC9LC37b3mm535PsrR6xsYLxfhVFzApwftR6YiuKHhkOmXUc/Zja5pkXUlwubGwl7BoKuqLmOjCM/8uP1tlegK4HTdfPnZyf0DVsNcFCbTLbfReMDimfmiQtrhdJ3JSRVT11e1EZZL3pGQ6DW5udhL8u1Cs2B0UuyqPsyMPVsB+d4V8H27OgQ24T4NlugpoivSSC8nIGyd8reUl39k2JgSqGY9c+Hbz/8uO0KzFb iana@fyodor.no-ip.org'
+    public_key: '<SSH KEY 1>'
   - user: 'centos'
     state: 'present'
-    public_key: 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDsqCs8irideWHhAXD7UdjLyrNzJuaIPsmCU4VrZIh5pyNIvFWFxvBgNih7jPyc6Dr+yshyy3J+5VtwwSMDHIxTjHd1j9v6yvYh+n3T5oepTXj+YksQNJ8C3wfKovgiBKQUSHVSldJcz2d2IChszaB+Z1xThYAPITguMTe4w2kA9c4n9OcoKgn49D8JnNoXjM7Pc3Iy9qJOEe0Qyf+rnPuONAK5ar+BIcp/5JWW4y1aEpE4+MBQvdUd/6hJ86dOEFi9ngvhsMqR8usT2h5KRWHRgnlL0hL/TF/O4Ekm6eHgAsQbYiu0OMPYHmf8li8tpyXl4dMYTOJeLMQC5ZGh882oYarxmP5N0WdTKGQ5pNZ2RUYDws0IipBdpmDanfaXu8asaURTRzQwIM0OOIoEfQzgC/nZVJzvzWu/aY3PN95B0AFmgFKtcA8jKzPyXyNSHNs3IreFJ1pBLmjyXr+kQx/NOZTfGletUqU9+50UciVaEnkeGwT5UjDrP4dvLi66TjY2rrVJ2IE1UQPRFWurOjMkgQaSzPoiR0ocnDCFVIqHFIRnZYOKpHVqXqxfQg8e57NQsl2eaJ1FohcMgr5hfvU+NfIsBu1cbakmazqK6iy3Os5/Y2NxJI10Qgl9xVifSI3aS5ntqtS7dHEmvTWPR1cUHgTVNeylDcR+ULy2bM9Y8w== tiffany.timbers@stat.ubc.ca'
+    public_key: '<SSH KEY 2>'
