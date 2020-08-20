@@ -7,7 +7,13 @@
     ```
     conda install -c conda-forge ansible
     ```
-    
+
+## Add the variables specific to your course
+
+1. Clone or download the [`rudaux`](https://github.com/UBC-DSCI/rudaux) repository.
+
+2. 
+
 ## Build the JupyterHubs using Ansible
 
 1. Copy the EC2 public IP addresses of the EC2 instances into ansible/inventory replacing <STUDENT_HUB_IP> and <GRADING_HUB_IP> respectively.
