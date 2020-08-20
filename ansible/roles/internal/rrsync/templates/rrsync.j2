@@ -1,0 +1,18 @@
+#!/bin/bash
+
+BACKUPHOST="{{ rrsync_remote_host }}"
+BACKUPUSER="{{ rrsync_remote_user }}"
+
+BACKUPDIR=/
+
+SOURCEDIR="{{ rrsync_source_directory }}"    # trailing slashes matter
+
+DATE="$(/bin/date)"
+ID=`/bin/echo "${DATE}" | /bin/sha256sum | /bin/head -c 12`
+/bin/echo "${ID}: Begnining rrsync ${DATE}" >> /var/log/rrsync.log 2>&1
+
+sudo -u {{ rrsync_local_user }} /usr/bin/rsync -av --delete --numeric-ids \
+  "${SOURCEDIR}" \
+  "${BACKUPUSER}@${BACKUPHOST}:${BACKUPDIR}" >> /var/log/rrsync.log 2>&1
+
+/bin/echo "${ID}: Finishing rrsync $(/bin/date)" >> /var/log/rrsync.log 2>&1

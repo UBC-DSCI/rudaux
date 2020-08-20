@@ -1,0 +1,21 @@
+---
+- name: start shibd
+  service: name=shibd state=started enabled=yes
+
+- name: restart shibd
+  service: name=shibd state=restarted enabled=yes
+
+- name: regenerate metadata
+  shell: >
+    '/etc/shibboleth/metagen.sh'
+    -c /etc/shibboleth/sp-cert.pem
+    -h "{{ shib_hostname }}"
+    -e "{{ shib_entity_id }}"
+    -o "{{ shib_org }}"
+    -u "{{ shib_org_url }}"
+    -a "{{ shib_admin_contact }}"
+    -s "{{ shib_support_contact }}"
+    > {{ shib_metadata_file }}
+  args:
+    chdir: '/etc/shibboleth'
+

@@ -1,0 +1,38 @@
+---
+- name: Copy ELREPO repo file
+  copy:
+    src: elrepo.repo
+    dest: /etc/yum.repos.d/elrepo.repo
+
+- name: Copy ELREPO repo gpg key
+  copy:
+    src: RPM-GPG-KEY-elrepo.org
+    dest: /etc/pki/rpm-gpg/RPM-GPG-KEY-elrepo.org
+
+- name: "default kernel family"
+  lineinfile:
+    path: "/etc/sysconfig/kernel"
+    regexp: '^DEFAULTKERNEL='
+    line: 'DEFAULTKERNEL=kernel-lt'
+  register: kernel_changed
+  notify:
+    - Recreate grub config
+
+- name: Install kernel-lt packages
+  yum:
+      name: '{{ item.name }}'
+      state: '{{ item.state }}'
+      update_cache: yes
+  with_items: '{{ elrepo_kernel_packages }}'
+
+- name: "Setting default kernel"
+  lineinfile:
+    path: "/etc/default/grub"
+    regexp: '^GRUB_DEFAULT='
+    line: "GRUB_DEFAULT=saved"
+  register: grub_changed
+  notify:
+    - Recreate grub config
+
+- name: Force handlers to run
+  meta: flush_handlers

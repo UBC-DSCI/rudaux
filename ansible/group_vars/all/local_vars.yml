@@ -1,0 +1,19 @@
+admin_email: help@stat.ubc.ca
+support_email: help@stat.ubc.ca
+domain: "dsc.stat.ubc.ca"
+jupyterhub_html_family: syzygy-html
+syzygy_html_longname: "UBC"
+
+# syzygyauthenticator_version: shib-ubc
+# jupyterhub_spawner: dockerspawner
+# jupyterhub_authenticator: shib
+
+# Devices should really be reported by the terraform provider and kept passed
+# back as variables inside the inventory, but I haven't figured that out yet.
+# For the moment, we need to set the zfs and docker device letters manually.
+# Thankfully the order they're specified in the terraform config is preserved,
+# so zfs is the second device and docker is the third.
+zfs_vdev_config: /dev/nvme1n1
+openstack_ephemeral_docker_disk: /dev/nvme2n1
+
+dehydrate_test_cert: False

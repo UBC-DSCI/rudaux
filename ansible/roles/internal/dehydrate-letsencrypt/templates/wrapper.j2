@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+cd ~{{ acme_user }}
+sudo -u {{ acme_user }} -- ./dehydrated --cron --config ./config.sh --ipv4 --accept-terms &> /dev/null
+# Check for certificate newer than last restart
+for c in certs/*/cert.pem; do
+    [ "$c" -nt certs/.stamp ] && { RESTART=1; break; }
+done
+[ "$RESTART" = 1 ] && {
+    sudo -u {{ acme_user }} -- ./dehydrated --config ./config.sh --cleanup
+    touch certs/.stamp
+    systemctl restart httpd
+    mailx -s "`hostname` Certificate renewed, server restarted" {{ acme_email }} </dev/null >&/dev/null
+}

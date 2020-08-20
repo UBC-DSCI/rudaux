@@ -1,0 +1,30 @@
+---
+shib_idp_version: 3
+shib_service: "jupyter"
+shib_org: "PIMS Syzygy Jupyter"
+shib_org_url: "syzygy.com"
+shib_admin_contact: "Syzygy/jupyter@pims.math.ca"
+shib_support_contact: "Syzygy/jupyter@pims.math.ca"
+shib_hostname: "{{ inventory_hostname }}"
+shib_metadata_file: '/etc/shibboleth/sp-metadata.xml'
+shib_entity_id: 'https://{{ inventory_hostname }}/{{ shib_service }}/shibboleth-sp'
+
+# These are the authorization parameters we will be using
+shib_id_attribute: 'eduPersonPrincipalName'
+shib_auth_attribute: 'eduPersonAffiliation'
+shib_auth_values: set(['member'])
+
+shib_auth_logout_url: '/Shibboleth.sso/Logout'
+
+# This should almost always be true, but some older shib providers don't support it
+shib_forceauthn: 'true'
+
+# Replace this with the location of the IDP metadata
+# shib_idp_metadata_uri: https://authentication.it.ubc.ca/idp/shibboleth
+
+# V3 configuration variables
+# shibboleth_sso_entity_id: 'https://authentication.ubc.ca'
+# shibboleth_sso_discovery_url: 'https://authentication.it.ubc.ca/idp/shibboleth'
+
+# ADFS uses it's own logout system which shibboleth2.xml needs to know
+shib_adfs_logout_url: ''

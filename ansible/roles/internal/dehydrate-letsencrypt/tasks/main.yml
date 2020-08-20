@@ -1,0 +1,78 @@
+---
+- name: Add acme (letsencrypt) user
+  user: name={{ acme_user }}
+        shell=/sbin/nologin
+        home={{ acme_home }}
+
+## Temporary hack to deal with migrations 22/1/2019
+# To allow apache to restart cleanly later in the hub playbook we want the
+# certificate to exist and (ideally) be vaild.
+- name: Check for existing certificates
+  become: False
+  delegate_to: 'localhost'
+  stat: path='{{ acme_secrets }}/acme/certs/{{ inventory_hostname }}/cert.pem'
+  register: dehydrate_local_file
+
+- name: Check existing cert path
+  debug:
+    msg: 'Looking for cert at {{ acme_secrets }}/acme/certs/{{ inventory_hostname }}/cert.pem'
+
+- name: Copy existing cert if it exists
+  copy:
+    src: '{{ acme_secrets }}/acme/certs/{{inventory_hostname}}'
+    dest: '{{ acme_home }}/certs/'
+    owner: '{{ acme_user }}'
+    group: '{{ acme_user }}'
+  when: dehydrate_restore and dehydrate_local_file.stat.exists
+###
+
+
+- name: Create letsencrypt directories
+  file: path={{ item.name }} state=directory owner=root group={{ acme_user }} mode={{ item.mode }}
+  with_items:
+    - { name: "{{ acme_home }}",           mode: "0711" }
+    - { name: "{{ acme_home }}/accounts",  mode: "0770" }
+    - { name: "{{ acme_home }}/archive",   mode: "0770" }
+    - { name: "{{ acme_home }}/certs",     mode: "0770" }
+    - { name: "{{ acme_home }}/chains",     mode: "0770" }
+    - { name: "{{ acme_home }}/challenge", mode: "0771" }
+
+- name: Grab letsencrypt script
+  get_url:
+    url: "https://raw.githubusercontent.com/lukas2511/dehydrated/master/dehydrated"
+    dest: "{{ acme_home }}/dehydrated"
+    owner: root
+    group: "{{ acme_user }}"
+    mode: 0750
+
+- name: Collect letsencrypt config
+  template: src={{ item.src }} dest={{ item.dest }} owner=root group={{ acme_user }} mode={{ item.mode }}
+  with_items:
+    - { src: "wrapper.j2", dest: "{{ acme_home }}/wrapper.sh",  mode: "0750" }
+    - { src: "config.j2",  dest: "{{ acme_home }}/config.sh",   mode: "0640" }
+    - { src: "domains.j2", dest: "{{ acme_home }}/domains.txt", mode: "0640" }
+  notify:
+    - Run dehydrate
+
+- name: Add config for dehydrated-letsencrypt
+  template:
+    src: "acme.conf.j2"
+    dest: "/etc/httpd/conf.d/acme.conf"
+    mode: "0644"
+    owner: root
+    group: root
+  notify: 
+   - restart apache
+   - Run dehydrate
+
+- name: Add cron job
+  file: src="{{ acme_home }}/wrapper.sh" dest="/etc/cron.daily/dehydrated-letsencrypt" state=link
+
+- name: Flush handlers for dehydrate
+  meta: flush_handlers
+
+- name: Retain a copy of the configuration
+  synchronize:
+    src: '{{ acme_home }}'
+    dest: '{{ acme_secrets }}'
+    mode: 'pull'

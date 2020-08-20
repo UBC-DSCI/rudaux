@@ -1,0 +1,8 @@
+---
+ssh_public_keys:
+  - user: 'centos'
+    state: 'present'
+    public_key: '<SSH KEY 1>'
+  - user: 'centos'
+    state: 'present'
+    public_key: '<SSH KEY 2>'

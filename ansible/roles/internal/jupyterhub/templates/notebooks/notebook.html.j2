@@ -1,0 +1,22 @@
+{# add a custom link to the help menu -#}
+{# raw so that ansible doesn't render -#}
+{% raw -%}
+{% extends "templates/notebook.html" %}
+{% block help %}
+{{ super() }}
+<li title="Support"><a target="_blank" href="http://intro.syzygy.ca/troubleshooting/">Support (external)</a></li>
+{% endblock %}
+{% endraw -%}
+
+{# add an announcement -#}
+{% if jupyterhub_announcement != "" -%}
+{# raw so that ansible doesn't render -#}
+{% raw -%}
+{% block header %}
+{% endraw -%}
+<br><div class="container alert alert-danger">{{ jupyterhub_announcement }}<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button></div>
+{% raw -%}
+{{ super() }}
+{% endblock %}
+{% endraw -%}
+{% endif -%}

@@ -1,0 +1,25 @@
+JUPYTERHUB={{ jupyterhub_srv_dir }}
+
+{% if jupyterhub_oauth_github_host is defined -%}
+GITHUB_HOST={{ jupyterhub_oauth_github_host }}
+{% endif %}
+
+{% if jupyterhub_oauth_client_id != "" -%}
+OAUTH_CLIENT_ID={{ jupyterhub_oauth_client_id }}
+{% endif -%}
+
+{% if jupyterhub_oauth_client_secret != "" -%}
+OAUTH_CLIENT_SECRET={{ jupyterhub_oauth_client_secret }}
+{% endif -%}
+
+{% if jupyterhub_oauth_callback_url != "" -%}
+OAUTH_CALLBACK_URL={{ jupyterhub_oauth_callback_url }}
+{% endif -%}
+
+{% if jupyterhub_lti_client_key != "" -%}
+LTI_CLIENT_KEY={{ jupyterhub_lti_client_key }}
+{% endif -%}
+
+{% if jupyterhub_lti_client_secret != "" -%}
+LTI_CLIENT_SECRET={{ jupyterhub_lti_client_secret }}
+{% endif -%}
