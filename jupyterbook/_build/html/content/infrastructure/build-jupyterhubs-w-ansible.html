@@ -93,8 +93,13 @@
   </a>
  </li>
  <li class="toctree-l1">
+  <a class="reference internal" href="#add-the-variables-specific-to-your-course">
+   4. Add the variables specific to your course
+  </a>
+ </li>
+ <li class="toctree-l1">
   <a class="reference internal" href="#build-the-jupyterhubs-using-ansible">
-   4. Build the JupyterHubs using Ansible
+   5. Build the JupyterHubs using Ansible
   </a>
  </li>
 </ul>
@@ -226,22 +231,32 @@
 </li>
 </ol>
 </div>
-<div class="section" id="build-the-jupyterhubs-using-ansible">
-<h1><span class="section-number">4. </span>Build the JupyterHubs using Ansible<a class="headerlink" href="#build-the-jupyterhubs-using-ansible" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="add-the-variables-specific-to-your-course">
+<h1><span class="section-number">4. </span>Add the variables specific to your course<a class="headerlink" href="#add-the-variables-specific-to-your-course" title="Permalink to this headline">¶</a></h1>
 <ol class="simple">
-<li><p>Copy the EC2 public IP addresses of the EC2 instances into ansible/inventory replacing &lt;STUDENT_HUB_IP&gt; and &lt;GRADING_HUB_IP&gt; respectively.</p></li>
-<li><p>To test this is all setup correctly you can try pinging one of the hubs via:</p></li>
+<li><p>Clone or download the <a class="reference external" href="https://github.com/UBC-DSCI/rudaux"><code class="docutils literal notranslate"><span class="pre">rudaux</span></code></a> repository.</p></li>
+<li><p>Open <code class="docutils literal notranslate"><span class="pre">ansible/inventory</span></code> in a text editor and replace the <code class="docutils literal notranslate"><span class="pre">&lt;STUDENT_HUB_DOMAIN&gt;</span></code> with your <a class="reference external" href="https://letsencrypt.org/">Let’s Encrypt</a> compatible domain name for the student Jupyterhub. Also replace <code class="docutils literal notranslate"><span class="pre">&lt;STUDENT_HUB_IP_ADDRESS&gt;</span></code> with the IP address for your EC2 instance that will become the student JupyterHub (Reminder this is the value for the IPv4 Public IP address found under the “Description” tab for your EC2 instance on the AWS EC2 Dashboard).</p></li>
+<li><p>Add any public IP addresses of folks you need to access the JupyterHubs via ssh (for IT purposes) in <code class="docutils literal notranslate"><span class="pre">ansible/group_vars/all/ssh-public-keys.yml</span></code>.</p></li>
 </ol>
-<p>ansible jhub-mastodon -m ping</p>
-<ol class="simple">
-<li><p>Set the devices for the zfs snapshots and the docker images in group_vars/all/local_vars.yml. For example:
-zfs_vdev_config: /dev/nvme1n1
-openstack_ephemeral_docker_disk: /dev/nvme2n1</p></li>
+</div>
+<div class="section" id="build-the-jupyterhubs-using-ansible">
+<h1><span class="section-number">5. </span>Build the JupyterHubs using Ansible<a class="headerlink" href="#build-the-jupyterhubs-using-ansible" title="Permalink to this headline">¶</a></h1>
+<ol>
+<li><p>To initialize the EC2 instance that will become the student JupyterHub (e.g., update all <code class="docutils literal notranslate"><span class="pre">yum</span></code> packages and reboot the machine) navigate to the <code class="docutils literal notranslate"><span class="pre">ansible</span></code> directory and run:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">make</span> <span class="n">playbook</span> <span class="n">PLAYBOOK</span><span class="o">=</span><span class="n">init</span> <span class="n">ENV</span><span class="o">=</span><span class="n">prod</span>
+</pre></div>
+</div>
+</li>
+<li><p>To install and configure the student JupyterHub run the following from the <code class="docutils literal notranslate"><span class="pre">ansible</span></code> directory:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">make</span> <span class="n">playbook</span> <span class="n">PLAYBOOK</span><span class="o">=</span><span class="n">hub</span> <span class="n">ENV</span><span class="o">=</span><span class="n">prod</span>
+</pre></div>
+</div>
+</li>
 <li><p>To run the setup step of the student hub, run the following command:</p></li>
 </ol>
 <p>make ansible/setup ENV=prod
 To run the init step of the student hub, run the following command:</p>
-<p>make ansible/playbook PLAYBOOK=init ENV=prod</p>
+<p>#make ansible/playbook PLAYBOOK=init ENV=prod</p>
 </div>
 
     <script type="text/x-thebe-config">

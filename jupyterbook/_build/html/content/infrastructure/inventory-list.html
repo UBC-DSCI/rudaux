@@ -93,8 +93,13 @@
   </a>
  </li>
  <li class="toctree-l1">
+  <a class="reference internal" href="build-jupyterhubs-w-ansible.html#add-the-variables-specific-to-your-course">
+   4. Add the variables specific to your course
+  </a>
+ </li>
+ <li class="toctree-l1">
   <a class="reference internal" href="build-jupyterhubs-w-ansible.html#build-the-jupyterhubs-using-ansible">
-   4. Build the JupyterHubs using Ansible
+   5. Build the JupyterHubs using Ansible
   </a>
  </li>
 </ul>
@@ -222,6 +227,11 @@
    1.3. A laptop or desktop computer
   </a>
  </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#two-domain-names-that-are-compatible-with-let-s-encrypt">
+   1.4. Two domain names that are compatible with Let’s Encrypt
+  </a>
+ </li>
 </ul>
 
         </nav>
@@ -239,6 +249,7 @@
 <li><p>A Canvas course shell</p></li>
 <li><p>Two Amazon Web Services (AWS) EC2 instances</p></li>
 <li><p>A laptop or desktop computer</p></li>
+<li><p>Two domain names that are compatible with Let’s Encrypt</p></li>
 </ol>
 <div class="section" id="canvas-course-shell">
 <h2><span class="section-number">1.1. </span>Canvas course shell<a class="headerlink" href="#canvas-course-shell" title="Permalink to this headline">¶</a></h2>
@@ -251,6 +262,10 @@
 <div class="section" id="a-laptop-or-desktop-computer">
 <h2><span class="section-number">1.3. </span>A laptop or desktop computer<a class="headerlink" href="#a-laptop-or-desktop-computer" title="Permalink to this headline">¶</a></h2>
 <p><a class="reference external" href="https://github.com/UBC-DSCI/rudaux"><code class="docutils literal notranslate"><span class="pre">rudaux</span></code></a> uses a dev ops tool named Ansible to automate much of the installation and setup of the two JupyterHubs. Ansible is run on your local laptop or desktop computer and uses the instructions in the <code class="docutils literal notranslate"><span class="pre">ansible</span></code> directory in the <code class="docutils literal notranslate"><span class="pre">rudaux</span></code> GitHub repository to send installation and configuration commands to the AWS EC2 instances to install and setup the two JupyterHubs.</p>
+</div>
+<div class="section" id="two-domain-names-that-are-compatible-with-let-s-encrypt">
+<h2><span class="section-number">1.4. </span>Two domain names that are compatible with <a class="reference external" href="https://letsencrypt.org/">Let’s Encrypt</a><a class="headerlink" href="#two-domain-names-that-are-compatible-with-let-s-encrypt" title="Permalink to this headline">¶</a></h2>
+<p>To keep the JupyterHubs secure we use the HTTPS protocol. This is a protocol which requires browser-trusted certificates. We use the service <a class="reference external" href="https://letsencrypt.org/">Let’s Encrypt</a> to automate the process of obtaining a browser-trusted certificate. For this to work, you will need two domain names that are compatible with <a class="reference external" href="https://letsencrypt.org/">Let’s Encrypt</a>.</p>
 </div>
 </div>
 
