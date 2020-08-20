@@ -22,6 +22,15 @@
 
     > Note: you need to call `openssl rand -hex 32` twice in the terminal so that the values for `jupyterhub_lti_client_key` and `jupyterhub_lti_client_secret` are different.
 
+1. Open `ansible/group_vars/hubs/jupyterhub.yml` and edit the values for each item listed below: 
+    - jupyterhub_course_name: 'dsci'
+    - jupyterhub_docker_image: 'ubcdsci/dsci-student'
+    - jupyterhub_docker_container: 'ubcdsci/dsci-student:latest'
+
+> Note: we have included an example Dockerfiles that could be used for building a Docker image for this course in the [`rudaux`](https://github.com/UBC-DSCI/rudaux) repository in the `dockerfiles/dsci-student` directory. The base image for this is the `r-notebook` from the `jupyter/docker-stacks` repository. Many of the Dockerfiles in that repository would also be good images (or base images) for a student JupyterHub.
+
+> Note: we have included a GitHub Actions workflow in this [`rudaux`](https://github.com/UBC-DSCI/rudaux), `.github/workflows/publish_docker_images.yml` which is useful for automating the building and versioning of Docker images. Specifically, this workflow is triggered when the Dockerfiles are edited on GitHub, uses Semantics versioning from the commit message to figure out how to bump the version (default is minor if you don't add specific words to your commit to change this), creates a git tag, and GitHub release based off of the version bump. Then it builds the image and publishes it on DockerHub with the same tag as is in the Git tag and GitHub release.
+
 1. Add any public IP addresses of folks you need to access the JupyterHubs via ssh (for IT purposes) in `ansible/group_vars/all/ssh-public-keys.yml`.
 
 
