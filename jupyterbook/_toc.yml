@@ -6,6 +6,7 @@
   - file: content/infrastructure/inventory-list
   - file: content/infrastructure/setup-aws-cloud-architecture
   - file: content/infrastructure/build-jupyterhubs-w-ansible
+  - file: content/infrastructure/add-jupyterhub-as-app-in-canvas
 
 - part: Assignments
   chapters:
