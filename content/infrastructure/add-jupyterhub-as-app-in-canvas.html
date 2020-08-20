@@ -5,7 +5,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
     <meta charset="utf-8" />
-    <title>2. Set up AWS cloud architecture</title>
+    <title>6. Add JupyterHub as an App on Canvas</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.11.2/css/all.min.css" integrity="sha384-KA6wR/X5RY4zFAHpv/CnoG2UW1uogYfdnP67Uv7eULvTveboZJg0qUpmJZb5VqzN" crossorigin="anonymous">
     <link href="../../_static/css/index.css" rel="stylesheet">
     <link rel="stylesheet" href="../../_static/sphinx-book-theme.css" type="text/css" />
@@ -39,8 +39,8 @@
     <link rel="shortcut icon" href="../../_static/rudaux_jupiter.jpg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="3. Setting up Ansible on your local machine" href="build-jupyterhubs-w-ansible.html" />
-    <link rel="prev" title="1. Inventory list" href="inventory-list.html" />
+    <link rel="next" title="1. Setting up Assignments on Canvas" href="../assignments/setting-up-assignments.html" />
+    <link rel="prev" title="3. Setting up Ansible on your local machine" href="build-jupyterhubs-w-ansible.html" />
 
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="docsearch:language" content="en">
@@ -82,8 +82,8 @@
    1. Inventory list
   </a>
  </li>
- <li class="toctree-l1 current active">
-  <a class="current reference internal" href="#">
+ <li class="toctree-l1">
+  <a class="reference internal" href="setup-aws-cloud-architecture.html">
    2. Set up AWS cloud architecture
   </a>
  </li>
@@ -102,8 +102,8 @@
    5. Build the JupyterHubs using Ansible
   </a>
  </li>
- <li class="toctree-l1">
-  <a class="reference internal" href="add-jupyterhub-as-app-in-canvas.html">
+ <li class="toctree-l1 current active">
+  <a class="current reference internal" href="#">
    6. Add JupyterHub as an App on Canvas
   </a>
  </li>
@@ -173,7 +173,7 @@
         <!-- ipynb file if we had a myst markdown file -->
         
         <!-- Download raw file -->
-        <a class="dropdown-buttons" href="../../_sources/content/infrastructure/setup-aws-cloud-architecture.md"><button type="button"
+        <a class="dropdown-buttons" href="../../_sources/content/infrastructure/add-jupyterhub-as-app-in-canvas.md"><button type="button"
                 class="btn btn-secondary topbarbtn" title="Download source file" data-toggle="tooltip"
                 data-placement="left">.md</button></a>
         <!-- Download PDF via print -->
@@ -193,7 +193,7 @@
                 data-toggle="tooltip" data-placement="left" title="Source repository"><i
                     class="fab fa-github"></i>repository</button></a>
         <a class="issues-button"
-            href="https://github.com/UBC-DSCI/rudaux/issues/new?title=Issue%20on%20page%20%2Fcontent/infrastructure/setup-aws-cloud-architecture.html&body=Your%20issue%20content%20here."><button
+            href="https://github.com/UBC-DSCI/rudaux/issues/new?title=Issue%20on%20page%20%2Fcontent/infrastructure/add-jupyterhub-as-app-in-canvas.html&body=Your%20issue%20content%20here."><button
                 type="button" class="btn btn-secondary topbarbtn" data-toggle="tooltip" data-placement="left"
                 title="Open an issue"><i class="fas fa-lightbulb"></i>open issue</button></a>
         
@@ -225,119 +225,54 @@
         
               <div>
                 
-  <div class="section" id="set-up-aws-cloud-architecture">
-<h1><span class="section-number">2. </span>Set up AWS cloud architecture<a class="headerlink" href="#set-up-aws-cloud-architecture" title="Permalink to this headline">¶</a></h1>
+  <div class="section" id="add-jupyterhub-as-an-app-on-canvas">
+<h1><span class="section-number">6. </span>Add JupyterHub as an App on Canvas<a class="headerlink" href="#add-jupyterhub-as-an-app-on-canvas" title="Permalink to this headline">¶</a></h1>
+<p>The final infrastructure step for this course is to add JupyterHub as an App to your Canvas course shell. Follow the steps below to do this.</p>
+<blockquote>
+<div><p>Note: If your University typically provides instructors their course shells (as is typically done at UBC) then the University IT/LT team may have to perform the steps outlined below:</p>
+</div></blockquote>
 <ol>
-<li><p>Log into the <a class="reference external" href="https://aws.amazon.com/console/">AWS Management console</a> and search for EC2 in the AWS services search bar:</p>
+<li><p>In the Setting page, click on “View App Configuration”</p>
  <br>
 <div class="figure align-center">
-<a class="reference internal image-reference" href="../../_images/ec2-1.png"><img alt="ec2-1" src="../../_images/ec2-1.png" style="width: 500px;" /></a>
-</div>
- <br>
-</li>
-<li><p>Scroll down and click on the orange “Launch Instance” button:</p>
- <br>
-<div class="figure align-center">
-<a class="reference internal image-reference" href="../../_images/ec2-2.png"><img alt="ec2-2" src="../../_images/ec2-2.png" style="width: 500px;" /></a>
+<a class="reference internal image-reference" href="../../_images/canvas-1.png"><img alt="canvas-1" src="../../_images/canvas-1.png" style="width: 500px;" /></a>
 </div>
  <br>
 </li>
-<li><p>Search for the Centos 7.8 Community Amazon machine image (AMI) that has the id <code class="docutils literal notranslate"><span class="pre">ami-0252eebc56636a56b</span></code>:</p>
+<li><p>Next, click the blue “+App” button:</p>
  <br>
 <div class="figure align-center">
-<a class="reference internal image-reference" href="../../_images/ec2-3.png"><img alt="ec2-3" src="../../_images/ec2-3.png" style="width: 500px;" /></a>
+<a class="reference internal image-reference" href="../../_images/canvas-2.png"><img alt="canvas-2" src="../../_images/canvas-2.png" style="width: 500px;" /></a>
 </div>
  <br>
-<p>and select it:</p>
- <br>  
-<div class="figure align-center">
-<a class="reference internal image-reference" href="../../_images/ec2-4.png"><img alt="ec2-4" src="../../_images/ec2-4.png" style="width: 500px;" /></a>
-</div>
- <br>    
 </li>
-<li><p>Select an instance type (we use a m5.4xlarge for ~ 200 students) and click “Next: Configure Instance Details”:</p>
+<li><p>On the Add App page, enter/select the values listed below, and then click the blue “Submit” button:</p>
+<ul class="simple">
+<li><p>Name (What you would like to call the app, here we call it JupyterHub)</p></li>
+<li><p>Consumer Key (the output from <code class="docutils literal notranslate"><span class="pre">openssl</span> <span class="pre">rand</span> <span class="pre">-hex</span> <span class="pre">32</span></code> that was set as <code class="docutils literal notranslate"><span class="pre">jupyterhub_lti_client_key</span></code> in <code class="docutils literal notranslate"><span class="pre">ansible/group_vars/hubs/secrets.yml</span></code>)</p></li>
+<li><p>Shared Secret (the output from <code class="docutils literal notranslate"><span class="pre">openssl</span> <span class="pre">rand</span> <span class="pre">-hex</span> <span class="pre">32</span></code> that was set as <code class="docutils literal notranslate"><span class="pre">jupyterhub_lti_client_secret</span></code> in <code class="docutils literal notranslate"><span class="pre">ansible/group_vars/hubs/secrets.yml</span></code>)</p></li>
+<li><p>Launch URL (the Let’s Encrypt compatible domain for the student JupyterHub concatenated with <code class="docutils literal notranslate"><span class="pre">/jupyter/hub/lti/launch</span></code>)</p></li>
+<li><p>Privacy (set as Public)</p></li>
+</ul>
  <br>
 <div class="figure align-center">
-<a class="reference internal image-reference" href="../../_images/ec2-5.png"><img alt="ec2-5" src="../../_images/ec2-5.png" style="width: 500px;" /></a>
+<a class="reference internal image-reference" href="../../_images/canvas-3.png"><img alt="canvas-3" src="../../_images/canvas-3.png" style="width: 500px;" /></a>
 </div>
- <br>  
+ <br>
 </li>
-<li><p>Leave these settings as is, and click on “Next: Add Storage”:</p>
- <br>  
+<li><p>Now JupyterHub should be available as an App to your Canvas course shell. You can test this by trying to create an assignment and under Submission Type, select “External Tool” and click Find:</p>
+ <br>
 <div class="figure align-center">
-<a class="reference internal image-reference" href="../../_images/ec2-6.png"><img alt="ec2-6" src="../../_images/ec2-6.png" style="width: 500px;" /></a>
+<a class="reference internal image-reference" href="../../_images/canvas-4.png"><img alt="canvas-4" src="../../_images/canvas-4.png" style="width: 500px;" /></a>
 </div>
- <br>  
+ <br>
 </li>
-<li><p>Click the “Add New Volume” button twice to add two additional EBS volumes (one for the students’ persistent filesystems, and one for Docker). Edit the sizes to be 30, 1024 and 128 for the root, students’ persistent filesystems, and Docker volumes, respectively. Click the “Next: Add Tags” button:</p>
- <br>  
+<li><p>You should be able to see the name of the App you just created:</p>
+ <br>
 <div class="figure align-center">
-<a class="reference internal image-reference" href="../../_images/ec2-7.png"><img alt="ec2-7" src="../../_images/ec2-7.png" style="width: 500px;" /></a>
+<a class="reference internal image-reference" href="../../_images/canvas-5.png"><img alt="canvas-5" src="../../_images/canvas-5.png" style="width: 500px;" /></a>
 </div>
- <br>  
-</li>
-<li><p>Add a key and value pair to easily identify the machine later on your EC2 console (we used the key “Course” and value “workflows” here, but you can choose whatever is meaningful to you). Click the “Next: Configure Security Group” button:</p>
- <br>  
-<div class="figure align-center">
-<a class="reference internal image-reference" href="../../_images/ec2-8.png"><img alt="ec2-8" src="../../_images/ec2-8.png" style="width: 500px;" /></a>
-</div>
- <br>  
-</li>
-<li><p>Click the “Add Rule” button three times to add three additional security groups. Choose the one each of the following types: HTTP, HTTPS and All ICMP - IPv4. For the All ICMP - IPv4 security group, edit the value for the Source to be Custom and 0.0.0.0/0. Click the blue “Review and Launch” button:</p>
- <br>  
-<div class="figure align-center">
-<a class="reference internal image-reference" href="../../_images/ec2-9.png"><img alt="ec2-9" src="../../_images/ec2-9.png" style="width: 500px;" /></a>
-</div>
- <br>  
-</li>
-<li><p>Review your settings, and if satisfied, click the blue “Launch” button:</p>
- <br>  
-<div class="figure align-center">
-<a class="reference internal image-reference" href="../../_images/ec2-10.png"><img alt="ec2-10" src="../../_images/ec2-10.png" style="width: 500px;" /></a>
-</div>
- <br>  
-</li>
-<li><p>Choose “Create a new key pair” and create a “Key pair name” (here we used jupyterhub). Click “Download Key Pair” and then the blue “Launch Instance” button:</p>
- <br>  
-<div class="figure align-center">
-<a class="reference internal image-reference" href="../../_images/ec2-11.png"><img alt="ec2-11" src="../../_images/ec2-11.png" style="width: 500px;" /></a>
-</div>
- <br>  
-<p>Save the key pair somewhere intentional on your laptop (e.g., <code class="docutils literal notranslate"><span class="pre">~/.ssh/</span></code>) and then type the following to update the permissions of the key:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">chmod</span> <span class="mi">400</span> <span class="o">~/.</span><span class="n">ssh</span><span class="o">/</span><span class="n">jupyterhub</span><span class="o">.</span><span class="n">pem</span>
-</pre></div>
-</div>
-</li>
-<li><p>If successful, you should see this screen:</p>
- <br>  
-<div class="figure align-center">
-<a class="reference internal image-reference" href="../../_images/ec2-12.png"><img alt="ec2-12" src="../../_images/ec2-12.png" style="width: 500px;" /></a>
-</div>
- <br>  
-</li>
-<li><p>Go back to the EC2 Dashboard (reminder: you can get there via searching for EC2 in the AWS services search bar) and click on the “Running instances” link:</p>
- <br>  
-<div class="figure align-center">
-<a class="reference internal image-reference" href="../../_images/ec2-13.png"><img alt="ec2-13" src="../../_images/ec2-13.png" style="width: 500px;" /></a>
-</div>
- <br>  
-</li>
-<li><p>Select the instance you just launched and under the “Description” tab note (and record somewhere for future reference) the Public DNS (IPv4) value (which will be used to ssh into the instance) and the IPv4 Public IP address (which will be used by ansible and for mapping your custom domain name to the server):</p>
- <br>  
-<div class="figure align-center">
-<a class="reference internal image-reference" href="../../_images/ec2-14.png"><img alt="ec2-14" src="../../_images/ec2-14.png" style="width: 500px;" /></a>
-</div>
- <br>  
-</li>
-<li><p>Add the Ansible machine’s (e.g., your laptop’s) public key to <code class="docutils literal notranslate"><span class="pre">~/.ssh/authorized_keys</span></code> on the EC2 instances. To do this you need to ssh into the EC2 instance using the private key you downloaded from Amazon earlier (<code class="docutils literal notranslate"><span class="pre">jupyterhub.pem</span></code> in this example):</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">ssh</span> <span class="o">-</span><span class="n">i</span> <span class="o">~/.</span><span class="n">ssh</span><span class="o">/</span><span class="n">jupyterhub</span><span class="o">.</span><span class="n">pem</span> <span class="n">centos</span><span class="nd">@ec2</span><span class="o">-</span><span class="mi">3</span><span class="o">-</span><span class="mi">96</span><span class="o">-</span><span class="mi">44</span><span class="o">-</span><span class="mf">97.</span><span class="n">ca</span><span class="o">-</span><span class="n">central</span><span class="o">-</span><span class="mf">1.</span><span class="n">compute</span><span class="o">.</span><span class="n">amazonaws</span><span class="o">.</span><span class="n">com</span>
-</pre></div>
-</div>
-<p>And then use The UNIX vi editor to add your public key the <code class="docutils literal notranslate"><span class="pre">~/.ssh/authorized_keys</span></code> file. To do this type the following to open vi:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sudo</span> <span class="n">vi</span> <span class="o">~/.</span><span class="n">ssh</span><span class="o">/</span><span class="n">authorized_keys</span>
-</pre></div>
-</div>
-<p>Then press <code class="docutils literal notranslate"><span class="pre">i</span></code> to enter insert mode and paste your key using your OS’s paste keyboard shortcut. Then press <code class="docutils literal notranslate"><span class="pre">ESC</span></code> + <code class="docutils literal notranslate"><span class="pre">w</span></code> + <code class="docutils literal notranslate"><span class="pre">q</span></code> to write the file and exit. Now you are are ready to move onto using Ansible to build the student JupyerHub.</p>
+ <br>
 </li>
 </ol>
 </div>
@@ -370,8 +305,8 @@
     
     <div class='prev-next-bottom'>
         
-    <a class='left-prev' id="prev-link" href="inventory-list.html" title="previous page"><span class="section-number">1. </span>Inventory list</a>
-    <a class='right-next' id="next-link" href="build-jupyterhubs-w-ansible.html" title="next page"><span class="section-number">3. </span>Setting up Ansible on your local machine</a>
+    <a class='left-prev' id="prev-link" href="build-jupyterhubs-w-ansible.html" title="previous page"><span class="section-number">3. </span>Setting up Ansible on your local machine</a>
+    <a class='right-next' id="next-link" href="../assignments/setting-up-assignments.html" title="next page"><span class="section-number">1. </span>Setting up Assignments on Canvas</a>
 
     </div>
     <footer class="footer mt-5 mt-md-0">
