@@ -1,7 +1,7 @@
 jupyterhub_authenticator: 'ltiauthenticator'
-jupyterhub_course_name: 'dsci'
-jupyterhub_docker_image: 'ubcdsci/dsci-student'
-jupyterhub_docker_container: 'ubcdsci/dsci-student:latest'
+jupyterhub_course_name: 'dsci100'
+jupyterhub_docker_image: 'ubcdsci/r-dsci-100'
+jupyterhub_docker_container: 'ubcdsci/r-dsci-100:latest'
 
 jupyterhub_spawners:
   dockerspawner:
