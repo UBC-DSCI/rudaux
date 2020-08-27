@@ -106,3 +106,8 @@ venv.bak/
 # mypy
 .mypy_cache/
 .vscode
+
+# ansible files
+**ansible/.hostfiles/*
+**ansible/library/*
+**ansible/group_vars/hubs/secrets.yml
