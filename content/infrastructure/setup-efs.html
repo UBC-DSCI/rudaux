@@ -243,6 +243,64 @@
   <div class="section" id="set-up-amazon-elastic-filesystem-efs">
 <h1><span class="section-number">5. </span>Set up Amazon Elastic Filesystem (EFS)<a class="headerlink" href="#set-up-amazon-elastic-filesystem-efs" title="Permalink to this headline">¶</a></h1>
 <p>Follow the instructions below to setup an Amazon elastic filesystem (EFS) mounted on both the student and grading JupyterHubs to allow for simple transfer of files between the two JupyterHubs for grading.</p>
+<ol>
+<li><p>Log into the <a class="reference external" href="https://aws.amazon.com/console/">AWS Management console</a> and search for EFS in the AWS services search bar:</p>
+ <br>
+<div class="figure align-center">
+<a class="reference internal image-reference" href="../../_images/efs-1.png"><img alt="efs-1" src="../../_images/efs-1.png" style="width: 500px;" /></a>
+</div>
+ <br>
+</li>
+<li><p>Scroll down and click on the orange “Create file system” button:</p>
+ <br>
+<div class="figure align-center">
+<a class="reference internal image-reference" href="../../_images/efs-2.png"><img alt="efs-2" src="../../_images/efs-2.png" style="width: 500px;" /></a>
+</div>
+ <br>
+</li>
+<li><p>Add a name for your file system (we called ours homework-to-grade) and click the white “Customize” button:</p>
+ <br>
+<div class="figure align-center">
+<a class="reference internal image-reference" href="../../_images/efs-3.png"><img alt="efs-3" src="../../_images/efs-3.png" style="width: 500px;" /></a>
+</div>
+ <br>    
+</li>
+<li><p>Deselect “Enable automatic backups” (found under the “Automatic backups” header) and scroll down to the bottom of the screen and click the orange “Next” button:</p>
+ <br>
+<div class="figure align-center">
+<a class="reference internal image-reference" href="../../_images/efs-4.png"><img alt="efs-4" src="../../_images/efs-4.png" style="width: 500px;" /></a>
+</div>
+ <br>  
+</li>
+<li><p>Leave these settings as is, and click the orange “Next” button:</p>
+ <br>  
+<div class="figure align-center">
+<a class="reference internal image-reference" href="../../_images/efs-5.png"><img alt="efs-5" src="../../_images/efs-5.png" style="width: 500px;" /></a>
+</div>
+ <br>  
+</li>
+<li><p>Leave these settings as is, and click the orange “Next” button:</p>
+ <br>  
+<div class="figure align-center">
+<a class="reference internal image-reference" href="../../_images/efs-6.png"><img alt="efs-6" src="../../_images/efs-6.png" style="width: 500px;" /></a>
+</div>
+ <br> 
+</li>
+<li><p>Review your settings as is, and click the orange “Create” button:</p>
+ <br>  
+<div class="figure align-center">
+<a class="reference internal image-reference" href="../../_images/efs-7.png"><img alt="efs-7" src="../../_images/efs-7.png" style="width: 500px;" /></a>
+</div>
+ <br> 
+</li>
+<li><p>You will then be sent to the EFS dashboard and you should be able to view the file system you just created. Record somewhere for future reference the File system ID for the file system you just created (for example, ours is <code class="docutils literal notranslate"><span class="pre">fs-35c65bd8</span></code>):</p>
+ <br>  
+<div class="figure align-center">
+<a class="reference internal image-reference" href="../../_images/efs-8.png"><img alt="efs-8" src="../../_images/efs-8.png" style="width: 500px;" /></a>
+</div>
+</li>
+</ol>
+<p>Now that you have setup the necessary AWS infrastructure, you can move onto using ansible to setup and install the JupyterHubs!</p>
 </div>
 
     <script type="text/x-thebe-config">
