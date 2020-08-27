@@ -1,0 +1,2 @@
+# Backup for {{ inventory_hostname }}
+command="{{ rrsync_command }} {{ rrsync_dest_directory }}"{{ rrsync_ssh_options }} {{ rrsync_public_key['content'] | b64decode }}

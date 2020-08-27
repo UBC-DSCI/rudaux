@@ -1,0 +1,7 @@
+course101.rudaux.com ansible_host=3.96.232.57
+
+[hubs]
+course101.rudaux.com
+
+[production:children]
+hubs

@@ -1,0 +1,10 @@
+rrsync_enable: false
+rrsync_local_user:
+rrsync_source_directory:
+rrsync_remote_host:
+rrsync_remote_user:
+#rrsync_private_key:
+rrsync_private_key_path:
+#rrsync_public_key:
+rrsync_public_key_path:
+rrsync_command: /usr/local/bin/rrsync

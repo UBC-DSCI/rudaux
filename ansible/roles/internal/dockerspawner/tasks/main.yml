@@ -1,0 +1,9 @@
+---
+- name: Install escapism
+  pip: name=escapism executable=pip3.6
+
+- name: Install docker python library
+  pip: name=docker executable=pip3.6
+
+- name: Install dockerspawner
+  pip: name=dockerspawner executable=pip3.6

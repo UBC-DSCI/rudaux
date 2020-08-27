@@ -1,0 +1,8 @@
+---
+- name: Grab cull script (master)
+  get_url:
+    url: "{{ jhub_docker_cull_script.src }}"
+    dest: "{{ jhub_docker_cull_script.dest }}"
+    owner: root
+    group: root
+    mode: 0750

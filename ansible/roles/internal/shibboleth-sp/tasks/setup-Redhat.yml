@@ -1,0 +1,112 @@
+---
+- name: Configure Shibboleth YUM repository
+  copy:
+    src: shibboleth.repo
+    dest: /etc/yum.repos.d/shibboleth.repo
+
+- name: Install Shibboleth packages
+  yum:
+    name: '{{ item.name }}'
+    state: '{{ item.state }}'
+  tags: shibboleth
+  with_items: '{{ shib_packages }}'
+
+- name: Add Shibboleth configuration files
+  template:
+    src: '{{ item.src }}'
+    dest: '{{ item.dest }}'
+    owner: root
+    group: root
+    mode: 0644
+  with_items:
+    - { src: 'shibboleth2.xml.idp_v{{ shib_idp_version }}.j2', dest: '/etc/shibboleth/shibboleth2.xml' }
+    - { src: 'attribute-map.xml.j2', dest: '/etc/shibboleth/attribute-map.xml' }
+  notify:
+    - restart apache
+    - restart shibd
+
+####
+# Changing sp-cert and metadata is a hassle as you have to notify the upstream
+# identity provider. To avoid this, we copy the existing cert, key and
+# generated metadata to the ansible host then copy it back as needed
+- name: Check for existing shibboleth cert
+  become: False
+  delegate_to: 'localhost'
+  stat: path='{{ shib_secrets }}/etc/shibboleth/sp-cert.pem'
+  register: cert_file
+
+- name: Copy existing cert if exists
+  copy: src="{{ shib_secrets }}/etc/shibboleth/sp-cert.pem" dest="/etc/shibboleth/sp-cert.pem"
+  when: cert_file.stat.exists
+  notify:
+    - restart shibd
+    - regenerate metadata
+
+- name: Check for existing shibboleth key
+  become: False
+  delegate_to: 'localhost'
+  stat: path="{{ shib_secrets }}/etc/shibboleth/sp-key.pem"
+  register: key_file
+  ignore_errors: True
+
+- name: Copy existing key if exists
+  copy: src="{{ shib_secrets }}/etc/shibboleth/sp-key.pem" dest="/etc/shibboleth/sp-key.pem"
+  when: key_file.stat.exists
+  notify:
+    - restart shibd
+    - regenerate metadata
+#
+###
+
+- name: Flush Handlers
+  meta: flush_handlers
+
+- name: Fetch certificate and key
+  fetch: src='{{ item.src }}' dest='{{ shib_secrets }}'
+  with_items:
+    - { src: '/etc/shibboleth/sp-cert.pem' }
+    - { src: '/etc/shibboleth/sp-key.pem' }
+
+- name: Generate the service metadata
+  shell: >
+    '/etc/shibboleth/metagen.sh'
+    -c /etc/shibboleth/sp-cert.pem
+    -h "{{ shib_hostname }}"
+    -e "{{ shib_entity_id }}"
+    -o "{{ shib_org }}"
+    -u "{{ shib_org_url }}"
+    -a "{{ shib_admin_contact }}"
+    -s "{{ shib_support_contact }}"
+    > {{ shib_metadata_file }}
+  args:
+    creates: '{{ shib_metadata_file }}'
+    chdir: '/etc/shibboleth'
+  notify: restart shibd
+
+- name: Retrieve the service metadata
+  fetch:
+    src: '{{ shib_metadata_file }}'
+    dest: '{{ shib_secrets }}'
+
+###
+# Some sites only provide an xml file, some provide a URL as well
+#
+- name: Populate IdP metadata from uri
+  get_url:
+    url: '{{ shib_idp_metadata_uri }}'
+    dest: '/etc/shibboleth/{{ ansible_hostname }}_idp-metadata.xml'
+    owner: root
+    group: root
+    mode: 0444
+  when: shib_idp_metadata_uri is defined
+  notify: restart shibd
+
+- name: Populate IdP metadata from file
+  when: shib_idp_metadata_uri is undefined
+  copy:
+    content: '{{ shib_idp_metadata_file }}'
+    dest: '/etc/shibboleth/{{ ansible_hostname }}_idp-metadata.xml'
+    owner: root
+    group: root
+    mode: 0444
+  notify: restart shibd

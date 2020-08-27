@@ -1,0 +1,60 @@
+# {{ ansible_managed }}
+{% block global %}
+import os
+import sys
+
+from subprocess import check_call
+
+def create_fs_hook(spawner):
+      username = spawner.user.name
+      callysto_user = 'jupyter'
+      course = '{{ jupyterhub_course_name }}'
+      check_call(['/srv/jupyterhub/zfs_homedir.sh', course, username, callysto_user])
+
+c.Spawner.pre_spawn_hook = create_fs_hook
+
+{% for global_option in jupyterhub_global_options %}
+c.{{ global_option.conf_object }} = {{ global_option.value }}
+{% endfor %}
+
+{% if jupyterhub_global_options_extra is defined %}
+{% for global_option in jupyterhub_global_options_extra %}
+c.{{ global_option.conf_object }} = {{ global_option.value }}
+{% endfor %}
+{% endif %}
+{% endblock %}
+
+{% block cookie -%}
+{% if jupyterhub_auth_token != "" -%}
+c.ConfigurableHTTPProxy.auth_token = {{ jupyterhub_auth_token }}
+{% endif -%}
+{% if jupyterhub_cookie_secret != "" -%}
+c.JupyterHub.cookie_secret = {{ jupyterhub_cookie_secret }}
+{% endif -%}
+{% endblock -%}
+
+{% block spawner %}
+{% if jupyterhub_spawner in jupyterhub_spawners %}
+c.JupyterHub.spawner_class = '{{ jupyterhub_spawners[jupyterhub_spawner].name }}'
+{% if 'options' in jupyterhub_spawners[jupyterhub_spawner] %}
+{% for spawner_option in jupyterhub_spawners[jupyterhub_spawner].options %}
+c.{{ spawner_option.conf_object }} = {{ spawner_option.value }}
+{% endfor %}
+{% endif %}
+{% endif %}
+{% endblock %}
+
+{% block authenticator %}
+{% if jupyterhub_authenticator in jupyterhub_authenticators %}
+c.JupyterHub.authenticator_class = '{{ jupyterhub_authenticators[jupyterhub_authenticator].name }}'
+{% if 'options' in jupyterhub_authenticators[jupyterhub_authenticator] %}
+{% for authenticator_option in jupyterhub_authenticators[jupyterhub_authenticator].options %}
+c.{{ authenticator_option.conf_object }}  = {{ authenticator_option.value }}
+{% endfor %}
+{% endif %}
+{% endif %}
+{% endblock %}
+
+{% if jupyterhub_announcement != "" %}
+c.JupyterHub.template_vars = {'announcement': '<div class="alert alert-danger">{{ jupyterhub_announcement }}<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button></div>'}
+{% endif %}

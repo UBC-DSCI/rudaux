@@ -1,0 +1,11 @@
+zfs_pool_name: tank
+zfs_module_dkms: true
+#
+# A string containing a valid zfs vdev specification
+# e.g. 
+#  zfs_vdev_config: mirror /dev/sda /dev/sdb
+#  zfs_vdev_config: /dev/sdb
+#  zfs_vdev_config: raidz /dev/sda /dev/sdb /dev/sdb
+#  
+# This variable is intentionally left blank because the zpool create process
+# will destroy any existing data on the devices specified

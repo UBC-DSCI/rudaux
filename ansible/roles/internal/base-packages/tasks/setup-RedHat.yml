@@ -1,0 +1,35 @@
+---
+# Tasks for base package installation (RedHat)
+- name: Setup epel repo
+  yum:
+    name: "epel-release"
+    state: present
+    update_cache: yes
+  tags: setup
+
+- name: Install base packages
+  yum:
+    name: '{{ item.name }}'
+    state: '{{ item.state }}'
+    update_cache: yes
+  tags: setup
+  with_items: '{{ base_packages }}'
+
+# Auto-security updates
+- name: Ensure yum fully updated
+  yum:
+    name: yum
+    state: latest
+    update_cache: yes
+  become: yes
+
+- name: Install yum-cron
+  yum:
+    name: yum-cron
+  become: yes
+
+- name: Copy yum-cron template
+  copy:
+    src: yum-cron.conf
+    dest: /etc/yum/yum-cron.conf
+  become: yes

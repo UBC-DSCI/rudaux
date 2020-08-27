@@ -1,0 +1,3 @@
+ius_extra_packages:
+  - pandas
+  - paramiko
