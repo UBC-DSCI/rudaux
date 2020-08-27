@@ -1,0 +1,6 @@
+---
+syzygyauthenticator_repo: https://github.com/callysto/syzygyauthenticator
+syzygyauthenticator_version: master
+syzygyauthenticator_dir: /opt/syzygyauthenticator
+
+remote_user_authenticator: jhub_remote_user_authenticator

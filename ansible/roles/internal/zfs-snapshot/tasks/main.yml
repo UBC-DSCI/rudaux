@@ -1,0 +1,40 @@
+---
+- name: Install Git
+  yum:
+    name: git
+    state: present
+
+- name: ZFS Auto Snapshot
+  git: 
+    repo: "https://github.com/zfsonlinux/zfs-auto-snapshot.git"
+    dest: "{{ zfs_auto_snap_dir }}"
+    version: '{{ zfs_auto_version }}'
+
+- name: Install ZFS Auto Snapshot
+  command: make PREFIX=/usr install
+  args:
+    chdir: "{{ zfs_auto_snap_dir }}"
+    creates: "/usr/sbin/zfs-auto-snapshot"
+
+- name: Remove hourly, weekly and monthly snapshots
+  file: path="{{ item.path }}" state=absent
+  with_items:
+    - { path: "/etc/cron.hourly/zfs-auto-snapshot" }
+    - { path: "/etc/cron.weekly/zfs-auto-snapshot" }
+    - { path: "/etc/cron.daily/zfs-auto-snapshot" }
+    - { path: "/etc/cron.monthly/zfs-auto-snapshot" }
+    - { path: "/etc/cron.d/zfs-auto-snapshot" }
+
+- name: Add snapshot cron jobs
+  cron:
+    name: '{{ item.name }}'
+    minute: '{{ item.minute | default("*") }}'
+    weekday: '{{ item.weekday | default("*") }}'
+    month: '{{ item.month | default("*") }}'
+    hour: '{{ item.hour | default("*") }}'
+    user: root
+    cron_file: 'zfs_snapshot_{{ index }}'
+    job: "PATH=/sbin:/bin:/usr/sbin:/usr/bin /usr/sbin/zfs-auto-snapshot --quiet --syslog --label={{ item.name }} --keep=180 //"
+  loop: "{{ zfs_snapshot_tasks | flatten(levels=1) }}"
+  loop_control:
+    index_var: index

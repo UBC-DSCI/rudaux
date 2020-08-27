@@ -1,0 +1,6 @@
+---
+- name: Modprobe zfs
+  command: /sbin/modprobe zfs
+
+- name: Start zfs
+  service: name=zfs.target state=started enabled=yes

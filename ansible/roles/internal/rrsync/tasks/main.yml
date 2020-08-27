@@ -1,0 +1,80 @@
+---
+- name: Install rrsync script
+  template:
+    src: rrsync.j2
+    dest: /etc/cron.weekly/rrsync-backup.sh
+    owner: root
+    group: root
+    mode: 0750
+  when: rrsync_enable == true
+
+- name: Find local user home
+  shell: >
+    egrep "^{{ rrsync_local_user }}:" /etc/passwd | awk -F: '{print $6}'
+  changed_when: false
+  check_mode: no
+  register: result
+
+- name: Set local user home fact
+  set_fact:
+    rrsync_local_home: '{{ result.stdout }}'
+
+- name: Set permissions on homedir .ssh
+  file:
+    state: directory
+    owner: '{{ rrsync_local_user }}'
+    group: '{{ rrsync_local_user }}'
+    mode: 0700
+    path: '{{ rrsync_local_home }}/.ssh'
+
+- name: Generate ssh-keys if not specified
+  user:
+    name: '{{ rrsync_local_user }}'
+    generate_ssh_key: yes
+    ssh_key_bits: 4096
+    ssh_key_file: '{{ rrsync_local_home }}/{{ rrsync_private_key_path }}'
+  when: not rrsync_private_key is defined
+
+- name: Slurp public_key
+  slurp:
+    src: '{{ rrsync_local_home }}/{{ rrsync_public_key_path }}'
+  register:
+    rrsync_public_key
+  when: not rrsync_public_key is defined and not ansible_check_mode
+
+- name: Install rrsync SSH private key if specified
+  copy:
+    content: "{{ rrsync_private_key }}"
+    dest: "{{ rrsync_private_key_path }}"
+    owner: "{{ rrsync_local_user }}"
+    group: "{{ rrsync_local_user }}"
+    mode: 0600
+  when: rrsync_private_key is defined and rrsync_enable == true
+
+- name: Install rrsync SSH public key if specified
+  copy:
+    content: "{{ rrsync_public_key }}"
+    dest: "{{ rrsync_public_key_path }}"
+    owner: "{{ rrsync_local_user }}"
+    group: "{{ rrsync_local_user }}"
+    mode: 0600
+  when: rrsync_private_key is defined and rrsync_enable == true
+
+- name: Template authorized_keys configuration
+  template:
+    src: authorized_keys.j2
+    dest: '{{ playbook_dir }}/../host_vars/files/authorized_keys/{{ inventory_hostname }}-authorized_keys'
+  delegate_to: localhost
+  become: False
+  when: not ansible_check_mode
+
+- name: Configure rrsync ssh
+  ssh_config:
+    state: present
+    user: "{{ rrsync_local_user }}"
+    host: "{{ rrsync_remote_host }}"
+    hostname: "{{ rrsync_remote_host }}"
+    remote_user: "{{ rrsync_remote_user }}"
+    identity_file: "{{ rrsync_local_home}}/{{ rrsync_private_key_path }}"
+  when: rrsync_enable == true
+

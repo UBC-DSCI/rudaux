@@ -1,0 +1,14 @@
+---
+- name: Copy landing page templates
+  shell: "rm -rf {{ syzygy_html_dir.dest }} && mkdir {{ syzygy_html_dir.dest }} && git archive {{ syzygy_landing_branch }} | tar -x -C {{ syzygy_html_dir.dest }}"
+  args:
+    chdir: '{{ syzygy_html_dir.src }}'
+
+- name: Update image assets
+  copy:
+    src: '{{ item.src }}'
+    dest: '{{ item.dest }}'
+    force: yes
+  with_items:
+    - { src: 'files/logo.png', dest: '/var/www/html/site/img/logo.png' }
+    - { src: 'files/login.png', dest: '/var/www/html/site/img/login.png' }

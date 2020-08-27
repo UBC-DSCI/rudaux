@@ -1,5 +1,20 @@
-- file: content/00-preface
+- file: content/preface
+  numbered: true
 
-- file: content/01-infrastructure
-- file: content/02-setting-up-assignments
-- file: content/03-running-the-course
+- part: Infrastructure
+  chapters:
+  - file: content/infrastructure/inventory-list
+  - file: content/infrastructure/setup-aws-cloud-architecture
+  - file: content/infrastructure/setup-ec2-student-hub
+  - file: content/infrastructure/setup-ec2-grading-hub
+  - file: content/infrastructure/setup-efs
+  - file: content/infrastructure/build-jupyterhubs-w-ansible
+  - file: content/infrastructure/add-jupyterhub-as-app-in-canvas
+
+- part: Assignments
+  chapters:
+  - file: content/assignments/setting-up-assignments
+
+- part: Running the course
+  chapters:
+  - file: content/course/running-the-course

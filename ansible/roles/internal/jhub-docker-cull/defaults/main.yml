@@ -1,0 +1,7 @@
+---
+jhub_docker_cull_script:
+  src: 'https://raw.githubusercontent.com/jupyterhub/jupyterhub/master/examples/cull-idle/cull_idle_servers.py'
+  dest: '/opt/cull_idle_servers.py'
+
+jhub_docker_cull_run_s: 1800
+jhub_docker_cull_cull_s: 10800

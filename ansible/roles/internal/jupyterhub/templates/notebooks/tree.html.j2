@@ -1,0 +1,13 @@
+{# add an announcement -#}
+{# raw so that ansible doesn't render -#}
+{% raw -%}
+{% extends "templates/tree.html" %}
+{% block headercontainer %}
+{{ super() }}
+{% endraw -%}
+{% if jupyterhub_announcement != "" -%}
+<div style="margin-top:50px" class="container alert alert-danger">{{ jupyterhub_announcement }}<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button></div>
+{% endif %}
+{% raw -%}
+{% endblock %}
+{% endraw -%}

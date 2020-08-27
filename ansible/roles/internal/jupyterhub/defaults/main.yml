@@ -1,0 +1,129 @@
+---
+jupyterhub_user_name: 'jupyter'
+jupyterhub_user_uid: 9999
+
+jupyterhub_srv_dir: '/srv/jupyterhub'
+jupyterhub_api_port: '8081'
+
+jhub_docker_cull_run_s: 1800
+jhub_docker_cull_cull_s: 10800
+
+jupyterhub_docker_image: 'docker.io/pimsubc/pims-r'
+jupyterhub_docker_container: 'docker.io/pimsubc/pims-r:latest'
+
+jupyterhub_announcement: ""
+jupyterhub_notebook_template_dir: "/tank/notebook_templates"
+jupyterhub_hub_template_dir: "/tank/hub_templates"
+
+jupyterhub_global_options:
+  - conf_object: 'JupyterHub.admin_access'
+    value: False
+  - conf_object: 'JupyterHub.base_url'
+    value: "'/jupyter'"
+  - conf_object: 'JupyterHub.confirm_no_ssl'
+    value: True
+  - conf_object: 'JupyterHub.hub_ip'
+    value: "'{{ ansible_docker0.ipv4.address }}'"
+  - conf_object: 'JupyterHub.ip'
+    value: "'127.0.0.1'"
+  - conf_object: 'JupyterHub.services'
+    value: |
+        [
+            {
+                'name': 'idle-culler',
+                'admin': True,
+                'command': [
+                    sys.executable,
+                    '-m', 'jupyterhub_idle_culler',
+                    '--timeout={{ jhub_docker_cull_cull_s }}'
+                ]
+            }
+        ]
+
+jupyterhub_spawner: 'dockerspawner'
+jupyterhub_spawners:
+  dockerspawner:
+    name: 'dockerspawner.DockerSpawner'
+    options:
+      - conf_object: 'DockerSpawner.extra_host_config'
+        value: "{'mem_limit': '2g', 'memswap_limit': '2g', 'cpu_period': 100000, 'cpu_quota': 100000, 'ulimits': [{'name': 'core', 'hard': 0}] }"
+      - conf_object: 'DockerSpawner.remove_containers'
+        value: True
+      - conf_object: 'DockerSpawner.use_internal_ip'
+        value: "True"
+      - conf_object: 'DockerSpawner.host_ip'
+        value: "'0.0.0.0'"
+      - conf_object: 'DockerSpawner.image'
+        value: "'{{ jupyterhub_docker_container }}'"
+      - conf_object: 'DockerSpawner.volumes'
+        value: "{ '/tank/home/{username}': '/home/jupyter', '{{ jupyterhub_notebook_template_dir }}': { 'bind': '/opt/notebook/local_templates', 'mode': 'ro' } }"
+      - conf_object: 'Spawner.pre_spawn_hook'
+        value: 'create_fs_hook'
+
+jupyterhub_authenticator: 'pam'
+jupyterhub_authenticators:
+  google:
+    name: 'syzygyauthenticator.google.SyzygyGoogleOAuthenticator'
+    options:
+      - conf_object: 'OAuthenticator.client_id'
+        value: 'os.environ["OAUTH_CLIENT_ID"]'
+      - conf_object: 'OAuthenticator.client_secret'
+        value: 'os.environ["OAUTH_CLIENT_SECRET"]'
+      - conf_object: 'OAuthenticator.callback_url'
+        value: 'os.environ["OAUTH_CALLBACK_URL"]'
+  github:
+    name: 'syzygyauthenticator.github.SyzygyGitHubOAuthenticator'
+    options:
+      - conf_object: 'OAuthenticator.client_id'
+        value: 'os.environ["OAUTH_CLIENT_ID"]'
+      - conf_object: 'OAuthenticator.client_secret'
+        value: 'os.environ["OAUTH_CLIENT_SECRET"]'
+      - conf_object: 'OAuthenticator.callback_url'
+        value: 'os.environ["OAUTH_CALLBACK_URL"]'
+  pam:
+    name: 'jupyterhub.auth.PAMAuthenticator'
+    options: []
+  shib:
+    name: 'syzygyauthenticator.shib.RemoteUserAuthenticator'
+    options:
+      - conf_object: 'RemoteUserAuthenticator.shibIDAttribute'
+        value: "'REMOTE_USER'"
+      - conf_object: 'RemoteUserAuthenticator.shibUserEntitlements'
+        value: "'{{ shib_auth_attribute }}'"
+      - conf_object: 'RemoteUserAuthenticator.shibValidEntitlements'
+        value: "{{ shib_auth_values }}"
+      - conf_object: 'RemoteUserAuthenticator.shibLogoutURL'
+        value: "'{{ shib_auth_logout_url }}'"
+  ltiauthenticator:
+    name: 'ltiauthenticator.LTIAuthenticator'
+    options:
+      - conf_object: 'LTIAuthenticator.consumers'
+        value: "{ os.environ['LTI_CLIENT_KEY']: os.environ['LTI_CLIENT_SECRET'] }"
+  dummy:
+    name: 'syzygyauthenticator.dummy.SyzygyDummyAuthenticator'
+    options: []
+  dummypw:
+    name: 'syzygyauthenticator.dummy.SyzygyDummyAuthenticator'
+    options:
+      - conf_object: 'SyzygyDummyAuthenticator.password'
+        value: "'{{ jupyterhub_authenticator_dummy_password }}'"
+
+jupyterhub_authenticator_dummy_password: ""
+
+# Set these to use a persistent token/cookie between the hub and proxy
+jupyterhub_auth_token: ""
+jupyterhub_cookie_secret: ""
+
+# Set these for Shib authentication
+shib_auth_attribute: ""
+shib_auth_values: set()
+shib_auth_logout_url: "https://{{ inventory_hostname }}/Shibboleth.sso/Logout?return={{ inventory_hostname }}/logout"
+
+# Set these for Google/OAUTH authentication
+jupyterhub_oauth_client_id: ""
+jupyterhub_oauth_client_secret: ""
+jupyterhub_oauth_callback_url: ""
+jupyterhub_lti_client_key: ""
+jupyterhub_lti_client_secret: ""
+
+jupyterhub_zfs_user_quota: "1G"

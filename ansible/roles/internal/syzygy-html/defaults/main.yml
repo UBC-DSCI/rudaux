@@ -1,0 +1,16 @@
+syzygy_hub_landing_page_repo: "https://github.com/pimsmath/syzygy-landing-page"
+syzygy_html_hostname: "{{ inventory_hostname }}"
+syzygy_html_domain: "syzygy.ca"
+syzygy_html_support_email: "jupyter@pims.math.ca"
+syzygy_html_url: "http://{{ inventory_hostname }}"
+
+syzygy_html_dir:
+  src: /opt/hub-landing-page
+  dest: /var/www/html/site
+
+syzygy_html_logout_message: "You have been logged out of your Jupyter Session"
+
+syzygy_html_terms: |
+  By using this service you are indicating that you are a current member of
+  '{{ syzygy_html_longname }}' and that you agree to be bound by their
+  computing terms of use.

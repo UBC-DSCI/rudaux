@@ -1,0 +1,7 @@
+---
+base_packages:
+  - { name: 'git', state: 'present' }
+  - { name: 'wget', state: 'present' }
+  - { name: 'vim', state: 'present' }
+  - { name: 'tmux', state: 'present' }
+  - { name: 'screen', state: 'present' }

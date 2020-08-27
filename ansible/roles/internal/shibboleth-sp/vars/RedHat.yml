@@ -1,0 +1,5 @@
+---
+shib_repo_url: "http://downloadcontent.opensuse.org/repositories/security://shibboleth/CentOS_7/security:shibboleth.repo"
+shib_repo_file: "shibboleth.repo"
+shib_packages:
+  - { name: 'shibboleth', state: 'present' }

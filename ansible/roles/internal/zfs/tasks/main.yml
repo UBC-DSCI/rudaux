@@ -1,0 +1,63 @@
+---
+
+- name: Check distro version
+  shell: cat /etc/centos-release
+  register: result
+  when: ansible_distribution == "CentOS"
+  check_mode: no
+  changed_when: false
+
+- name: Set zfs_distro_version if CentOS
+  set_fact:
+    zfs_distro_version: "{{ result.stdout | regex_search('[0-9]{1}\\.[0-9]+') }}"
+  when: ansible_distribution == "CentOS"
+
+- name: Set zfs_distro_version if RedHat
+  set_fact:
+    zfs_distro_version: "{{ ansible_distribution_version }}"
+  when: ansible_distribution != "CentOS"
+
+- name: Copy ZFS yum repo
+  template:
+    src: zfs.repo.j2
+    dest: /etc/yum.repos.d/zfs.repo
+
+- name: Copy ZFS GPG key
+  copy:
+    src: files/RPM-GPG-KEY-zfsonlinux
+    dest: /etc/pki/rpm-gpg/RPM-GPG-KEY-zfsonlinux
+
+- name: Install zfs kernel module
+  yum:
+    name: zfs
+    state: present
+    update_cache: yes
+  notify:
+    - Modprobe zfs
+
+- name: Ensure the ZFS kernel module is loaded
+  modprobe:
+    name: zfs
+
+- name: Flush ZFS Handlers
+  meta: flush_handlers
+
+- name: Create tank zpool
+  notify:
+   - Start zfs
+  command: /sbin/zpool create -f '{{ zfs_pool_name }}' {{ zfs_vdev_config }}
+  args:
+    creates: /tank
+  when: zfs_vdev_config is defined
+
+- name: Create ZFS home container
+  command: /sbin/zfs create '{{ zfs_pool_name }}'/home
+  args:
+    creates: '/{{ zfs_pool_name }}/home'
+  when: zfs_vdev_config is defined
+
+- name: Create course filesystems
+  command: /sbin/zfs create '{{zfs_pool_name }}/home/{{ jupyterhub_course_name }}'
+  args:
+    creates: '/{{zfs_pool_name }}/home/{{ jupyterhub_course_name }}'
+  when: jupyterhub_course_name is defined

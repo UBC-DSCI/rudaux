@@ -1,0 +1,33 @@
+## Initialize hosts (MAY REBOOT)
+---
+- name: Import update play
+  import_playbook: update.yml
+
+- name: Initialize hosts for syzygy deployment
+  hosts: all
+  become: true
+  vars:
+    ansible_ssh_pipelining: no
+  tasks:
+    - name: Update all packages
+      yum:
+        name: "*"
+        state: latest
+      ignore_errors: true
+
+    - name: Flush any handlers before reboot
+      meta: flush_handlers
+
+    - name: Check needs-restarting status
+      command: needs-restarting -r
+      register: command_restart
+      failed_when: command_restart.rc not in [0, 1]
+      check_mode: no
+      changed_when: false
+
+    - name: Reboot instance
+      reboot:
+        reboot_timeout: 300
+        pre_reboot_delay: 30
+        post_reboot_delay: 30
+      when: command_restart.rc == 1

@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<SPConfig xmlns="urn:mace:shibboleth:2.0:native:sp:config"
+    xmlns:conf="urn:mace:shibboleth:2.0:native:sp:config"
+    xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion"
+    xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol"
+    xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata"
+    logger="/etc/shibboleth/syslog.logger" clockSkew="180">
+
+    <OutOfProcess logger="/etc/shibboleth/shibd.logger">
+    </OutOfProcess>
+
+    <InProcess logger="/etc/shibboleth/native.logger" />
+
+    <UnixListener address="/var/run/shibboleth/shibd.sock" />
+    <StorageService type="Memory" id="mem" cleanupInterval="900"/>
+    <SessionCache type="StorageService" StorageService="mem" cacheTimeout="3600" inprocTimeout="900" cleanupInterval="900"/>
+    <ReplayCache StorageService="mem"/>
+    <ArtifactMap artifactTTL="180"/>
+
+    <RequestMapper type="Native">
+        <RequestMap applicationId="jupyter">
+            <Host name="{{ inventory_hostname }}">
+               <Path name="/" 
+                      applicationId="jupyter"
+                      authType="shibboleth"
+                      requireSession="true"
+                      exportAssertion="false">
+               </Path>
+            </Host>
+        </RequestMap>
+    </RequestMapper>
+
+    <ApplicationDefaults id="default" policyId="default"
+        entityID="https://www.ubc.ca/do-not-use"
+        homeURL="https://www.ubc.ca/"
+        signing="true" encryption="false"
+        >
+
+        <Sessions lifetime="7200" timeout="3600" checkAddress="false" consistentAddress="true"
+            handlerURL="/Shibboleth.sso" handlerSSL="true"
+            exportLocation="http://localhost/Shibboleth.sso/GetAssertion"
+            idpHistory="true" idpHistoryDays="7">
+
+            <SessionInitiator type="Chaining" Location="/Login" isDefault="true" id="Intranet"
+                relayState="cookie" entityID="{{ shib_session_init_entityid }}"
+                    acsByIndex="false">
+                    <SessionInitiator type="SAML2" acsIndex="1" forceAuthn="{{ shib_forceauthn }}"  template="bindingTemplate.html"/>
+            <SessionInitiator type="Shib1" acsIndex="5"/>
+            </SessionInitiator>
+
+            <md:AssertionConsumerService Location="/SAML2/POST" index="1"
+                Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"/>
+            <md:AssertionConsumerService Location="/SAML2/POST-SimpleSign" index="2"
+                Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST-SimpleSign"/>
+            <md:AssertionConsumerService Location="/SAML2/Artifact" index="3"
+                Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Artifact"/>
+            <md:AssertionConsumerService Location="/SAML2/ECP" index="4"
+                Binding="urn:oasis:names:tc:SAML:2.0:bindings:PAOS"/>
+            <md:AssertionConsumerService Location="/SAML/POST" index="5"
+                Binding="urn:oasis:names:tc:SAML:1.0:profiles:browser-post"/>
+            <md:AssertionConsumerService Location="/SAML/Artifact" index="6"
+                Binding="urn:oasis:names:tc:SAML:1.0:profiles:artifact-01"/>
+
+            <!-- LogoutInitiators enable SP-initiated local or global/single logout of sessions. -->
+            <LogoutInitiator type="Chaining" Location="/Logout" relayState="cookie" >
+            <LogoutInitiator type="Local" />
+            </LogoutInitiator>
+
+            <!-- md:SingleLogoutService locations handle single logout (SLO) protocol messages. -->
+            <md:SingleLogoutService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Location="{{ shib_adfs_logout_url }}"/>
+            <md:SingleLogoutService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect" Location="{{ shib_adfs_logout_url }}"/>
+
+            <!-- md:ManageNameIDService locations handle NameID management (NIM) protocol messages. -->
+            <md:ManageNameIDService Location="/NIM/SOAP"
+                Binding="urn:oasis:names:tc:SAML:2.0:bindings:SOAP"/>
+            <md:ManageNameIDService Location="/NIM/Redirect" conf:template="bindingTemplate.html"
+                Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"/>
+            <md:ManageNameIDService Location="/NIM/POST" conf:template="bindingTemplate.html"
+                Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"/>
+            <md:ManageNameIDService Location="/NIM/Artifact" conf:template="bindingTemplate.html"
+                Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Artifact"/>
+
+            <md:ArtifactResolutionService Location="/Artifact/SOAP" index="1"
+                Binding="urn:oasis:names:tc:SAML:2.0:bindings:SOAP"/>
+
+            <Handler type="MetadataGenerator" Location="/Metadata" signing="false"/>
+
+            <Handler type="Status" Location="/Status" acl="127.0.0.1"/>
+
+            <Handler type="Session" Location="/Session"/>
+
+        </Sessions>
+
+        <Errors session="/etc/shibboleth/sessionError.html"
+            metadata="/etc/shibboleth/metadataError.html"
+            access="/etc/shibboleth/accessError.html"
+            ssl="/etc/shibboleth/sslError.html"
+            localLogout="/etc/shibboleth/localLogout.html"
+            globalLogout="/etc/shibboleth/globalLogout.html"
+            supportContact="sysadmin@pims.math.ca"
+            logoLocation="/shibboleth-sp/logo.jpg"
+            styleSheet="/shibboleth-sp/main.css"/>
+
+        <MetadataProvider type="XML" 
+            {% if shib_idp_metadata_uri is defined %}
+            url="{{ shib_idp_metadata_uri }}"
+            {% else %}
+            uri="file:///etc/shibboleth/{{ ansible_hostname }}_idp-metadata.xml"
+            {% endif %}
+            backingFilePath="/etc/shibboleth/{{ ansible_hostname }}_idp-metadata.xml"
+            reloadInterval="86400" />
+
+        <!-- Chain the two built-in trust engines together. -->
+        <TrustEngine type="Chaining">
+            <TrustEngine type="ExplicitKey"/>
+            <TrustEngine type="PKIX"/>
+        </TrustEngine>
+
+        <!-- Map to extract attributes from SAML assertions. -->
+        <AttributeExtractor type="XML" path="/etc/shibboleth/attribute-map.xml"/>
+        
+        <!-- Use a SAML query if no attributes are supplied during SSO. -->
+        <AttributeResolver type="Query"/>
+
+        <!-- Default filtering policy for recognized attributes, lets other data pass. -->
+        <AttributeFilter type="XML" path="/etc/shibboleth/attribute-policy.xml"/>
+
+        <!-- Simple file-based resolver for using a single keypair. -->
+        <CredentialResolver type="File"
+                            key="/etc/shibboleth/sp-key.pem"
+                            certificate="/etc/shibboleth/sp-cert.pem"/>
+
+
+         <ApplicationOverride id="jupyter" 
+             entityID="https://{{ inventory_hostname }}/jupyter/shibboleth-sp"
+             homeURL="https://{{ inventory_hostname }}/"
+             REMOTE_USER="{{ shib_id_attribute }}" >
+
+          <Sessions handlerURL="/Shibboleth.sso"
+                    handlerSSL="true"
+                    cookieProps="; path=/; secure"
+                    checkAddress="false"
+                    lifetime="7200" timeout="3600"/>
+        </ApplicationOverride>
+    </ApplicationDefaults>
+
+    <!-- Each policy defines a set of rules to use to secure messages. -->
+    <SecurityPolicies>
+        <!-- The predefined policy enforces replay/freshness and permits signing and client TLS. -->
+        <Policy id="default" validate="false">
+            <PolicyRule type="MessageFlow" checkReplay="true" expires="60"/>
+            <PolicyRule type="Conditions">
+                <PolicyRule type="Audience"/>
+                <!-- Enable Delegation rule to permit delegated access. -->
+                <!-- <PolicyRule type="Delegation"/> -->
+            </PolicyRule>
+            <PolicyRule type="ClientCertAuth" errorFatal="true"/>
+            <PolicyRule type="XMLSigning" errorFatal="true"/>
+            <PolicyRule type="SimpleSigning" errorFatal="true"/>
+        </Policy>
+    </SecurityPolicies>
+</SPConfig>

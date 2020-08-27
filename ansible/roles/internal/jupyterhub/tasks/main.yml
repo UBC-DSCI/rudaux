@@ -1,0 +1,161 @@
+---
+
+- name: Manage landing page html repo
+  include_role:
+    name: '{{ jupyterhub_html_family }}'
+
+- name: Manage dockerspawner
+  include_role:
+    name: dockerspawner
+
+- name: Install  Jupyterhub-idle-culler script
+  pip: name='jupyterhub-idle-culler' executable='pip3.6'
+
+- name: Get Docker image for JupyterHub containers
+  docker_image:
+    name: '{{ jupyterhub_docker_container }}'
+  when: jupyterhub_spawner in ['dockerspawner', 'syzygyswiftspawner']
+
+- name: Manage syzygyauthenticator
+  include_role:
+    name: syzygyauthenticator
+
+- name: Install OAuthenticator
+  pip: name='oauthenticator' executable='pip3.6'
+  when: jupyterhub_authenticator == 'google'
+
+- name: Manage Shibboleth SP
+  include_role:
+    name: shibboleth-sp
+  when: jupyterhub_authenticator == 'shib'
+
+- name: Add a jupyter user to run things as
+  user:
+    name: '{{ jupyterhub_user_name }}'
+    uid: '{{ jupyterhub_user_uid }}'
+
+- name: Install pycurl dependencies
+  yum:
+    name: '{{ item.name }}'
+    state: '{{ item.state }}'
+    update_cache: yes
+  with_items:
+    - { 'name': 'gcc', 'state': 'present' }
+    - { 'name': 'libcurl-devel', 'state': 'present' }
+
+- name: Install pycurl
+  pip:
+    name: pycurl
+    executable: pip3.6
+  environment:
+    PYCURL_SSL_LIBRARY: nss
+
+- name: Install Jupyterhub
+  pip:
+    name: jupyterhub
+    executable: pip3.6
+
+- name: Install node packages
+  yum:
+    name: nodejs
+    state: present
+
+- name: Install configurable-http-proxy
+  npm:
+    name: configurable-http-proxy
+    state: present
+    global: yes
+
+# Clumsily install JupyterHub dependencies
+- name: Install LTIAuthenticator
+  include_role:
+    name: ltiauthenticator
+  when: jupyterhub_authenticator == 'ltiauthenticator'
+
+- name: Create JupyterHub Config Directory
+  file:
+    path: '{{ jupyterhub_srv_dir }}'
+    state: directory
+    mode: '0755'
+
+- name: Add Jupyterhub Config
+  template:
+    src: jupyterhub_config_base.py.j2
+    dest: "{{ jupyterhub_srv_dir }}/jupyterhub_config.py"
+    mode: 0644
+    owner: root
+    group: root
+  notify:
+    - Restart JupyterHub
+
+- name: Jupyterhub Service config
+  template:
+    src: jupyterhub-env.j2
+    dest: /etc/sysconfig/jupyterhub
+    mode: 0600
+    owner: root
+    group: root
+  notify:
+    - Restart JupyterHub
+
+- name: Jupyterhub Service definition
+  template:
+    src: jupyterhub.service.j2
+    dest: /etc/systemd/system/jupyterhub.service
+  notify:
+    - Restart JupyterHub
+
+- name: Add jupyterhub port to to home zone (assume firewalld)
+  firewalld:
+    zone: "home"
+    port: "{{ jupyterhub_api_port }}/tcp"
+    immediate: yes
+    state: enabled
+    permanent: true
+
+- name: Ensure jupyterhub_notebook_template_dir exists
+  file:
+    path: "{{ jupyterhub_notebook_template_dir }}"
+    state: directory
+
+- name: Copy jupyter notebook template
+  template:
+    src: "notebooks/notebook.html.j2"
+    dest: "{{ jupyterhub_notebook_template_dir }}/notebook.html"
+
+- name: Copy jupyter tree template
+  template:
+    src: "notebooks/tree.html.j2"
+    dest: "{{ jupyterhub_notebook_template_dir }}/tree.html"
+
+- name: Ensure jupyterhub_hub_template_dir exists
+  file:
+    path: "{{ jupyterhub_hub_template_dir }}"
+    state: directory
+
+- name: Copy jupyterhub error template
+  template:
+    src: "hub-error.html.j2"
+    dest: "{{ jupyterhub_hub_template_dir }}/error.html"
+
+- name: Start + Enable jupyterhub
+  service:
+    name: jupyterhub
+    state: started
+    enabled: yes
+
+- name: Add User FS creation script
+  template:
+    src: zfs_homedir.sh.j2
+    dest: '{{ jupyterhub_srv_dir }}/zfs_homedir.sh'
+    mode: '0700'
+    owner: root
+    group: root
+
+- name: Install jupyter container renice script
+  copy:
+    src: container_renice.sh
+    dest: /usr/local/bin/container-renice
+    mode: 0755
+    owner: root
+    group: root

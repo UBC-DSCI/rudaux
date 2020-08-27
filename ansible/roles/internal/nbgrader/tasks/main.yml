@@ -1,0 +1,27 @@
+- name: Install nbgrader
+  pip: name=nbgrader executable=pip3.6
+  notify:
+    - Install nbgrader Jupyter extension
+    - Enable nbgrader Jupyter extension
+    - Install nbgrader server extension
+
+# These commands should only run on the MARKING server
+
+- name: Install nbgrader dependency openssl-devel
+  yum:
+    name: openssl-devel
+    state: present
+
+- name: Install R
+  yum:
+    name: R
+    state: present
+
+- name: Install nbgrader R package dependencies
+  command: Rscript -e "install.packages(c('repr', 'IRdisplay', 'evaluate', 'crayon', 'pbdZMQ', 'devtools', 'uuid', 'digest'), dependencies = TRUE, repos = 'https://cran.rstudio.com')"
+
+- name: Install R kernel
+  command: Rscript -e "devtools::install_github('IRkernel/IRkernel')"
+
+- name: Initialize R kernel
+  command: Rscript -e "IRkernel::installspec(user = FALSE)"

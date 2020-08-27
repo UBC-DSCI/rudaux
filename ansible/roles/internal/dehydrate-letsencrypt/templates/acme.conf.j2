@@ -1,0 +1,9 @@
+Alias /.well-known/acme-challenge {{ acme_home }}/challenge
+
+<Directory {{ acme_home }}/challenge/>
+  Satisfy any
+</Directory>
+
+
+RewriteCond %{REQUEST_URI} /\.well\-known/acme\-challenge/
+RewriteRule (.*) /.well-known/acme-challenge/$1 [L,QSA]

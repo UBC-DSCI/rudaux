@@ -1,0 +1,56 @@
+---
+- name: Install HTML files
+  git:
+    repo: '{{ syzygy_hub_landing_page_repo }}'
+    version: "{{ syzygy_landing_branch }}"
+    dest: '{{ syzygy_html_dir.src }}'
+    ssh_opts: "-o StrictHostKeyChecking=no"
+  notify:
+    - Copy landing page templates
+    - Update image assets
+
+- name: Flush handlers
+  meta: flush_handlers
+
+- name: Grab html template from host
+  run_once : true
+  fetch:
+    src: '{{ item.src }}'
+    dest: '{{ item.dest }}'
+    flat: yes
+    fail_on_missing: yes
+  with_items:
+    - src: '{{ syzygy_html_dir.src }}/index.html'
+      dest: '/var/tmp/syzygy-html-index.html'
+    - src: '{{ syzygy_html_dir.src }}/logout/index.html'
+      dest: '/var/tmp/syzygy-html-logout-index.html'
+
+- name: Process html template and send results back to host
+  template:
+    src: '{{ item.src }}'
+    dest: '{{ item.dest }}'
+    owner: root
+    group: root
+    mode: 0644
+  with_items:
+    - dest: '{{ syzygy_html_dir.dest }}/index.html'
+      src: '/var/tmp/syzygy-html-index.html'
+    - dest: '{{ syzygy_html_dir.dest }}/logout/index.html'
+      src: '/var/tmp/syzygy-html-logout-index.html'
+
+- name: Update DocumentRoot
+  notify:
+    - restart apache
+  lineinfile:
+    dest: '/etc/httpd/conf/httpd.conf'
+    regexp: '^DocumentRoot'
+    line: 'DocumentRoot "{{ syzygy_html_dir.dest }}"'
+
+- name: Add httpd config for jupyter service
+  template:
+    src: jupyter-http.conf.j2
+    dest: /etc/httpd/conf.d/jupyter.conf
+    mode: 0644
+    owner: root
+    group: root
+  notify: restart apache
