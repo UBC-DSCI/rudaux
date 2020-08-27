@@ -5,6 +5,9 @@
   chapters:
   - file: content/infrastructure/inventory-list
   - file: content/infrastructure/setup-aws-cloud-architecture
+  - file: content/infrastructure/setup-ec2-student-hub
+  - file: content/infrastructure/setup-ec2-grading-hub
+  - file: content/infrastructure/setup-efs
   - file: content/infrastructure/build-jupyterhubs-w-ansible
   - file: content/infrastructure/add-jupyterhub-as-app-in-canvas
 
