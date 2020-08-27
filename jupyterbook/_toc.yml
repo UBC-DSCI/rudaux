@@ -1,5 +1,4 @@
 - file: content/preface
-  numbered: true
 
 - part: Infrastructure
   chapters:
