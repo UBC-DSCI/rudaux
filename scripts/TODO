@@ -1,0 +1,54 @@
+---Jun 30
+0. ask about current server
+1. use traitlets
+    1. see documentation https://traitlets.readthedocs.io/_/downloads/en/stable/pdf/
+        1. chapter 1 & 5
+2. server side behavior...
+    1. formgrader
+    2. file structure
+        1. where are the snapshots? cd /tank/home/dsci100/26568203
+        2. creating a dummy assignment for testing? 
+            trevor.
+        3. aim: cant assume a particular file structure. 
+           for now assume it, but make it easier to change it in the future... e.g. a function that spits out directories. 
+3. add try except error messages
+4. unit tests
+
+
+
+---Jul 1 forward
+[-] function for https requests (repeated code blocks in canvas.py)
+[x] seperate files for class
+[x] isGraded -> is_graded
+[ ] course object for traitlet
+[-] course object for canvas access
+[-] canvas-side behavior
+
+
+---Later
+[ ] function for path generating
+[ ] add try except error messages
+
+---Questions
+1. Best way to cache responses from requests & frequency. How to cache objects? 
+I suppose storing to a file and creating new objects wouldn't be the best method. 
+Are there tools that I can use? Something like https://pypi.org/project/easy-cache/?
+
+2. Can traitlets support dictionary type checking?
+
+3. config file should be .py instead of JSON, so that there could be comments for the user to this
+
+#subprocess -> docker, error code/error handling!!
+#collect list of errors, send emails at the end of run
+#python docker api - run a single docker container and do everything...
+#
+    docker_command = 'docker run --rm -v ' + local_repo_path +':/home/jupyter ubcdsci/r-dsci-grading nbgrader generate_assignment --force ' + anm
+    docker_command = 'docker run --rm -v ' + local_repo_path_prefix +':/home/jupyter ubcdsci/r-dsci-grading nbgrader autograde --assignment=' + anm + ' --student='+course['student_name_prefix']+stu
+    docker_command = 'docker run --rm -v ' + local_repo_path_prefix +':/home/jupyter ubcdsci/r-dsci-grading nbgrader generate_feedback --force --assignment=' + anm + ' --student='+course['student_name_prefix']+stu
+
+#ssh, tank home student are on the same computer. 
+#copy -> ssh version should be easy, but dont have to implement it.
+
+//1 issue per task
+//1 issue -> split it up
+//

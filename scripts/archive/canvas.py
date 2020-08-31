@@ -15,6 +15,7 @@ def get_enrollment_dates(course):
     resp = None
     students = []
     while resp is None or resp.links['current']['url'] != resp.links['last']['url']:
+      #if first time or not done getting to all pages
       resp = requests.get(
           url = api_url if resp is None else resp.links['next']['url'],
           headers = {
@@ -23,7 +24,7 @@ def get_enrollment_dates(course):
               },
           json={
             "type": ["StudentEnrollment"],
-            "per_page":"100"
+            "per_page":"100" #try 5, find out the limit.
           }
       )
       students.extend(resp.json())
@@ -109,7 +110,7 @@ def get_assignment_id(course, assignment):
     assignments = assignments[['name', 'id']].query('name == @assignment')
     return assignments['id'].values[0]
 
-def get_grades(course, assignment):
+def get_grades(course, assignment): #???
     '''Takes a course object, an assignment name, and get the grades for that assignment from Canvas.
     
     Example:

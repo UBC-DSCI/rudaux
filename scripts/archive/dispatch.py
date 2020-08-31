@@ -5,11 +5,11 @@ import smtplib
 import canvas
 import pandas
 import datetime
-import paramiko
+import paramiko # ssh stuff, use shutil instead
 import numpy as np
 import smtplib
 import shutil
-import subprocess
+import subprocess #docker stuff - use docker api instead
 import hashlib
 import pickle as pk
 from nbgrader.api import Gradebook, MissingEntry
@@ -44,12 +44,12 @@ dsci100['student_server_username'] = '[STU_SERVER_USERNAME]'
 dsci100['autograded_assignments'] = {
            'worksheet_01' : {'graders' : ['[INSTRUCTOR_CWL]'], 'instructor' : '[INSTRUCTOR_CWL]'},
            'tutorial_01' : {'graders' : ['[TA_CWL]', '[TA_CWL]'], 'instructor' : '[INSTRUCTOR_CWL]'}
-	   }
+	   }# question: we would add entries to the list of assignments at the moment?
 
 dsci100['ungraded_assignments'] = {
            'worksheet_activity_02' : '[INSTRUCTOR_CWL]',
            }
-dsci100['ungraded_assignment_solution_release_days'] = 1 
+dsci100['ungraded_assignment_solution_release_days'] = 1
 
 dsci100['emails'] = {
             '[INSTRUCTOR_CWL]' : '[INSTRUCTOR_EMAIL]',
@@ -66,14 +66,14 @@ dsci100['extensions'] = {
                        }
 }
 
-def ssh_student_hub(course):
+def ssh_student_hub(course): ##TODO checkout paramiko documents
   ssh = paramiko.SSHClient() 
   ssh.load_host_keys(os.path.expanduser(os.path.join("~", ".ssh", "known_hosts")))
   ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
   ssh.connect(course['student_server_hostname'], username=course['student_server_username'])
   return ssh
 
-def ssh_run_cmd(cxn, cmd):
+def ssh_run_cmd(cxn, cmd): 
   (stdin, stdout, stderr) = cxn.exec_command(cmd)
   for line in stdout.readlines():
       print(line)
@@ -181,7 +181,8 @@ def generate_assignment(course, anm, grader):
 
 
 def autograde_assignment(course, anm, stu, grader):
-
+ #one submission at a time. DO NOT run more than 1 submission at a time.
+ #ideally: 1 container, but within 1 container, grade all submissions 1 by 1, and then close the container 
   autograded_path = os.path.join(course['course_storage_path'], 
                                       grader,
                                       course['instructor_autograded_path'],

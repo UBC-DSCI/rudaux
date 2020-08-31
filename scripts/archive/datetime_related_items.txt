@@ -1,0 +1,10 @@
+assignment:
+'due_at': '2020-10-01T05:59:59Z', #due date
+'unlock_at': '2020-05-12T06:00:00Z', #unlock date
+'lock_at': '2020-11-29T06:59:59Z', #lock date
+'created_at': '2020-05-13T04:20:29Z',
+'updated_at': '2020-06-04T16:27:15Z',
+
+
+student:
+'created_at': '2020-05-13T19:03:24-06:00'
