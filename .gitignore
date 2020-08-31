@@ -111,3 +111,8 @@ venv.bak/
 **ansible/.hostfiles/*
 **ansible/library/*
 **ansible/group_vars/hubs/secrets.yml
+
+# VIM temporary files
+*.swp
+*.swo
+
