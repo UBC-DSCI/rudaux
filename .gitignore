@@ -116,3 +116,5 @@ venv.bak/
 *.swp
 *.swo
 
+# rudaux config file
+**rudaux_config.py
