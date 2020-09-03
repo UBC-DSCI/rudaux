@@ -1,7 +1,7 @@
 
 
 
-to monitor docker stats:
+to monitor docker stats: (need moreutils installed)
 
 while true; do sudo docker stats --no-stream | ts '[%H:%M:%S]' | tee --append stats.txt; sleep 1; done
 
