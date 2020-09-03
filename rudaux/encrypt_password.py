@@ -3,7 +3,7 @@ import hashlib
 import re
 
 #create salt and pw validator regex
-validator_regex = re.compile(r"^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$")
+validator_regex = re.compile(r"^(?=.*[A-Za-z])(?=.*[0-9]).{8,}$")
 salt = secrets.token_hex(64)
 
 print('---------------------------------------------------------------------')
