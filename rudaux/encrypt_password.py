@@ -1,6 +1,7 @@
 import secrets
 import hashlib
 import re
+import getpass
 
 #create salt and pw validator regex
 validator_regex = re.compile(r"^(?=.*[A-Za-z])(?=.*[0-9]).{8,}$")
@@ -17,11 +18,13 @@ print('---------------------------------------------------------------------')
 pw = None
 while True:
     #get a password
-    pw = input('Input your password: ')
+    pw = getpass.getpass('Input your password: ')
+    print(pw)
     #validate
     while not validator_regex.search(pw):
         print('Password must be a minimum of 8 chars, and must contain at least one letter and one number')
-        pw = input('Input your password: ')
+        pw = getpass.getpass('Input your password: ')
+        print(pw)
 
     #encode as bytes
     try:
@@ -32,7 +35,8 @@ while True:
         continue
 
     #repeat it to verify
-    pw2 = input('Repeat your password: ')
+    pw2 = getpass.getpass('Repeat your password: ')
+    print(pw2)
     if pw != pw2:
         print('Passwords did not match. Try again.') 
     else:
