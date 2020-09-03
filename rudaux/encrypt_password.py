@@ -6,6 +6,9 @@ import re
 validator_regex = re.compile(r"^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$")
 salt = secrets.token_hex(64)
 
+print('This script converts a plain text password into a secure hash digest.')
+print('Please input your password of choice.')
+print('Your password must be a minimum of 8 chars, and must contain at least one letter and one number')
 pw = None
 while True:
     #get a password
