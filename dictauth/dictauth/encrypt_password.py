@@ -8,14 +8,16 @@ def encrypt_password(args):
     validator_regex = re.compile(r"^(?=.*[A-Za-z])(?=.*[0-9]).{8,}$")
     salt = secrets.token_hex(64)
     
-    print('---------------------------------------------------------------------')
-    print('---------------------------------------------------------------------')
-    print('This script converts a plain text password into a secure hash digest.')
-    print('Please input your password of choice.')
-    print('Your password must be a minimum of 8 chars, and must contain at least')
-    print('one letter and one number.')
-    print('---------------------------------------------------------------------')
-    print('---------------------------------------------------------------------')
+    print("""
+    ---------------------------------------------------------------------
+    ---------------------------------------------------------------------
+    This script converts a plain text password into a secure hash digest.
+    Please input your password of choice.
+    Your password must be a minimum of 8 chars, and must contain at least
+    one letter and one number.
+    ---------------------------------------------------------------------
+    ---------------------------------------------------------------------
+    """)
     pw = None
     while True:
         #get a password
@@ -42,16 +44,18 @@ def encrypt_password(args):
     
     digest = hashlib.sha512(salted_pw_bytes).hexdigest()
     
-    print('')
-    print('Successfully hashed password.')
-    print('')
+    print("""
+    Successfully hashed password.
+    """)
     
-    print('-------------------------------------------------------')
-    print('----Send these two values to your course instructor----')
-    print('-------------------------------------------------------')
-    print('Salt:        ' + salt)
-    print('SHA512 Hash: ' + digest)
-    print('-------------------------------------------------------')
+    print(f"""
+    -------------------------------------------------------
+    ----Send these two values to your course instructor----
+    -------------------------------------------------------
+    Salt:         {salt}
+    SHA512 Hash:  {digest}
+    -------------------------------------------------------
+    """)
 
 
 
