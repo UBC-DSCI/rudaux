@@ -1,5 +1,6 @@
 from jupyterhub.auth import Authenticator
 import hashlib
+from traitlets import Dict
 
 class DictionaryAuthenticator(Authenticator):
 
