@@ -17,8 +17,8 @@ encrypt_parser.set_defaults(func=encrypt_password)
 
 
 list_user_parser = subparsers.add_parser('list_user', help='List users in the dictionary.')
-add_user_parser.set_defaults(func=list_users)
-add_user_parser.add_argument(
+list_user_parser.set_defaults(func=list_users)
+list_user_parser.add_argument(
   '--dir',
   dest='directory',
   action='store',
