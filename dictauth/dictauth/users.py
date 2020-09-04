@@ -36,7 +36,9 @@ def _load_dict(directory):
     config = Config()
     config.merge(PyFileConfigLoader('jupyterhub_config.py', path=directory).load_config())
     try:
-        epwrds = config.DictionaryAuthenticator.encrypted_passwords.to_dict()
+        epwrds = config.DictionaryAuthenticator.encrypted_passwords
+        if not isinstance(epwrds, dict):
+            epwrds = epwrds.to_dict()
     except KeyError as e:
         print('jupyterhub_config.py does not have an entry for c.DictionaryAuthenticator.encrypted_passwords; continuing with empty dict')
         epwrds = {}
