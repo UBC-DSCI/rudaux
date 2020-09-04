@@ -67,7 +67,7 @@ remove_user_parser.add_argument(
   default='/srv/jupyterhub/',
   help="The directory containing the jupyterhub configuration file."
 )
-add_user_parser.add_argument(
+remove_user_parser.add_argument(
   '--user',
   dest='username',
   action='store',
