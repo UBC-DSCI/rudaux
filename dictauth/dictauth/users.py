@@ -22,6 +22,25 @@ def _save_dict(epwrds, directory):
     with open(os.path.join(directory, 'jupyterhub_config.py'), 'w') as f:
         f.writelines(lines)
 
+def _load_dict(directory):
+    #check the config file exists
+    if not os.path.exists(os.path.join(directory, 'jupyterhub_config.py')):
+        sys.exit(
+             f"""
+             There is no jupyterhub_config.py in the specified directory ({directory}). 
+             Please specify a directory with a valid jupyterhub_config.py file. 
+             """
+           )
+    #load the config
+    config = Config()
+    config.merge(PyFileConfigLoader('jupyterhub_config.py', path=directory).load_config())
+    try:
+        epwrds = config.DictionaryAuthenticator.encrypted_passwords
+    except KeyError as e:
+        print('jupyterhub_config.py does not have an entry for c.DictionaryAuthenticator.encrypted_passwords; continuing with empty dict')
+        epwrds = {}
+    return epwrds
+
 def list_users(args):
     directory = args.directory
     if not os.path.exists(os.path.join(directory, 'jupyterhub_config.py')):
@@ -31,9 +50,8 @@ def list_users(args):
              Please specify a directory with a valid jupyterhub_config.py file. 
              """
            )
-    config = Config()
-    config.merge(PyFileConfigLoader('jupyterhub_config.py', path=directory).load_config())
-    print(config.keys())
+    epwrds = _load_dict(directory)
+    print(epwrds.keys())
 
 def add_user(args):
     username = args.username
@@ -51,19 +69,9 @@ def add_user(args):
              Dgst: {digest}
              """
            )
-    #check the config file exists
-    if not os.path.exists(os.path.join(directory, 'jupyterhub_config.py')):
-        sys.exit(
-             f"""
-             There is no jupyterhub_config.py in the specified directory ({directory}). 
-             Please specify a directory with a valid jupyterhub_config.py file. 
-             """
-           )
 
-    #load the config
-    config = Config()
-    config.merge(PyFileConfigLoader('jupyterhub_config.py', path=directory).load_config())
-    epwrds = config.DictionaryAuthenticator.encrypted_passwords
+    epwrds = _load_dict(directory)
+
     #if the user already exists (or if DictionaryAuthenticator.encrypted_passwords isn't in the file), error
     if epwrds.get(username):
         sys.exit(
@@ -79,22 +87,16 @@ def add_user(args):
 def remove_user(args):
     username = args.username
     directory = args.directory
-    if not os.path.exists(os.path.join(directory, 'jupyterhub_config.py')):
-        sys.exit(
-             f"""
-             There is no jupyterhub_config.py in the specified directory ({directory}). 
-             Please specify a directory with a valid jupyterhub_config.py file. 
-             """
-           )
-    config = Config()
-    config.merge(PyFileConfigLoader('jupyterhub_config.py', path=directory).load_config())
-    if not config.DictionaryAuthenticator.encrypted_passwords.get(username):
+ 
+    epwrds = _load_dict(directory)
+    
+    if not epwrds.get(username):
         sys.exit(
              f"""
              There is no user named {username} in the dictionary.   
              """
            )
-    config.DictionaryAuthenticator.encrypted_passwords.pop(username, None)
+    epwrds.pop(username, None)
 
-    _save_dict(config.DictionaryAuthenticator.encrypted_passwords, directory)
+    _save_dict(epwrds, directory)
 
