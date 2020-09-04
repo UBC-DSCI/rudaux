@@ -79,6 +79,9 @@ remove_user_parser.add_argument(
 # Parse the arguments!
 args = parser.parse_args()
 
+print('ARGS')
+print(args)
+
 if args.subparser is not None:
   args.func(args)
 else:
