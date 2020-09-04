@@ -9,14 +9,14 @@ def encrypt_password(args):
     salt = secrets.token_hex(64)
     
     print("""
-    ---------------------------------------------------------------------
-    ---------------------------------------------------------------------
-    This script converts a plain text password into a secure hash digest.
-    Please input your password of choice.
-    Your password must be a minimum of 8 chars, and must contain at least
-    one letter and one number.
-    ---------------------------------------------------------------------
-    ---------------------------------------------------------------------
+---------------------------------------------------------------------
+---------------------------------------------------------------------
+This script converts a plain text password into a secure hash digest.
+Please input your password of choice.
+Your password must be a minimum of 8 chars, and must contain at least
+one letter and one number.
+---------------------------------------------------------------------
+---------------------------------------------------------------------
     """)
     pw = None
     while True:
@@ -45,16 +45,16 @@ def encrypt_password(args):
     digest = hashlib.sha512(salted_pw_bytes).hexdigest()
     
     print("""
-    Successfully hashed password.
+Successfully hashed password.
     """)
     
     print(f"""
-    -------------------------------------------------------
-    ----Send these two values to your course instructor----
-    -------------------------------------------------------
-    Salt:         {salt}
-    SHA512 Hash:  {digest}
-    -------------------------------------------------------
+-------------------------------------------------------
+----Send these two values to your course instructor----
+-------------------------------------------------------
+Salt:         {salt}
+SHA512 Hash:  {digest}
+-------------------------------------------------------
     """)
 
 
