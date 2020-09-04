@@ -16,7 +16,7 @@ encrypt_parser = subparsers.add_parser('encrypt_password', help='Create a new sa
 encrypt_parser.set_defaults(func=encrypt_password)
 
 
-list_user_parser = subparsers.add_parser('list_user', help='List users in the dictionary.')
+list_user_parser = subparsers.add_parser('list_users', help='List users in the dictionary.')
 list_user_parser.set_defaults(func=list_users)
 list_user_parser.add_argument(
   '--dir',
