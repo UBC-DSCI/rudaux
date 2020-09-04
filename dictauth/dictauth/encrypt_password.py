@@ -3,7 +3,7 @@ import hashlib
 import re
 import getpass
 
-def encrypt_password():
+def encrypt_password(args):
     #create salt and pw validator regex
     validator_regex = re.compile(r"^(?=.*[A-Za-z])(?=.*[0-9]).{8,}$")
     salt = secrets.token_hex(64)

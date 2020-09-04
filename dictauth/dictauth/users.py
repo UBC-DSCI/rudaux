@@ -3,18 +3,6 @@ from traitlets.config import Config
 from traitlets.config.loader import PyFileConfigLoader
 import re
 
-def list_users(directory):
-    if not os.path.exists(os.path.join(directory, 'jupyterhub_config.py')):
-        sys.exit(
-             f"""
-             There is no jupyterhub_config.py in the specified directory ({directory}). 
-             Please specify a directory with a valid jupyterhub_config.py file. 
-             """
-           )
-    config = Config()
-    config.merge(PyFileConfigLoader('jupyterhub_config.py', path=directory).load_config())
-    print(config.keys())
-
 def _save_dict(epwrds, directory):
     #traitlets doesn't have a great way of writing PyFile configs back to disk, so we'll just do it manually
     with open(os.path.join(directory, 'jupyterhub_config.py'), 'r') as f:
@@ -34,7 +22,24 @@ def _save_dict(epwrds, directory):
     with open(os.path.join(directory, 'jupyterhub_config.py'), 'w') as f:
         f.writelines(lines)
 
-def add_user(username, salt, digest, directory):
+def list_users(args):
+    directory = args.directory
+    if not os.path.exists(os.path.join(directory, 'jupyterhub_config.py')):
+        sys.exit(
+             f"""
+             There is no jupyterhub_config.py in the specified directory ({directory}). 
+             Please specify a directory with a valid jupyterhub_config.py file. 
+             """
+           )
+    config = Config()
+    config.merge(PyFileConfigLoader('jupyterhub_config.py', path=directory).load_config())
+    print(config.keys())
+
+def add_user(args):
+    username = args.username
+    salt = args.salt
+    digest = args.digest
+    directory = args.directory
     #validate the salt + digest
     salt_digest_validator_regex = re.compile(r"^[a-f0-9]{128,}")
     if (not salt_digest_validator_regex.search(salt)) or (not salt_digest_validator_regex.search(digest)):
@@ -71,7 +76,9 @@ def add_user(username, salt, digest, directory):
 
     _save_dict(epwrds, directory)
 
-def remove_user(username, directory):
+def remove_user(args):
+    username = args.username
+    directory = args.directory
     if not os.path.exists(os.path.join(directory, 'jupyterhub_config.py')):
         sys.exit(
              f"""
