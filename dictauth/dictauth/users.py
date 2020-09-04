@@ -39,7 +39,7 @@ def _load_dict(directory):
     except KeyError as e:
         print('jupyterhub_config.py does not have an entry for c.DictionaryAuthenticator.encrypted_passwords; continuing with empty dict')
         epwrds = {}
-    return epwrds
+    return dict(epwrds)
 
 def list_users(args):
     directory = args.directory
