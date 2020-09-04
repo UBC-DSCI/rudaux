@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 from argparse import ArgumentParser
-from dictauth import encrypt_password, add_user, remove_user, list_users
+from dictauth import encrypt_password, add_user, remove_user, list_users, rename_user
 
 parser = ArgumentParser(
   description='Manage dictionary-authenticated usernames/passwords in your JupyterHub.'
@@ -73,6 +73,31 @@ remove_user_parser.add_argument(
   action='store',
   default='',
   help="The name of the user to remove."
+)
+
+rename_user_parser = subparsers.add_parser('rename_user', help='Rename a user in the dictionary.')
+rename_user_parser.set_defaults(func=rename_user)
+rename_user_parser.add_argument(
+  '--dir',
+  dest='directory',
+  action='store',
+  default='/srv/jupyterhub/',
+  help="The directory containing the jupyterhub configuration file."
+)
+rename_user_parser.add_argument(
+  '--user',
+  dest='username',
+  action='store',
+  default='',
+  help="The name of the user to change."
+)
+
+rename_user_parser.add_argument(
+  '--new_user',
+  dest='new_username',
+  action='store',
+  default='',
+  help="The new name of the user."
 )
 
 

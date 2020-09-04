@@ -103,3 +103,24 @@ def remove_user(args):
 
     _save_dict(epwrds, directory)
 
+def rename_user(args):
+    username = args.username
+    new_username = args.new_username
+    directory = args.directory
+    
+    #first make sure the user exists and extract the salt/digest
+    epwrds = _load_dict(directory)
+    if not epwrds.get(username):
+        sys.exit(
+             f"""
+             There is no user named {username} in the dictionary.   
+             """
+           )
+    tmp = epwrds[username]
+
+    #remove the old user, add the new one
+    remove_user(args)
+    args.salt = tmp['salt']
+    args.digest = tmp['digest']
+    args.username = args.new_username
+    add_user(args)

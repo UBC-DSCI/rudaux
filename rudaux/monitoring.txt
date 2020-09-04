@@ -1,23 +1,37 @@
+increase size of / on student
+
+mount another virtual device from nvme0n1 (or the entirety of nvme1n1) to student
+
+copy stuff there
 
 
 
+------
 to monitor docker stats: (need moreutils installed)
 
 while true; do sudo docker stats --no-stream | ts '[%H:%M:%S]' | tee --append stats.txt; sleep 1; done
 
+------
 to monitor docker events:
 
 docker events | tee --append events.txt
 
-to monitor system usage:
 
+
+------
+to monitor system usage:
 
 in /etc/cron.d/sysstat
 # Run system activity accounting tool every 10 minutes
 */10 * * * * root /usr/lib64/sa/sa1 1 1
-# run it 6x per day?
-# 0 * * * * root /usr/lib64/sa/sa1 600 6 &
 # Generate a daily summary of process accounting at 23:53
 53 23 * * * root /usr/lib64/sa/sa2 -A
 
+look through sardd , check first line for date stamp, save to storage with date stamp
+
+------
+to monitor system messages
+/var/log/messages
+
+weekly, check /var/log/message for rotated message (with a date stamp); see which ones are unique; copy to storage
 
