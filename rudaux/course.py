@@ -5,7 +5,6 @@
 #import json
 
 import os, sys
-import git
 import pickle as pk
 import tqdm
 import pendulum as plm
@@ -13,10 +12,14 @@ import terminaltables as ttbl
 from traitlets.config import Config
 from traitlets.config.loader import PyFileConfigLoader
 from canvas import Canvas
+import editdistance
 
-class Course:
+
+#print(ttbl.AsciiTable([['Loading rudaux configuration']]).table)
+
+class Course(object):
     """
-    Course object for managing an entire Canvas/JupyterHub/nbgrader course.
+    Course object for managing a Canvas/JupyterHub/nbgrader course.
     """
 
     def __init__(self, course_dir=None):
@@ -37,7 +40,7 @@ class Course:
         #              Load Config              #
         #=======================================#
         
-        print(ttbl.AsciiTable([['Loading rudaux configuration']]).table)
+        print('Loading rudaux configuration')
         
         self.config = Config()
 
@@ -56,81 +59,114 @@ class Course:
         #    Open connection to notification    #
         #=======================================#
 
+        #print('Opening a connection to the notifier')
         #self.notifier = self.config.notification_method(self)
         
-        #======================================================#
-        #    Ensure course_dir is a clean git repo and pull    #
-        #======================================================#
         
-        #print(ttbl.AsciiTable([['Ensuring course directory is a clean git repo']]).table)
-        #
-        #try:
-        #    repo = git.Repo(course_dir)
-        #except git.exc.InvalidGitRepositoryError as e:
-        #    sys.exit(f"There was an error creating a git repo object from {course_dir}.")
-
-        ## Before we do anything, make sure our working directory is clean with no untracked files.
-        #if repo.is_dirty() or repo.untracked_files:
-        #  continue_with_dirty = input(
-        #    """
-        #    Your repository is currently in a dirty state (modifications or
-        #    untracked changes are present). We strongly suggest that you resolve
-        #    these before proceeding. Continue? [y/n]:"""
-        #  )
-        #  # if they didn't say yes, exit
-        #  if continue_with_dirty.lower() != 'y':
-        #    sys.exit("Exiting...")
-
-
-        #print(ttbl.AsciiTable([['Pulling course repository']]).table)
-
-        #try:
-        #    repo.git.pull('origin', 'master')
-        #except git.exc.GitCommandError as e:
-        #    sys.exit(f"There was an error pulling the git repo from {course_dir}.")
-
-        #=======================================================#
-        #      Create the course state  & populate info         #
-        #=======================================================#
-
-        if os.path.exists(self.config.state_file):
-            state = None
-            with open(self.config.state_file, 'rb') as f:
-                state = pk.load(f)
-
-            self.students = state['students']
-            self.teachers = state['teachers']
-            self.fake_students = state['fake_students']
-            self.submissions = state['submissions']
-            self.assignments = state['assignments']
-        else:
-            self.students = []
-            self.teachers = []
-            self.fake_students = []
-            self.submissions = []
-            self.assignments = []
 
         #================================================#
         #      Create object to interact with Canvas     #
         #================================================#
 
+        print('Creating canvas interaction object')
         self.canvas = Canvas(self)
 
-    def close(self):
-        #================================================#
-        #      Clean up the notifier, save state         #
-        #================================================#
+        #=======================================================#
+        #      Create the course state  & populate info         #
+        #=======================================================#
+
+        state_filename = self.config.name + '_state.pk'
+        print('Checking for saved course state file at ' + state_filename)
+
+        if os.path.exists(state_filename):
+            print('Saved state exists. Loading')
+            state = None
+            with open(state_filename, 'rb') as f:
+                state = pk.load(f)
+
+            self.students = state['students']
+            self.fake_students = state['fake_students']
+            self.teachers = state['teachers']
+            self.tas = state['tas']
+            self.submissions = state['submissions']
+            self.assignments = state['assignments']
+        else:
+            print('No saved state exists. Collecting information from Canvas...')
+            self.students, self.tas, self.teachers, self.fake_students, self.assignments, self.submissions = self.get_canvas_state()
+            #TODO self.get_jupyterhub_state()
+        
+    def close_notifier(self):
         self.notifier.close()
-        with open(self.config.state_file, 'wb') as f:
+
+    def save_state(self):
+        with open(state_filename, 'wb') as f:
             pk.dump(f, {'students' : self.students,
-                        'teachers' : self.teachers,
                         'fake_students' : self.fake_students,
-                        'submissions' : self.submissions,
-                        'assignments' : self.assignments
+                        'teachers' : self.teachers,
+                        'tas' : self.tas,
+                        'assignments' : self.assignments,
+                        'submissions' : self.submissions
                         })
-        #done!
+
+    def get_canvas_state(self):
+        print('No saved state exists. Collecting information from Canvas...')
+        print('Obtaining student enrollment information...')
+        student_dicts = self.canvas.get_students()
+        print('Obtaining TA enrollment information...')
+        ta_dicts = self.canvas.get_tas()
+        print('Obtaining teacher enrollment information...')
+        teacher_dicts = self.canvas.get_teachers()
+        print('Obtaining student view / fake student enrollment information...')
+        fake_student_dicts = self.canvas.get_fake_students()
+        print('Obtaining assignment information...')
+        assignment_dicts = self.canvas.get_assignments()
+
+        #TODO create objects
+        self.students = []
+        self.tas = []
+        self.teachers = []
+        self.fake_students = []
+        self.assignments = []
+        self.submissions = []
 
 
+    def get_jupyterhub_state(self):
+        pass
+
+    def get_canvas_diff(self):
+    
+    def get_jupyterhub_diff(self):
+
+    def synchronize_canvas(self):
+        pass
+    
+    def synchronize_jupyterhub(self):
+        pass
+    
+    def synchronize(self):
+
+    def get_status(self):
+        pass
+
+    def search_students(self, name = None, canvas_id = None, sis_id = None, max_return = 5):
+        #get exact matches for IDs
+        match = [s for s in self.students if s.canvas_id == canvas_id]
+        match.extend([s for s in self.students if s.sis_id == sis_id])
+
+        #get fuzzy match for name
+        def normalize_name(nm):
+            return ''.join([ch for ch in nm.lower() if ch.isalnum()])
+        name_key = normalize_name(name)
+        fuzzy_match_name = []
+        for s in self.students:
+            forward_key = normalize_name(s.sortable_name)
+            backward_key = normalize_name(''.join(s.sortable_name.split(',')[::-1]))
+            dist = min(editdistance.eval(name_key, forward_key), editdistance.eval(name_key, backward_key))
+            fuzzy_match_name.append((s, dist))
+        match.extend(sorted(fuzzy_match_name, key = lambda x : x[1])[:max_return])
+
+        #return unique identical entries
+        return list(set(match))[:max_return]
 
     ##2. Dynamically updated as the course runs
 

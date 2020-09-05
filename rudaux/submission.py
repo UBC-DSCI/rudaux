@@ -24,6 +24,13 @@ def __init__(self, stud, assgmt):
         self.is_late = False         #is the submission late?
         self.is_error = False        #some error associated with this submission
 
+        # Flags for various errors accumulated as the workflow script runs
+        self.is_assignment_error = False
+        self.is_script_error     = False
+        self.is_docker_error     = False
+        self.error_msg           = []
+
+ 
     #copy student snapshot to grader folder
     
 
