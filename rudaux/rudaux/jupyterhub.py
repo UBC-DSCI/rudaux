@@ -15,11 +15,8 @@ class JupyterHub(object):
         self.assignment_folder_root = course.config.assignment_folder_root
         self.zfs_snapshot_prefix = course.config.zfs_snapshot_prefix
 
-    def snapshot(self):
-        pass
-
-    def snapshot_user(self):
-        pass
+    def snapshot(self, name):
+        check_call(['zfs', 'snapshot', '-r', self.student_folder_root + '@'+name])
 
     def create_grader_folder(self, grader_name):
         #make sure there isn't already a folder in /tank/home with this name; never overwrite a grader account

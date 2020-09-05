@@ -124,6 +124,9 @@ class Course(object):
         self.assignments = []
         self.submissions = []
 
+    def jupyterhub_snapshot(self):
+        for s in self.students:
+            pass
 
     def get_jupyterhub_state(self):
         pass
