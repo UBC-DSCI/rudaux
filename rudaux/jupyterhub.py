@@ -1,4 +1,5 @@
 import git
+#import zfs??
 from dictauth.users import _load_dict, add_user, remove_user
 from collections import namedtuple
 from sys import check_call
@@ -13,6 +14,12 @@ class JupyterHub(object):
         self.student_folder_root = course.config.student_folder_root
         self.assignment_folder_root = course.config.assignment_folder_root
         self.zfs_snapshot_prefix = course.config.zfs_snapshot_prefix
+
+    def snapshot(self):
+        pass
+
+    def snapshot_user(self):
+        pass
 
     def create_grader_folder(self, grader_name):
         #make sure there isn't already a folder in /tank/home with this name; never overwrite a grader account
