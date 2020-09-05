@@ -1,4 +1,7 @@
 import git
+from dictauth.users import _load_dict, add_user, remove_user
+from collections import namedtuple
+from sys import check_call
 
 class JupyterHub(object):
     """
@@ -6,9 +9,42 @@ class JupyterHub(object):
     """
 
     def __init__(self, course):
+        self.jupyterhub_config_dir = course.config.jupyterhub_config_dir
         self.student_folder_root = course.config.student_folder_root
         self.assignment_folder_root = course.config.assignment_folder_root
         self.zfs_snapshot_prefix = course.config.zfs_snapshot_prefix
+
+    def create_grader_folder(self, grader_name):
+        #make sure there isn't already a folder in /tank/home with this name; never overwrite a grader account
+        epwrds = _load_dict(self.jupyterhub_config_dir)
+        CreateArgs = namedtuple('CreateArgs', 'username salt digest directory')
+        args = 'TODO' #CreateArgs(username = ,)
+        add_user(args)
+
+
+        username = 'TODO'
+        callysto_user = 'jupyter'
+        course = 'dsci100'
+        check_call([os.path.join(self.jupyterhub_config_dir, 'zfs_homedir.sh'), course, username, callysto_user])
+        pass
+    
+    def assign_grader(self, assignment_name, ta_username):
+        #just add authentication using dictauth
+
+    def unassign_grader(self, assignment_name):
+        #just remove the authentication for the account using dictauth; don't touch the folder
+        #to be called when grading is done
+        pass
+
+    def stop(self):
+        pass
+ 
+    def start(self):
+        pass
+
+    
+    
+
 
     
 

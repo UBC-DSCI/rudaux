@@ -14,9 +14,6 @@ from traitlets.config.loader import PyFileConfigLoader
 from canvas import Canvas
 import editdistance
 
-
-#print(ttbl.AsciiTable([['Loading rudaux configuration']]).table)
-
 class Course(object):
     """
     Course object for managing a Canvas/JupyterHub/nbgrader course.
@@ -61,8 +58,6 @@ class Course(object):
 
         #print('Opening a connection to the notifier')
         #self.notifier = self.config.notification_method(self)
-        
-        
 
         #================================================#
         #      Create object to interact with Canvas     #
@@ -134,8 +129,10 @@ class Course(object):
         pass
 
     def get_canvas_diff(self):
+        pass
     
     def get_jupyterhub_diff(self):
+        pass
 
     def synchronize_canvas(self):
         pass
@@ -144,8 +141,18 @@ class Course(object):
         pass
     
     def synchronize(self):
+        pass
 
     def get_status(self):
+        pass
+
+    def get_notifications(self):
+        pass
+
+    def send_notifications(self):
+        pass
+
+    def resolve_notification(self):
         pass
 
     def search_students(self, name = None, canvas_id = None, sis_id = None, max_return = 5):

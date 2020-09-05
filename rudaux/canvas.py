@@ -2,6 +2,7 @@ import requests
 import urllib.parse
 import pendulum as plm
 from functools import lru_cache
+from .exceptions import CanvasError
 
 class Canvas(object):
     """
@@ -30,13 +31,19 @@ class Canvas(object):
                     'per_page' : 100
                 }
             )
+
+            if resp.status_code < 200 or resp.status_code > 299:
+                raise CanvasError('get', url, resp)
+
             json_data = resp.json()
             if isinstance(json_data, list):
                 resp_items.extend(resp.json())
             else:
                 resp_items.append(resp.json())
+
         if len(resp_items) == 1:
             return resp_items[0]
+
         return resp_items
 
     def put(self, path_suffix, json_data):
@@ -49,6 +56,9 @@ class Canvas(object):
                 },
             json=json_data
         )
+        if resp.status_code < 200 or resp.status_code > 299:
+            raise CanvasError('put', url, resp)
+        return
 
     def get_course_info(self):
         return self.get('')
@@ -83,7 +93,7 @@ class Canvas(object):
     def get_assignments(self):
         asgns = self.get('assignments')
         tz = self.get_course_info()['time_zone']
-        return [ {  'id' : str(a['id']),
+        return [ {  'canvas_id' : str(a['id']),
                    'name' : a['name'],
                    'due_at' : None if a['due_at'] is None else plm.parse(a['due_at'], tz=tz),
                    'lock_at' : None if a['lock_at'] is None else plm.parse(a['lock_at'], tz=tz),
@@ -98,12 +108,8 @@ class Canvas(object):
                  } for a in asgns 
                ]
          
-    def get_submissions(self, assignment):
-        #todo get assignment id
-        return self.get('assignments/'+assignment_id+'/submissions')
-
-    def put_grades(self):
-        pass
+    def put_grade(self, assignment_id, student_id, score):
+        self.put('assignments/'+assignment_id+'/submissions/'+student_id, {'posted_grade' : score})
         
 #def post_grade(course, assignment, student, score):
 #    '''Takes a course object, an assignment name, student id, and score to upload. Posts to Canvas.
@@ -126,114 +132,7 @@ class Canvas(object):
 #    )
 #
 #        
-#
-#def get_enrollment_dates(course):
-#    '''Takes a course object and returns student dates of enrollment.
-#    Useful for handling late registrations and modified deadlines.
-#
-#    Example:
-#    course.get_enrollment_date()'''
-#    url_path = posixpath.join("api", "v1", "courses", course['course_id'], "enrollments")
-#    api_url = urllib.parse.urljoin(course['hostname'], url_path)
-#    token = course['token']
-#    resp = None
-#    students = []
-#    while resp is None or resp.links['current']['url'] != resp.links['last']['url']:
-#      #if first time or not done getting to all pages
-#      resp = requests.get(
-#          url = api_url if resp is None else resp.links['next']['url'],
-#          headers = {
-#              "Authorization": f"Bearer {token}",
-#              "Accept": "application/json+canvas-string-ids"
-#              },
-#          json={
-#            "type": ["StudentEnrollment"],
-#            "per_page":"100" #try 5, find out the limit.
-#          }
-#      )
-#      students.extend(resp.json())
-#
-#    enrollment_dates = {}
-#    for st in students:
-#      enrollment_dates[str(st['user_id'])] = str(st['created_at']).strip('Z').replace('T','-').replace(':','-')[:16]
-#    return enrollment_dates
-#
-#def get_assignments(course):
-#    '''Takes a course object and returns
-#    a Pandas data frame with all existing assignments and their attributes/data
-#
-#    Example:
-#    course.get_assignments()'''
-#    url_path = posixpath.join("api", "v1", "courses", course['course_id'], "assignments")
-#    api_url = urllib.parse.urljoin(course['hostname'], url_path)
-#    token = course['token']
-#    resp = requests.get(
-#      url=api_url,
-#      headers={
-#        "Authorization": f"Bearer {token}",
-#        "Accept": "application/json+canvas-string-ids"
-#      },
-#      json={
-#        "per_page": "10000"
-#      },
-#    )
-#    assignments = resp.json()
-#    assign_data = pd.DataFrame.from_dict(assignments)
-#    return assign_data
-#
-#def get_assignment_lock_date(course, assignment):
-#    '''Takes a course object and the name of a Canvas assignment and returns the due date. Returns None if no due date assigned.
-#    
-#    Example:
-#    course.get_assignment_due_date('worksheet_01')'''
-#    assignments = get_assignments(course)
-#    assignments = assignments[['name', 'lock_at']].query('name == @assignment')
-#    lock_date = assignments['lock_at'].to_numpy()[0]
-#    if lock_date is None:
-#      return lock_date
-#    lock_date = lock_date.replace("T", "-")
-#    lock_date = lock_date.replace(":", "-")
-#    return lock_date[:16]
-#
-#
-#
-#def get_assignment_due_date(course, assignment):
-#    '''Takes a course object and the name of a Canvas assignment and returns the due date. Returns None if no due date assigned.
-#    
-#    Example:
-#    course.get_assignment_due_date('worksheet_01')'''
-#    assignments = get_assignments(course)
-#    assignments = assignments[['name', 'due_at']].query('name == @assignment')
-#    due_date = assignments['due_at'].to_numpy()[0]
-#    if due_date is None:
-#      return due_date
-#    due_date = due_date.replace("T", "-")
-#    due_date = due_date.replace(":", "-")
-#    return due_date[:16]
-#
-#def get_assignment_unlock_date(course, assignment):
-#    '''Takes a course object and the name of a Canvas assignment and returns the due date. Returns None if no due date assigned.
-#    
-#    Example:
-#    course.get_assignment_unlock_date('worksheet_01')'''
-#    assignments = get_assignments(course)
-#    assignments = assignments[['name', 'unlock_at']].query('name == @assignment')
-#    unlock_date = assignments['unlock_at'].to_numpy()[0]
-#    if unlock_date is None:
-#      return unlock_date
-#    unlock_date = unlock_date.replace("T", "-").replace(':', '-')
-#    return unlock_date[:16]
-#
-#
-#def get_assignment_id(course, assignment):
-#    '''Takes a course object and the name of a Canvas assignment and returns the Canvas ID.
-#    
-#    Example:
-#    course.get_assignment_id('worksheet_01')'''
-#    assignments = get_assignments(course)
-#    assignments = assignments[['name', 'id']].query('name == @assignment')
-#    return assignments['id'].values[0]
-#
+
 #def get_grades(course, assignment): #???
 #    '''Takes a course object, an assignment name, and get the grades for that assignment from Canvas.
 #    
