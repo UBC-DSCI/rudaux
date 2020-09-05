@@ -116,32 +116,19 @@ class Canvas(object):
                    'jupyterhub_host_root' : [hostroot for hostroot in self.jupyterhub_host_roots if hostroot in a['external_tool_tag_attributes']['url']][0] if 'external_tool_tag_attributes' in a.keys() and len([hostroot for hostroot in self.jupyterhub_host_roots if hostroot in a['external_tool_tag_attributes']['url']]) > 0 else None
                  } for a in asgns 
                ]
-         
+
+    def get_submissions(self):
+        asgns = self.get('assignments')
+        tz = self.get_course_info()['time_zone']
+        subms = {}
+        for a in asgns:
+            subms[str(a['id'])] = self.get('assignments/'+str(a['id'])+'/submissions')
+        #TODO extract useful information from the submissions
+        #TODO consider not looping over all asgns
+
     def put_grade(self, assignment_id, student_id, score):
         self.put('assignments/'+assignment_id+'/submissions/'+student_id, {'posted_grade' : score})
         
-#def post_grade(course, assignment, student, score):
-#    '''Takes a course object, an assignment name, student id, and score to upload. Posts to Canvas.
-#
-#    Example:
-#    course.post_grades(dsci100, 'worksheet_01', '23423', 10)'''
-#    assignment_id = get_assignment_id(course, assignment)
-#    url_post_path = posixpath.join("api", "v1", "courses", course['course_id'], "assignments", assignment_id, "submissions", student)
-#    api_url = urllib.parse.urljoin(course['hostname'], url_post_path)
-#    token = course['token']
-#    resp = requests.put(
-#        url = urllib.parse.urljoin(api_url, student),
-#        headers = {
-#            "Authorization": f"Bearer {token}",
-#            "Accept": "application/json+canvas-string-ids"
-#            },
-#        json={
-#            "submission": {"posted_grade": score}
-#            },
-#    )
-#
-#        
-
 #def get_grades(course, assignment): #???
 #    '''Takes a course object, an assignment name, and get the grades for that assignment from Canvas.
 #    
