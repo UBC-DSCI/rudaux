@@ -2,7 +2,16 @@ import requests
 import urllib.parse
 import pendulum as plm
 from functools import lru_cache
-from .exceptions import CanvasError
+
+class CanvasGetError(Exception):
+    def __init__(self, url, resp):
+        self.url = url
+        self.resp = resp
+
+class CanvasPutError(Exception):
+    def __init__(self, url, resp):
+        self.url = url
+        self.resp = resp
 
 class Canvas(object):
     """
@@ -33,7 +42,7 @@ class Canvas(object):
             )
 
             if resp.status_code < 200 or resp.status_code > 299:
-                raise CanvasError('get', url, resp)
+                raise CanvasGetError(url, resp)
 
             json_data = resp.json()
             if isinstance(json_data, list):
@@ -57,7 +66,7 @@ class Canvas(object):
             json=json_data
         )
         if resp.status_code < 200 or resp.status_code > 299:
-            raise CanvasError('put', url, resp)
+            raise CanvasPutError(url, resp)
         return
 
     def get_course_info(self):

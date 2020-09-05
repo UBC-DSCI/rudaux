@@ -1,5 +1,13 @@
 import smtplib
 
+class SMTPOpenError(Exception):
+    def __init__(self):
+        pass
+
+class SMTPSendError(Exception):
+    def __init__(self):
+        pass
+
 class SMTP(object):
     def __init__(self, course):
         self.server = smtplib.SMTP(course.config.smtp.hostname)
