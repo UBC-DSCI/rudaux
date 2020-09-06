@@ -11,6 +11,10 @@ subparsers = parser.add_subparsers(
   title='Subcommands', dest="subparser", help='Commands that rudaux can process.'
 )
 
+#------------------------------------
+#          Snapshot 
+#------------------------------------
+
 snap_parser = subparsers.add_parser('submission_snapshot', help='Take a snapshot of submissions past the assignment due date.')
 snap_parser.set_defaults(func=commands.submission_snapshot)
 snap_parser.add_argument(
@@ -20,6 +24,45 @@ snap_parser.add_argument(
   default='/srv/rudaux/',
   help="The directory containing the rudaux configuration file."
 )
+
+#------------------------------------
+#           List 
+#------------------------------------
+list_parser = subparsers.add_parser('list', help='Print a list of assignments, students, etc')
+list_parser.set_defaults(func=commands.print_list)
+list_parser.add_argument(
+  '--assignments',
+  '-a',
+  dest='assignments',
+  action='store_true',
+  default=False,
+  help='Print assignments'
+)
+list_parser.add_argument(
+  '--students',
+  '-s',
+  dest='students',
+  action='store_true',
+  default=False,
+  help='Print students'
+)
+list_parser.add_argument(
+  '--instructors',
+  '-i',
+  dest='instructors',
+  action='store_true',
+  default=False,
+  help='Print instructors'
+)
+list_parser.add_argument(
+  '--tas',
+  '-t',
+  dest='tas',
+  action='store_true',
+  default=False,
+  help='Print teaching assistants'
+)
+
 
 # Parse the arguments!
 args = parser.parse_args()

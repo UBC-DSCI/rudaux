@@ -10,6 +10,9 @@ class Assignment:
     def __init__(self, canvasdict):
         self.__dict__.update(canvasdict)
         self.submissions = []
+
+    def __repr__(self):
+        print(self.name + '(' self.canvas_id + '): ' + ('jupyterhub' if self.is_jupyterhub_assignment else 'canvas') + ' assignment')
     
         #self.all_submissions=[]
         #self.client = docker.from_env()
@@ -39,54 +42,54 @@ class Assignment:
         #TODO add list of graders/instructors (could be the same person, but not necessarily) (cwl)
 
 
-    def autograde(self):
-        pass
+    #def autograde(self):
+    #    pass
 
-    def generate_assignment():
-        return 0
+    #def generate_assignment():
+    #    return 0
 
-    # TODO build the all_submissions list
-    def collect_all_submissions(self):
-        return 0
+    ## TODO build the all_submissions list
+    #def collect_all_submissions(self):
+    #    return 0
 
-    # TODO assign graders
-    def assign_graders(self):
-        return 0
+    ## TODO assign graders
+    #def assign_graders(self):
+    #    return 0
 
-    # TODO copy student files to graders
-    def copy_all_submissions(self):
-        return 0
+    ## TODO copy student files to graders
+    #def copy_all_submissions(self):
+    #    return 0
 
-    def autograde_assignments():
-        return 0
-    def generate_feedback():
-        return 0
-    def generate_solution():
-        return 0
-    def return_feedback():
-        return 0
-    def return_solution():
-        return 0
-    def compute_max_score():
-        return 0
+    #def autograde_assignments():
+    #    return 0
+    #def generate_feedback():
+    #    return 0
+    #def generate_solution():
+    #    return 0
+    #def return_feedback():
+    #    return 0
+    #def return_solution():
+    #    return 0
+    #def compute_max_score():
+    #    return 0
 
-    #QUESTIONS
-    def backup_grades():
-        return 0
-    def backup_gradebooks():
-        return 0
+    ##QUESTIONS
+    #def backup_grades():
+    #    return 0
+    #def backup_gradebooks():
+    #    return 0
 
-    #process ungraded assignments
-    def process_new_assignments():
-        return 0
+    ##process ungraded assignments
+    #def process_new_assignments():
+    #    return 0
 
-    #DO functions to figure out combinations of different flag status
-    def set_is_unlocked(self):
-        unlock_date    = parse_canvas_dates(assignment_info['unlock_at'])
-        if datetime.datetime.today() > unlock_date:
-            self.is_unlocked = True
+    ##DO functions to figure out combinations of different flag status
+    #def set_is_unlocked(self):
+    #    unlock_date    = parse_canvas_dates(assignment_info['unlock_at'])
+    #    if datetime.datetime.today() > unlock_date:
+    #        self.is_unlocked = True
 
-    def set_is_past_due(self):
-        due_date    = parse_canvas_dates(assignment_info['is_past_due'])
-        if datetime.datetime.today() > due_date:
-            self.is_past_due = True
+    #def set_is_past_due(self):
+    #    due_date    = parse_canvas_dates(assignment_info['is_past_due'])
+    #    if datetime.datetime.today() > due_date:
+    #        self.is_past_due = True
