@@ -10,7 +10,7 @@ class JupyterHub(object):
 
     def __init__(self, course):
         self.jupyterhub_config_dir = course.config.jupyterhub_config_dir
-        self.student_folder_root = course.config.student_folder_root
+        self.jupyterhub_user_folder_root = course.config.jupyterhub_user_folder_root
         self.assignment_folder_root = course.config.assignment_folder_root
         self.zfs_snapshot_prefix = course.config.zfs_snapshot_prefix
 

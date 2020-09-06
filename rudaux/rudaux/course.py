@@ -56,7 +56,7 @@ class Course(object):
         #          Validate Config              #
         #=======================================#
         #make sure the student folder root doesn't end with a slash (for careful zfs snapshot syntax)
-        self.config.student_folder_root.rstrip('/')
+        self.config.jupyterhub_user_folder_root.rstrip('/')
 
         #=======================================#
         #    Open connection to notification    #
