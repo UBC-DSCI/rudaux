@@ -107,7 +107,7 @@ class Course(object):
             self.assignments = [Assignment(ad) for ad in assignment_dicts]
 
             print('Obtaining submission information from Canvas...')
-            #self.submissions = []
+            self.submissions = []
             #for a in self.assignments:
             #    #if any due date is passed
             #    for s in self.students:
@@ -119,10 +119,16 @@ class Course(object):
             #        jupyterhub_submission_dicts = self.jupyterhub.todo()
             #        #TODO
         
-    def save_state(self, state_filename = None):
+    def save_state(self, no_clobber = False, state_filename = None):
         if state_filename is None:
             state_filename = os.path.join(self.course_dir, self.config.name + '_state.pk')
 
+        print('Saving state to file ' + state_filename)
+
+        if no_clobber and os.path.exists(state_filename):
+            print('State file exists and no_clobber = True; returning')
+            return
+            
         with open(state_filename, 'wb') as f:
             pk.dump(f, {'students' : self.students,
                         'fake_students' : self.fake_students,
@@ -131,6 +137,8 @@ class Course(object):
                         'assignments' : self.assignments,
                         'submissions' : self.submissions
                         })
+        return
+
 
     def jupyterhub_snapshot(self):
         for s in self.students:

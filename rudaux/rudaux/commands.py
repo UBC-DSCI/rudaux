@@ -32,6 +32,11 @@ def print_list(args):
             for obj in course.__dict__[po]:
                 tbl.append([obj.name, obj.canvas_id])
             print(ttbl.AsciiTable(tbl, title).table)
+
+    # save only if there is no state file present
+    # i.e., this command won't overwrite / update state unless
+    # this is basically the first time rudaux is run here
+    course.save_state(no_clobber = True)
  
 #Ideas for other commands:
 #status #return a report of status; subcommands:
