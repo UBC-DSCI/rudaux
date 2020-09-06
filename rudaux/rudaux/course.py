@@ -1,9 +1,3 @@
-#import posixpath
-#import urllib.parse
-#import requests
-#import datetime
-#import json
-
 import os, sys
 import pickle as pk
 import tqdm
