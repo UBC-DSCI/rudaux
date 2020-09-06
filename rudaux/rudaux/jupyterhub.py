@@ -1,7 +1,7 @@
 #import git
 from dictauth.users import _load_dict, add_user, remove_user
 from collections import namedtuple
-from sys import check_call
+from subprocess import check_call
 
 class JupyterHub(object):
     """
