@@ -1,10 +1,3 @@
-from traitlets.config.configurable import Configurable
-from traitlets import Int, Float, Unicode, Bool
-import datetime
-import shutil
-import docker
-
-
 class Assignment:
 
     def __init__(self, canvasdict):

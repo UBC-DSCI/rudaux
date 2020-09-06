@@ -6,7 +6,6 @@ import terminaltables as ttbl
 from traitlets.config import Config
 from traitlets.config.loader import PyFileConfigLoader
 import editdistance
-import namedtuple
 from .canvas import Canvas
 from .jupyterhub import JupyterHub
 
