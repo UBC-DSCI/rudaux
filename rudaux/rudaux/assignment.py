@@ -6,6 +6,13 @@ class Assignment:
 
     def __repr__(self):
         return self.name + '(' + self.canvas_id + '): ' + ('jupyterhub' if self.is_jupyterhub_assignment else 'canvas') + ' assignment'
+
+    @classmethod
+    def table_headings(cls):
+        return ['Name', 'Canvas ID']
+
+    def table_items(self):
+        return [self.name, self.canvas_id]
     
         #self.all_submissions=[]
         #self.client = docker.from_env()

@@ -6,3 +6,10 @@ class Person:
 
     def __repr__(self):
         return self.name + ' (' + self.canvas_id  + ')'
+
+    @classmethod
+    def table_headings(cls):
+        return ['Name', 'Canvas ID']
+
+    def table_items(self):
+        return [self.name, self.canvas_id]

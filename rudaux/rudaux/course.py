@@ -11,6 +11,19 @@ from .jupyterhub import JupyterHub
 from .person import Person
 from .assignment import Assignment
 
+class MultipleOverrideError(Exception):
+    def __init__(self, overrides, sname, aname):
+        self.overrides = overrides
+        self.sname = sname
+        self.aname = aname
+
+class GroupOverrideError(Exception):
+    def __init__(self, override, snames, aname):
+        self.override = override
+        self.snames = snames
+        self.aname = aname
+
+
 class Course(object):
     """
     Course object for managing a Canvas/JupyterHub/nbgrader course.
@@ -77,6 +90,7 @@ class Course(object):
             with open(state_filename, 'rb') as f:
                 saved_course = pk.load(f)
 
+            self.course_info = saved_course['course_info']
             self.students = saved_course['students']
             self.fake_students = saved_course['fake_students']
             self.instructors = saved_course['instructors']
@@ -85,39 +99,7 @@ class Course(object):
             self.submissions = saved_course['submissions']
         else:
             print('No saved state exists. Collecting information from Canvas/JupyterHub...')
-
-            print('Obtaining/processing student enrollment information from Canvas...')
-            student_dicts = self.canvas.get_students()
-            self.students = [Person(sd) for sd in student_dicts]
-
-            print('Obtaining/processing TA enrollment information from Canvas...')
-            ta_dicts = self.canvas.get_tas()
-            self.tas = [Person(tad) for tad in ta_dicts]
-
-            print('Obtaining/processing instructor enrollment information from Canvas...')
-            instructor_dicts = self.canvas.get_instructors()
-            self.instructors = [Person(ind) for ind in instructor_dicts]
-
-            print('Obtaining/processing student view / fake student enrollment information from Canvas...')
-            fake_student_dicts = self.canvas.get_fake_students()
-            self.fake_students = [Person(fd) for fd in fake_student_dicts]
-
-            print('Obtaining/processing assignment information from Canvas...')
-            assignment_dicts = self.canvas.get_assignments()
-            self.assignments = [Assignment(ad) for ad in assignment_dicts]
-
-            print('Obtaining submission information from Canvas...')
-            self.submissions = []
-            #for a in self.assignments:
-            #    #if any due date is passed
-            #    for s in self.students:
-            #        #create a subm object and add it to the global list, and lists for that student and assignment
-            #        Submission()
-            #        #add it t
-            #        canvas_submission_dicts = self.canvas.todo()
-            #        print('Obtaining local submission information from JupyterHub...')
-            #        jupyterhub_submission_dicts = self.jupyterhub.todo()
-            #        #TODO
+            self.synchronize()
         
     def save_state(self, no_clobber = False, state_filename = None):
         if state_filename is None:
@@ -130,7 +112,8 @@ class Course(object):
             return
             
         with open(state_filename, 'wb') as f:
-            pk.dump({'students' : self.students,
+            pk.dump({   'course_info' : self.course_info,
+                        'students' : self.students,
                         'fake_students' : self.fake_students,
                         'instructors' : self.instructors,
                         'tas' : self.tas,
@@ -139,6 +122,88 @@ class Course(object):
                         }, f)
         return
 
+    def synchronize(self):
+        self.synchronize_canvas()
+        self.synchronize_jupyterhub()
+
+    def synchronize_canvas(self):
+        print('Obtaining course information...')
+        self.course_info = self.canvas.get_course_info()
+        
+        print('Obtaining/processing student enrollment information from Canvas...')
+        student_dicts = self.canvas.get_students()
+        self.students = [Person(sd) for sd in student_dicts]
+
+        print('Obtaining/processing TA enrollment information from Canvas...')
+        ta_dicts = self.canvas.get_tas()
+        self.tas = [Person(tad) for tad in ta_dicts]
+
+        print('Obtaining/processing instructor enrollment information from Canvas...')
+        instructor_dicts = self.canvas.get_instructors()
+        self.instructors = [Person(ind) for ind in instructor_dicts]
+
+        print('Obtaining/processing student view / fake student enrollment information from Canvas...')
+        fake_student_dicts = self.canvas.get_fake_students()
+        self.fake_students = [Person(fd) for fd in fake_student_dicts]
+
+        print('Obtaining/processing assignment information from Canvas...')
+        assignment_dicts = self.canvas.get_assignments()
+        self.assignments = [Assignment(ad) for ad in assignment_dicts]
+
+        print('Obtaining submission information from Canvas...')
+        self.submissions = []
+        #for a in self.assignments:
+        #    #if any due date is passed
+        #    for s in self.students:
+        #        #create a subm object and add it to the global list, and lists for that student and assignment
+        #        Submission()
+        #        #add it t
+        return
+    
+    def synchronize_jupyterhub(self):
+        return
+
+    def apply_latereg_extensions(self):
+        print('Applying late registration extensions')
+        for a in self.assignments:
+            if a['due_at']: #if the assignment has a due date set
+                for s in self.students:
+                    #if student s registered after assignment a was unlocked
+                    if s.reg_updated > a.unlock_at:
+                        print('Student ' + s.name + ' registration date (' + str(s.reg_updated.in_timezone(self.course_info['time_zone']))+') after unlock date of assignment ' + a.name + ' (' + str(a.unlock_at.in_timezone(self.course_info['time_zone'])) + ')')
+                        #check if this student already has an override for this assignment (instructor may have added one manually)
+                        #if yes and it's earlier than latereg extension, remove the override and check removal
+                        #if yes and it's later, keep the later one (in favour of student)
+                        a_s_overrides = [(idx, over) for idx, over in enumerate(a.overrides) if s.canvas_id in over['student_ids'] and over['due_at']]
+                        #make sure this student doesn't appear in multiple overrides for this assignment
+                        if len(a_s_overrides) > 1:
+                            raise MultipleOverrideError(a_s_overrides, s.name, a.name)
+                        if len(a_s_overrides) == 1:
+                            print('Student has previous override for this assignment')
+                            #student already has an override
+                            idx  = a_s_overrides[0][0]
+                            over = a_s_overrides[0][1]
+                            #make sure this override isn't a group override
+                            if len(over['student_ids']) > 1:
+                                raise GroupOverrideError(over, over['student_ids'], a.name) 
+                            #get the due date
+                            prev_override_due_at = over['due_at']
+                            prev_override_id = over['id']
+                            #if it is after the late reg extension, do nothing; otherwise, delete it before creating a new one
+                            if prev_override_due_at > s.reg_updated.add(days=7):
+                                print('Previous override (' + str(prev_override_due_at.in_timezone(self.course_info['time_zone'])) + ') is after late reg date. Skipping...')
+                                continue
+                            else:
+                                print('Previous override (' + str(prev_override_due_at.in_timezone(self.course_info['time_zone'])) + ') is before late reg date. Removing...')
+                                self.canvas.remove_override(a.canvas_id, prev_override_id)
+                        print('Creating late registration override (' + str(s.reg_updated.add(days=7).in_timezone(self.course_info['time_zone'])) + ')')
+                        self.canvas.create_override(a.canvas_id, {'student_ids' : [s.canvas_id],
+                                                                  'due_at' : s.reg_updated.add(days=7),
+                                                                  'lock_at' : a.lock_at,
+                                                                  'unlock_at' : a.unlock_at,
+                                                                  'title' : s.name+'-'+a.name+'-late-registration'}
+                                                   )
+        return 
 
     def jupyterhub_snapshot(self):
         for s in self.students:
@@ -153,15 +218,6 @@ class Course(object):
     def get_jupyterhub_diff(self):
         pass
 
-    def synchronize_canvas(self):
-        pass
-    
-    def synchronize_jupyterhub(self):
-        pass
-    
-    def synchronize(self):
-        pass
-
     def get_status(self):
         pass
 
@@ -171,7 +227,6 @@ class Course(object):
     def send_notifications(self):
         #print('Opening a connection to the notifier')
         #self.notifier = self.config.notification_method(self)
-
         pass
 
     def resolve_notification(self):

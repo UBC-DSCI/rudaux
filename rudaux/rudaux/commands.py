@@ -28,15 +28,28 @@ def print_list(args):
     for po in printouts:
         if vars(args).get(po) or none_selected:
             title = printouts[po]
-            tbl = [['Name', 'Canvas ID']]
+            tbl = [type(course.__dict__[po]).table_headings()]
             for obj in course.__dict__[po]:
-                tbl.append([obj.name, obj.canvas_id])
+                tbl.append(obj.table_items())
             print(ttbl.AsciiTable(tbl, title).table)
 
     # save only if there is no state file present
     # i.e., this command won't overwrite / update state unless
     # this is basically the first time rudaux is run here
     course.save_state(no_clobber = True)
+
+def apply_latereg_extensions(args):
+    course = rudaux.Course(args.directory)
+    course.synchronize()
+    course.apply_latereg_extensions()
+    course.save_state()
+    course.send_notifications()
+
+def status(args):
+    pass
+
+def synchronize(args):
+    pass
  
 #Ideas for other commands:
 #status #return a report of status; subcommands:

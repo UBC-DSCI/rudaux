@@ -8,10 +8,17 @@ class CanvasGetError(Exception):
         self.url = url
         self.resp = resp
 
-class CanvasPutError(Exception):
-    def __init__(self, url, resp):
+class CanvasUploadError(Exception):
+    def __init__(self, url, resp, typ):
+        self.typ = typ
         self.url = url
         self.resp = resp
+
+class InvalidOverrideError(Exception):
+    def __init__(self, override_dict, missing_key=None, multiple_students=False):
+        self.override_dict = override_dict
+        self.missing_key = missing_key
+        self.multiple_students = multiple_students
 
 class Canvas(object):
     """
@@ -55,9 +62,12 @@ class Canvas(object):
 
         return resp_items
 
-    def put(self, path_suffix, json_data):
+    def upload(self, path_suffix, json_data, typ):
+        rfuncs = {'put' : requests.put,
+                 'post': requests.post,
+                 'delete': requests.delete}
         url = urllib.parse.urljoin(self.base_url, path_suffix)
-        resp = requests.put(
+        resp = rfuncs[typ](
             url = url,
             headers = {
                 'Authorization': f'Bearer {self.token}',
@@ -66,8 +76,18 @@ class Canvas(object):
             json=json_data
         )
         if resp.status_code < 200 or resp.status_code > 299:
-            raise CanvasPutError(url, resp)
+            raise CanvasUploadError(url, resp, typ)
         return
+         
+
+    def put(self, path_suffix, json_data):
+        self.upload(path_suffix, json_data, 'put')
+
+    def post(self, path_suffix, json_data):
+        self.upload(path_suffix, json_data, 'post')
+
+    def delete(self, path_suffix, json_data):
+        self.upload(path_suffix, json_data, 'delete')
 
     def get_course_info(self):
         return self.get('')
@@ -123,18 +143,6 @@ class Canvas(object):
 
         return processed_asgns
 
-    def get_overrides(self, assignment_id):
-        tz = self.get_course_info()['time_zone']
-        overs = self.get('assignments/'+assignment_id+'/overrides')
-        for over in overs:
-            over['student_ids'] = map(str, over['student_ids'])
-            for key in ['due_at', 'lock_at', 'unlock_at']:
-                if over.get(key) is not None:
-                    over[key] = plm.parse(over[key], tz=tz),
-                else:
-                    over[key] = None
-        return overs
-
     def get_submissions(self, assignment_id):
         tz = self.get_course_info()['time_zone']
         subms = self.get('assignments/'+assignment_id+'/submissions')
@@ -152,6 +160,44 @@ class Canvas(object):
                        'entered_grade' : subm['entered_grade'],
                        'entered_score' : subm['entered_score']
                 } for s in subms ]
+
+    def get_overrides(self, assignment_id):
+        tz = self.get_course_info()['time_zone']
+        overs = self.get('assignments/'+assignment_id+'/overrides')
+        for over in overs:
+            over['id'] = str(over['id'])
+            over['student_ids'] = map(str, over['student_ids'])
+            for key in ['due_at', 'lock_at', 'unlock_at']:
+                if over.get(key) is not None:
+                    over[key] = plm.parse(over[key], tz=tz),
+                else:
+                    over[key] = None
+        return overs
+
+    def create_override(self, assignment_id, override_dict):
+        tz = self.get_course_info()['time_zone']
+        #check all required keys
+        required_keys = ['student_ids', 'unlock_at', 'due_at', 'lock_at', 'title']
+        for rk in required_keys:
+            if not override_dict.get(rk):
+                raise InvalidOverrideError(override_dict, missing_key=rk)
+
+        #make sure the override only applies to one student
+        if len(override_dict['student_ids']) != 1:
+            raise InvalidOverrideError(override_dict, multiple_students=True)
+
+        #convert student ids to integers
+        override_dict['student_ids'] = map(int, override_dict['student_ids'])
+
+        #convert dates to canvas date time strings in the course local timezone
+        for dk in ['unlock_at', 'due_at', 'lock_at']:
+            override_dict[dk] = override_dict[dk].in_timezone(tz).format('YYYY-MM-DDTHH:mm:ss\Z')
+
+        post_json = {'assignment_override' : override_dict}
+        self.post('assignments/'+assignment_id+'/overrides', post_json)
+
+    def remove_override(self, assignment_id, override_id):
+        self.delete('assignments/'+assignment_id+'/overrides/'+override_id)
 
     def put_grade(self, assignment_id, student_id, score):
         self.put('assignments/'+assignment_id+'/submissions/'+student_id, {'posted_grade' : score})

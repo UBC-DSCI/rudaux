@@ -71,6 +71,20 @@ list_parser.add_argument(
   help='Print teaching assistants'
 )
 
+#---------------------------------------------
+#           Extensions for Late Registrants
+#---------------------------------------------
+
+latereg_parser = subparsers.add_parser('extend_lateregs', help='Create due date overrides for late registrants')
+latereg_parser.set_defaults(func=commands.apply_latereg_extensions)
+latereg_parser.add_argument(
+  '--dir',
+  dest='directory',
+  action='store',
+  default=os.getcwd(),
+  help="The directory containing the rudaux configuration file."
+)
+
 
 # Parse the arguments!
 args = parser.parse_args()
