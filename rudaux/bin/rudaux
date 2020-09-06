@@ -1,0 +1,30 @@
+#!/usr/bin/python3
+
+from argparse import ArgumentParser
+from rudaux import commands
+
+parser = ArgumentParser(
+  description='Manage a Canvas / Jupyterhub / NbGrader course.'
+)
+
+subparsers = parser.add_subparsers(
+  title='Subcommands', dest="subparser", help='Commands that rudaux can process.'
+)
+
+snap_parser = subparsers.add_parser('submission_snapshot', help='Take a snapshot of submissions past the assignment due date.')
+snap_parser.set_defaults(func=commands.submission_snapshot)
+snap_parser.add_argument(
+  '--dir',
+  dest='directory',
+  action='store',
+  default='/srv/rudaux/',
+  help="The directory containing the rudaux configuration file."
+)
+
+# Parse the arguments!
+args = parser.parse_args()
+if args.subparser is not None:
+  args.func(args)
+else:
+  # Otherwise, no subcommand was called, so raise help
+  args = parser.parse_known_args(['-h'])
