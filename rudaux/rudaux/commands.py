@@ -1,5 +1,6 @@
 import os
 import rudaux
+import terminaltables as ttbl
 
 # this is the only command that gets called on the student hub (for now)
 # it should be called every X minutes using a cron job (X = 15, say, if you want your snapshots to have a max resolution of 15 mins)
@@ -22,12 +23,15 @@ def submission_snapshot(args):
 
 def print_list(args):
     course = rudaux.Course(args.directory)
-    printouts = ['students', 'assignments', 'instructors', 'tas']
+    printouts = {'students' : 'Students', 'assignments' : 'Assignments', 'instructors' : 'Instructors', 'tas' : 'Teaching Assistants']
     none_selected = not any([vars(args)[po] for po in printouts])
     for po in printouts:
         if vars(args).get(po) or none_selected:
+            title = printouts[po]
+            tbl = [['Name', 'Canvas ID']]
             for obj in course.__dict__[po]:
-                print(obj)
+                tbl.append([obj.name, obj.canvas_id])
+            print(ttbl.AsciiTable(tbl, title).table)
  
 #Ideas for other commands:
 #status #return a report of status; subcommands:

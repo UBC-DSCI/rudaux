@@ -5,4 +5,4 @@ class Person:
         self.submissions = []
 
     def __repr__(self):
-        return self.name + '(' + self.canvas_id + ')'
+        return self.name + ' (' + self.canvas_id  + ')'
