@@ -11,8 +11,10 @@ import pendulum as plm
 import terminaltables as ttbl
 from traitlets.config import Config
 from traitlets.config.loader import PyFileConfigLoader
-from canvas import Canvas
 import editdistance
+import namedtuple
+from .canvas import Canvas
+from .jupyterhub import JupyterHub
 
 class Course(object):
     """
@@ -58,48 +60,76 @@ class Course(object):
         #make sure the student folder root doesn't end with a slash (for careful zfs snapshot syntax)
         self.config.jupyterhub_user_folder_root.rstrip('/')
 
-        #=======================================#
-        #    Open connection to notification    #
-        #=======================================#
+        
+        #================================================================#
+        #      Create objects to interact with Canvas and JupyterHub     #
+        #================================================================#
 
-        #print('Opening a connection to the notifier')
-        #self.notifier = self.config.notification_method(self)
-
-        #================================================#
-        #      Create object to interact with Canvas     #
-        #================================================#
-
-        print('Creating canvas interaction object')
+        print('Creating Canvas interaction object')
         self.canvas = Canvas(self)
+
+        print('Creating JupyterHub interaction object')
+        self.jupyterhub = JupyterHub(self)
 
         #=======================================================#
         #      Create the course state  & populate info         #
         #=======================================================#
 
-        state_filename = self.config.name + '_state.pk'
+        state_filename = os.path.join(self.course_dir, self.config.name + '_state.pk')
         print('Checking for saved course state file at ' + state_filename)
 
         if os.path.exists(state_filename):
             print('Saved state exists. Loading')
-            state = None
+            saved_course = None
             with open(state_filename, 'rb') as f:
-                state = pk.load(f)
+                saved_course = pk.load(f)
 
-            self.students = state['students']
-            self.fake_students = state['fake_students']
-            self.teachers = state['teachers']
-            self.tas = state['tas']
-            self.submissions = state['submissions']
-            self.assignments = state['assignments']
+            self.students = saved_course['students']
+            self.fake_students = saved_course['fake_students']
+            self.teachers = saved_course['teachers']
+            self.tas = saved_course['tas']
+            self.assignments = saved_course['assignments']
+            self.submissions = saved_course['submissions']
         else:
-            print('No saved state exists. Collecting information from Canvas...')
-            self.students, self.tas, self.teachers, self.fake_students, self.assignments, self.submissions = self.get_canvas_state()
-            #TODO self.get_jupyterhub_state()
-        
-    def close_notifier(self):
-        self.notifier.close()
+            print('No saved state exists. Collecting information from Canvas/JupyterHub...')
 
-    def save_state(self):
+            print('Obtaining/processing student enrollment information from Canvas...')
+            student_dicts = self.canvas.get_students()
+            self.students = [Person(sd) for sd in student_dicts]
+
+            print('Obtaining/processing TA enrollment information from Canvas...')
+            ta_dicts = self.canvas.get_tas()
+            self.tas = [Person(tad) for tad in ta_dicts]
+
+            print('Obtaining/processing teacher enrollment information from Canvas...')
+            teacher_dicts = self.canvas.get_teachers()
+            self.teachers = [Person(td) for td in teacher_dicts]
+
+            print('Obtaining/processing student view / fake student enrollment information from Canvas...')
+            fake_student_dicts = self.canvas.get_fake_students()
+            self.fake_students = [Person(fd) for fd in fake_student_dicts]
+
+            print('Obtaining/processing assignment information from Canvas...')
+            assignment_dicts = self.canvas.get_assignments()
+            self.assignments = [Assignment(ad) for ad in assignment_dicts]
+
+            print('Obtaining submission information from Canvas...')
+            self.submissions = []
+            for a in self.assignments:
+                #if any due date is passed
+                for s in self.students:
+                    #create a subm object and add it to the global list, and lists for that student and assignment
+                    Submission()
+                    #add it t
+                    canvas_submission_dicts = self.canvas.todo()
+                    print('Obtaining local submission information from JupyterHub...')
+                    jupyterhub_submission_dicts = self.jupyterhub.todo()
+                    #TODO
+        
+    def save_state(self, state_filename = None):
+        if state_filename is None:
+            state_filename = os.path.join(self.course_dir, self.config.name + '_state.pk')
+
         with open(state_filename, 'wb') as f:
             pk.dump(f, {'students' : self.students,
                         'fake_students' : self.fake_students,
@@ -108,23 +138,6 @@ class Course(object):
                         'assignments' : self.assignments,
                         'submissions' : self.submissions
                         })
-
-    def get_canvas_state(self):
-        print('Obtaining student enrollment information...')
-        student_dicts = self.canvas.get_students()
-        print('Obtaining TA enrollment information...')
-        ta_dicts = self.canvas.get_tas()
-        print('Obtaining teacher enrollment information...')
-        teacher_dicts = self.canvas.get_teachers()
-        print('Obtaining student view / fake student enrollment information...')
-        fake_student_dicts = self.canvas.get_fake_students()
-        print('Obtaining assignment information...')
-        assignment_dicts = self.canvas.get_assignments()
-
-        submission_dicts = []
-
-        #TODO create objects
-        return student_dicts, ta_dicts, teacher_dicts, fake_student_dicts, assignment_dicts, submission_dicts
 
     def jupyterhub_snapshot(self):
         for s in self.students:
@@ -155,6 +168,9 @@ class Course(object):
         pass
 
     def send_notifications(self):
+        #print('Opening a connection to the notifier')
+        #self.notifier = self.config.notification_method(self)
+
         pass
 
     def resolve_notification(self):

@@ -128,12 +128,11 @@ class Canvas(object):
         overs = self.get('assignments/'+assignment_id+'/overrides')
         for over in overs:
             over['student_ids'] = map(str, over['student_ids'])
-            if 'due_at' in over.keys():
-                over['due_at'] = None if over['due_at'] is None else plm.parse(over['due_at'], tz=tz),
-            if 'lock_at' in over.keys():
-                over['lock_at'] = None if over['lock_at'] is None else plm.parse(over['lock_at'], tz=tz),
-            if 'unlock_at' in over.keys():
-                over['unlock_at'] = None if over['unlock_at'] is None else plm.parse(over['unlock_at'], tz=tz),
+            for key in ['due_at', 'lock_at', 'unlock_at']:
+                if over.get(key) is not None:
+                    over[key] = plm.parse(over[key], tz=tz),
+                else:
+                    over[key] = None
         return overs
 
     def get_submissions(self, assignment_id):

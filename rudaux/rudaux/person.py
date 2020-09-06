@@ -1,7 +1,7 @@
 from traitlets.config.configurable import Configurable
 from traitlets import Int, Float, Unicode, Bool
 
-class Student:
+class Person:
 
     # Instance Attributes
     def __init__(self):
