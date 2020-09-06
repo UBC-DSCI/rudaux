@@ -168,9 +168,10 @@ class Course(object):
         for a in self.assignments:
             if a['due_at']: #if the assignment has a due date set
                 for s in self.students:
-                    #if student s registered after assignment a was unlocked
-                    if s.reg_updated > a.unlock_at:
-                        print('Student ' + s.name + ' registration date (' + str(s.reg_updated.in_timezone(self.course_info['time_zone']))+') after unlock date of assignment ' + a.name + ' (' + str(a.unlock_at.in_timezone(self.course_info['time_zone'])) + ')')
+                    regdate = s.reg_updated if s.reg_updated else s.reg_created
+                    if s.status == 'active' and regdate > a.unlock_at:
+                        #if student s active and registered after assignment a was unlocked
+                        print('Student ' + s.name + ' registration date (' + str(regdate.in_timezone(self.course_info['time_zone']))+') after unlock date of assignment ' + a.name + ' (' + str(a.unlock_at.in_timezone(self.course_info['time_zone'])) + ')')
                         #check if this student already has an override for this assignment (instructor may have added one manually)
                         #if yes and it's earlier than latereg extension, remove the override and check removal
                         #if yes and it's later, keep the later one (in favour of student)
@@ -190,15 +191,16 @@ class Course(object):
                             prev_override_due_at = over['due_at']
                             prev_override_id = over['id']
                             #if it is after the late reg extension, do nothing; otherwise, delete it before creating a new one
-                            if prev_override_due_at > s.reg_updated.add(days=7):
+                            if prev_override_due_at >= regdate.add(days=7):
                                 print('Previous override (' + str(prev_override_due_at.in_timezone(self.course_info['time_zone'])) + ') is after late reg date. Skipping...')
                                 continue
                             else:
                                 print('Previous override (' + str(prev_override_due_at.in_timezone(self.course_info['time_zone'])) + ') is before late reg date. Removing...')
                                 self.canvas.remove_override(a.canvas_id, prev_override_id)
-                        print('Creating late registration override (' + str(s.reg_updated.add(days=7).in_timezone(self.course_info['time_zone'])) + ')')
+                                #TODO remove override in the canvas course state
+                        print('Creating late registration override (' + str(regdate.add(days=7).in_timezone(self.course_info['time_zone'])) + ')')
                         self.canvas.create_override(a.canvas_id, {'student_ids' : [s.canvas_id],
-                                                                  'due_at' : s.reg_updated.add(days=7),
+                                                                  'due_at' : regdate.add(days=7),
                                                                   'lock_at' : a.lock_at,
                                                                   'unlock_at' : a.unlock_at,
                                                                   'title' : s.name+'-'+a.name+'-late-registration'}
@@ -206,8 +208,14 @@ class Course(object):
         return 
 
     def jupyterhub_snapshot(self):
-        for s in self.students:
-            pass
+        for a in self.assignments:
+            if a.due_at < plm.now() and not a.snapshot_taken:
+                self.jupyterhub.snapshot_all(a.name)
+                a.snapshot_taken = True
+            for over in a.overrides:
+                if not (over['id'] in a.override_snapshots_taken):
+                    self.jupyterhub.snapshot_user(over['student_ids'][0], a.name + '-' + plm.now().format('YYYY-mm-dd-HH-mm-ss'))
+                    a.override_snapshots_taken.append(over['id'])
 
     def get_jupyterhub_state(self):
         pass

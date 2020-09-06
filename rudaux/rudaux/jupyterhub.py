@@ -3,6 +3,10 @@ from dictauth.users import _load_dict, add_user, remove_user
 from collections import namedtuple
 from subprocess import check_call
 
+class SnapshotExistsError(Exception):
+    def __init__(self, path):
+        self.path = path
+
 class JupyterHub(object):
     """
     Interface to a local Jupyterhub with NbGrader assignments
@@ -12,13 +16,12 @@ class JupyterHub(object):
         self.jupyterhub_config_dir = course.config.jupyterhub_config_dir
         self.jupyterhub_user_folder_root = course.config.jupyterhub_user_folder_root
         self.assignment_folder_root = course.config.assignment_folder_root
-        self.zfs_snapshot_prefix = course.config.zfs_snapshot_prefix
 
     def snapshot_all(self, snap_name):
         check_call(['zfs', 'snapshot', '-r', self.student_folder_root + '@'+snap_name])
 
     def snapshot_user(self, user, snap_name):
-        check_call(['zfs', 'snapshot', os.path.join(self.student_folder_root, user).rstrip('/') + '@'+snap_name])
+        check_call(['zfs', 'snapshot', os.path.join(self.jupyterhub_user_folder_root, user).rstrip('/') + '@'+snap_name])
 
     def create_grader_folder(self, grader_name):
         #make sure there isn't already a folder in /tank/home with this name; never overwrite a grader account
