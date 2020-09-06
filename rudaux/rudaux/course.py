@@ -130,13 +130,13 @@ class Course(object):
             return
             
         with open(state_filename, 'wb') as f:
-            pk.dump(f, {'students' : self.students,
+            pk.dump({'students' : self.students,
                         'fake_students' : self.fake_students,
                         'instructors' : self.instructors,
                         'tas' : self.tas,
                         'assignments' : self.assignments,
                         'submissions' : self.submissions
-                        })
+                        }, f)
         return
 
 
