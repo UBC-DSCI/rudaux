@@ -22,21 +22,13 @@ def submission_snapshot(args):
 
 def print_list(args):
     course = rudaux.Course(args.directory)
-    print(list(vars(args).values()))
-    none_selected = not any(list(vars(args).values()))
-    if args.students or none_selected:
-        for s in course.students:
-            print(s)
-    if args.assignments or none_selected:
-        for a in course.assignments:
-            print(a)
-    if args.instructors or none_selected:
-        for t in course.teachers:
-            print(t)
-    if args.tas or none_selected:
-        for t in course.tas:
-            print(t)
-
+    printouts = ['students', 'assignments', 'instructors', 'tas']
+    none_selected = not any([vars(args)[po] for po in printouts])
+    for po in printouts:
+        if vars(args).get(po) or none_selected:
+            for obj in course.__dict__[po]:
+                print(obj)
+ 
 #Ideas for other commands:
 #status #return a report of status; subcommands:
 ##assignment (graded / feedback / solutions / etc)
