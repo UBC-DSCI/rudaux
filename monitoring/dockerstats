@@ -1,0 +1,3 @@
+# Every minute, append the current docker stats with a timestamp on each line to a stats file tagged by day
+*/1 * * * * root docker stats --no-stream | ts '[\%H:\%M:\%S]' >> "/extra/docker-stats/stats_$(date +"\%Y_\%m_\%d").log"
+

@@ -1,0 +1,2 @@
+# Create a new docker events log daily in /extra
+1 0 * * * root timeout 24h docker events > "/extra/docker-events/events_$(date +"\%Y_\%m_\%d").log"

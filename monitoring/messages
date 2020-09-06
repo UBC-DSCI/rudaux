@@ -1,0 +1,2 @@
+# Copy all /var/log/message-[datestamp] to extra every day (no overwrite)
+10 0 * * * root cp --no-clobber /var/log/messages-* /extra/messages/
