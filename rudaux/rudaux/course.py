@@ -79,7 +79,7 @@ class Course(object):
 
             self.students = saved_course['students']
             self.fake_students = saved_course['fake_students']
-            self.teachers = saved_course['teachers']
+            self.instructors = saved_course['instructors']
             self.tas = saved_course['tas']
             self.assignments = saved_course['assignments']
             self.submissions = saved_course['submissions']
@@ -94,9 +94,9 @@ class Course(object):
             ta_dicts = self.canvas.get_tas()
             self.tas = [Person(tad) for tad in ta_dicts]
 
-            print('Obtaining/processing teacher enrollment information from Canvas...')
-            teacher_dicts = self.canvas.get_teachers()
-            self.teachers = [Person(td) for td in teacher_dicts]
+            print('Obtaining/processing instructor enrollment information from Canvas...')
+            instructor_dicts = self.canvas.get_instructors()
+            self.instructors = [Person(ind) for ind in instructor_dicts]
 
             print('Obtaining/processing student view / fake student enrollment information from Canvas...')
             fake_student_dicts = self.canvas.get_fake_students()
@@ -126,7 +126,7 @@ class Course(object):
         with open(state_filename, 'wb') as f:
             pk.dump(f, {'students' : self.students,
                         'fake_students' : self.fake_students,
-                        'teachers' : self.teachers,
+                        'instructors' : self.instructors,
                         'tas' : self.tas,
                         'assignments' : self.assignments,
                         'submissions' : self.submissions

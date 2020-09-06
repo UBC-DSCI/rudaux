@@ -93,7 +93,7 @@ class Canvas(object):
     def get_fake_students(self):
         return self._get_people_by_type('StudentViewEnrollment')
         
-    def get_teachers(self):
+    def get_instructors(self):
         return self._get_people_by_type('TeacherEnrollment')
 
     def get_tas(self):
