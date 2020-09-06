@@ -5,7 +5,7 @@ class Assignment:
         self.submissions = []
 
     def __repr__(self):
-        print(self.name + '(' self.canvas_id + '): ' + ('jupyterhub' if self.is_jupyterhub_assignment else 'canvas') + ' assignment')
+        print(self.name + '(' + self.canvas_id + '): ' + ('jupyterhub' if self.is_jupyterhub_assignment else 'canvas') + ' assignment')
     
         #self.all_submissions=[]
         #self.client = docker.from_env()
