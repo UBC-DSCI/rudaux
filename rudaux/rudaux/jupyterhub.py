@@ -1,5 +1,4 @@
 import git
-#import zfs??
 from dictauth.users import _load_dict, add_user, remove_user
 from collections import namedtuple
 from sys import check_call
@@ -44,14 +43,10 @@ class JupyterHub(object):
         pass
 
     def stop(self):
-        pass
+        check_call(['systemctl', 'stop', 'jupyterhub'])
  
     def start(self):
-        pass
-
-    
-    
-
+        check_call(['systemctl', 'start', 'jupyterhub'])
 
     
 
