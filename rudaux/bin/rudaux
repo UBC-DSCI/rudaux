@@ -2,7 +2,18 @@
 
 from argparse import ArgumentParser
 from rudaux import commands
-import os
+import pendulum as plm
+import os, sys
+
+#print begin stamp for now while still debugging (useful for reading logs)
+sys.stderr.write('\n\n\n')
+sys.stderr.write('---------------------------------')
+sys.stderr.write('-----------Rudaux----------------')
+sys.stderr.write('---------------------------------')
+sys.stderr.write('DateTime: ' + str(plm.now().in_timezone('America/Vancouver')) + ' Vancouver Time')
+sys.stderr.write('Command: ' + str(sys.argv))
+sys.stderr.write('\n\n\n')
+
 
 parser = ArgumentParser(
   description='Manage a Canvas / Jupyterhub / NbGrader course.'

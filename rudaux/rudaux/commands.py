@@ -42,6 +42,7 @@ def apply_latereg_extensions(args):
     course = rudaux.Course(args.directory)
     course.synchronize()
     course.apply_latereg_extensions()
+    course.synchronize()
     course.save_state()
     course.send_notifications()
 
