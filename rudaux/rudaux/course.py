@@ -14,7 +14,7 @@ class Course(object):
     Course object for managing a Canvas/JupyterHub/nbgrader course.
     """
 
-    def __init__(self, course_dir=None):
+    def __init__(self, course_dir):
         """
         Initialize a course from a config file. 
         :param course_dir: The directory your course. If none, defaults to current working directory. 
@@ -24,8 +24,6 @@ class Course(object):
         :rtype: Course
         """
 
-        if not course_dir:
-            course_dir = os.getcwd()
         self.course_dir = course_dir
 
         #=======================================#
