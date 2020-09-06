@@ -8,6 +8,8 @@ from traitlets.config.loader import PyFileConfigLoader
 import editdistance
 from .canvas import Canvas
 from .jupyterhub import JupyterHub
+from .person import Person
+from .assignment import Assignment
 
 class Course(object):
     """
