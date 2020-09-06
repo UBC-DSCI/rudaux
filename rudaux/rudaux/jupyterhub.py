@@ -36,6 +36,7 @@ class JupyterHub(object):
     
     def assign_grader(self, assignment_name, ta_username):
         #just add authentication using dictauth
+        pass
 
     def unassign_grader(self, assignment_name):
         #just remove the authentication for the account using dictauth; don't touch the folder
