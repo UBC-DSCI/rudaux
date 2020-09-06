@@ -110,7 +110,6 @@ class Course(object):
                         })
 
     def get_canvas_state(self):
-        print('No saved state exists. Collecting information from Canvas...')
         print('Obtaining student enrollment information...')
         student_dicts = self.canvas.get_students()
         print('Obtaining TA enrollment information...')
@@ -122,13 +121,10 @@ class Course(object):
         print('Obtaining assignment information...')
         assignment_dicts = self.canvas.get_assignments()
 
+        submission_dicts = []
+
         #TODO create objects
-        self.students = []
-        self.tas = []
-        self.teachers = []
-        self.fake_students = []
-        self.assignments = []
-        self.submissions = []
+        return student_dicts, ta_dicts, teacher_dicts, fake_student_dicts, assignment_dicts, submission_dicts
 
     def jupyterhub_snapshot(self):
         for s in self.students:

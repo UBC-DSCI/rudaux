@@ -102,7 +102,8 @@ class Canvas(object):
     def get_assignments(self):
         asgns = self.get('assignments')
         tz = self.get_course_info()['time_zone']
-        return [ {  'canvas_id' : str(a['id']),
+        processed_asgns = [ {  
+                   'canvas_id' : str(a['id']),
                    'name' : a['name'],
                    'due_at' : None if a['due_at'] is None else plm.parse(a['due_at'], tz=tz),
                    'lock_at' : None if a['lock_at'] is None else plm.parse(a['lock_at'], tz=tz),
@@ -111,20 +112,47 @@ class Canvas(object):
                    'grading_type' : a['grading_type'],
                    'workflow_state' : a['workflow_state'],
                    'has_overrides' : a['has_overrides'],
+                   'overrides' : [],
                    'published' : a['published'],
                    'is_jupyterhub_assignment' : True if 'external_tool_tag_attributes' in a.keys() and len([hostroot for hostroot in self.jupyterhub_host_roots if hostroot in a['external_tool_tag_attributes']['url']]) > 0 else False,
                    'jupyterhub_host_root' : [hostroot for hostroot in self.jupyterhub_host_roots if hostroot in a['external_tool_tag_attributes']['url']][0] if 'external_tool_tag_attributes' in a.keys() and len([hostroot for hostroot in self.jupyterhub_host_roots if hostroot in a['external_tool_tag_attributes']['url']]) > 0 else None
-                 } for a in asgns 
-               ]
+                 } for a in asgns ]
+        for a in processed_asgns:
+            if a['has_overrides']:
+                a['overrides'] = self.get_overrides(a['canvas_id'])
 
-    def get_submissions(self):
-        asgns = self.get('assignments')
+        return processed_asgns
+
+    def get_overrides(self, assignment_id):
         tz = self.get_course_info()['time_zone']
-        subms = {}
-        for a in asgns:
-            subms[str(a['id'])] = self.get('assignments/'+str(a['id'])+'/submissions')
-        #TODO extract useful information from the submissions
-        #TODO consider not looping over all asgns
+        overs = self.get('assignments/'+assignment_id+'/overrides')
+        for over in overs:
+            over['student_ids'] = map(str, over['student_ids'])
+            if 'due_at' in over.keys():
+                over['due_at'] = None if over['due_at'] is None else plm.parse(over['due_at'], tz=tz),
+            if 'lock_at' in over.keys():
+                over['lock_at'] = None if over['lock_at'] is None else plm.parse(over['lock_at'], tz=tz),
+            if 'unlock_at' in over.keys():
+                over['unlock_at'] = None if over['unlock_at'] is None else plm.parse(over['unlock_at'], tz=tz),
+        return overs
+
+    def get_submissions(self, assignment_id):
+        tz = self.get_course_info()['time_zone']
+        subms = self.get('assignments/'+assignment_id+'/submissions')
+        return [ {
+                       'student_id' : str(subm['user_id']), 
+                       'grade' : subm['grade'],
+                       'score' : subm['score'],
+                       'workflow_state' : subm['workflow_state'],
+                       'excused' : subm['excused'],
+                       'late_policy_status' : subm['late_policy_status'],
+                       'points_deducted' : subm['points_deducted'],
+                       'posted_at' : None if subm['posted_at'] is None else plm.parse(subm['posted_at'], tz=tz),
+                       'late' : subm['late'],
+                       'missing' : subm['missing'],
+                       'entered_grade' : subm['entered_grade'],
+                       'entered_score' : subm['entered_score']
+                } for s in subms ]
 
     def put_grade(self, assignment_id, student_id, score):
         self.put('assignments/'+assignment_id+'/submissions/'+student_id, {'posted_grade' : score})
