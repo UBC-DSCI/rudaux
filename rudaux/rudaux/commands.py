@@ -23,7 +23,7 @@ def submission_snapshot(args):
 
 def print_list(args):
     course = rudaux.Course(args.directory)
-    printouts = {'students' : 'Students', 'assignments' : 'Assignments', 'instructors' : 'Instructors', 'tas' : 'Teaching Assistants']
+    printouts = {'students' : 'Students', 'assignments' : 'Assignments', 'instructors' : 'Instructors', 'tas' : 'Teaching Assistants'}
     none_selected = not any([vars(args)[po] for po in printouts])
     for po in printouts:
         if vars(args).get(po) or none_selected:
