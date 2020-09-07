@@ -9,10 +9,7 @@ class Person:
 
     @classmethod
     def table_headings(cls):
-        return ['Name', 'Canvas ID']
+        return ['Name', 'Canvas ID', 'RegCreated', 'RegUpdated']
 
     def table_items(self):
-        return [self.name, self.canvas_id]
-
-    def canvas_update(self, canvasdict):
-        self.__dict__.update(canvasdict)
+        return [self.name, self.canvas_id, self.reg_created.in_timezone('America/Vancouver').format('YYYY-MM-DD HH:mm:ss'), self.reg_updated.in_timezone('America/Vancouver').format('YYYY-MM-DD HH:mm:ss')]
