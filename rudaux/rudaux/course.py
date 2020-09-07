@@ -194,7 +194,7 @@ class Course(object):
             with open(self.jupyterhub_cache_filename, 'rb') as f:
                 self.submissions, self.snapshots = pk.load(f)
         else: 
-            print('No cache file found.')
+            print('No cache file found. Initializing empty state.')
             self.submissions = {}
             self.snapshots = []
 
