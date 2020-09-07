@@ -23,6 +23,11 @@ class GroupOverrideError(Exception):
         self.snames = snames
         self.aname = aname
 
+class DuplicateError(Exception):
+    def __init__(self, key, matches):
+        self.key = key
+        self.matches = matches
+
 
 class Course(object):
     """
@@ -99,6 +104,14 @@ class Course(object):
             self.submissions = saved_course['submissions']
         else:
             print('No saved state exists. Collecting information from Canvas/JupyterHub...')
+            
+            self.students = []
+            self.fake_students = []
+            self.instructors = []
+            self.tas = []
+            self.assignments = []
+            self.submissions = [] 
+
             self.synchronize()
         
     def save_state(self, no_clobber = False, state_filename = None):
@@ -108,7 +121,7 @@ class Course(object):
         print('Saving state to file ' + state_filename)
 
         if no_clobber and os.path.exists(state_filename):
-            print('State file exists and no_clobber = True; returning')
+            print('State file exists and no_clobber requested; returning without saving to disk')
             return
             
         with open(state_filename, 'wb') as f:
@@ -126,38 +139,40 @@ class Course(object):
         self.synchronize_canvas()
         self.synchronize_jupyterhub()
 
+    def _update_canvas_items(self, newitems, items, item_cls):
+        for newitem in newitems:
+            matches = [item for item in items if newitem['canvas_id'] == item.canvas_id]
+            if len(matches) > 1:
+                raise DuplicateError(newitem, matches)
+            elif len(matches) == 1:
+                matches[0].canvas_update(newitem)
+            else:
+                items.append(item_cls(newitem))
+
     def synchronize_canvas(self):
         print('Obtaining course information...')
         self.course_info = self.canvas.get_course_info()
         
         print('Obtaining/processing student enrollment information from Canvas...')
         student_dicts = self.canvas.get_students()
-        self.students = [Person(sd) for sd in student_dicts]
+        self._update_canvas_items(student_dicts, self.students, Person)
 
         print('Obtaining/processing TA enrollment information from Canvas...')
         ta_dicts = self.canvas.get_tas()
-        self.tas = [Person(tad) for tad in ta_dicts]
+        self._update_canvas_items(ta_dicts, self.tas, Person)
 
         print('Obtaining/processing instructor enrollment information from Canvas...')
         instructor_dicts = self.canvas.get_instructors()
-        self.instructors = [Person(ind) for ind in instructor_dicts]
+        self._update_canvas_items(instructor_dicts, self.instructors, Person)
 
         print('Obtaining/processing student view / fake student enrollment information from Canvas...')
         fake_student_dicts = self.canvas.get_fake_students()
-        self.fake_students = [Person(fd) for fd in fake_student_dicts]
+        self._update_canvas_items(fak_student_dicts, self.fake_students, Person)
 
         print('Obtaining/processing assignment information from Canvas...')
         assignment_dicts = self.canvas.get_assignments()
-        self.assignments = [Assignment(ad) for ad in assignment_dicts]
+        self._update_canvas_items(assignment_dicts, self.assignments, Assignment)
 
-        print('Obtaining submission information from Canvas...')
-        self.submissions = []
-        #for a in self.assignments:
-        #    #if any due date is passed
-        #    for s in self.students:
-        #        #create a subm object and add it to the global list, and lists for that student and assignment
-        #        Submission()
-        #        #add it t
         return
     
     def synchronize_jupyterhub(self):
@@ -208,12 +223,15 @@ class Course(object):
         return 
 
     def jupyterhub_snapshot(self):
+        print('Taking snapshots')
         for a in self.assignments:
             if a.due_at < plm.now() and not a.snapshot_taken:
+                print('Assignment ' + a.name + ' is past due (due at ' + str(a.due_at.in_timezone(self.course_info['time_zone'])) + ', time now ' +  str(plm.now().in_timezone(self.course_info['time_zone'])) ') and no snapshot exists yet. Taking a snapshot...')
                 self.jupyterhub.snapshot_all(a.name)
                 a.snapshot_taken = True
             for over in a.overrides:
-                if not (over['id'] in a.override_snapshots_taken):
+                if over['due_at'] < plm.now() and not (over['id'] in a.override_snapshots_taken):
+                    print('Assignment ' + a.name + ' has an override for student ' + over['student_ids'][0] + ' (due at ' + str(over['due_at'].in_timezone(self.course_info['time_zone'])) + ', time now ' +  str(plm.now().in_timezone(self.course_info['time_zone'])) ') and no snapshot exists yet. Taking a snapshot...')
                     self.jupyterhub.snapshot_user(over['student_ids'][0], a.name + '-' + plm.now().format('YYYY-mm-dd-HH-mm-ss'))
                     a.override_snapshots_taken.append(over['id'])
 

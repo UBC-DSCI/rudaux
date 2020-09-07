@@ -1,8 +1,10 @@
 class Assignment:
 
     def __init__(self, canvasdict):
-        self.__dict__.update(canvasdict)
+        self.canvas_update(canvasdict)
         self.submissions = []
+        self.snapshot_taken = False
+        self.override_snapshots_taken = []
 
     def __repr__(self):
         return self.name + '(' + self.canvas_id + '): ' + ('jupyterhub' if self.is_jupyterhub_assignment else 'canvas') + ' assignment'
@@ -13,6 +15,9 @@ class Assignment:
 
     def table_items(self):
         return [self.name, self.canvas_id]
+
+    def canvas_update(self, canvasdict):
+        self.__dict__.update(canvasdict)
     
         #self.all_submissions=[]
         #self.client = docker.from_env()

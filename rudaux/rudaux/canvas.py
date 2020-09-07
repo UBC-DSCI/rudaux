@@ -20,6 +20,16 @@ class InvalidOverrideError(Exception):
         self.missing_key = missing_key
         self.multiple_students = multiple_students
 
+class OverrideUploadError(Exception):
+    def __init__(self, overrides, override_to_upload):
+        self.overrides = overrides
+        self.override_to_upload = override_to_upload
+
+class OverrideRemoveError(Exception):
+    def __init__(self, overrides, override_id):
+        self.overrides = overrides
+        self.override_id = override_id
+
 class Canvas(object):
     """
     Interface to the Canvas REST API
@@ -193,15 +203,34 @@ class Canvas(object):
         for dk in ['unlock_at', 'due_at', 'lock_at']:
             override_dict[dk] = override_dict[dk].in_timezone(tz).format('YYYY-MM-DDTHH:mm:ss\Z')
 
+        #post the override
         post_json = {'assignment_override' : override_dict}
         self.post('assignments/'+assignment_id+'/overrides', post_json)
+
+        #check that it posted properly
+        overs = self.get_overrides(assignment_id)
+        n_match = len([over for over in overs if over['title'] == override_dict['title']])
+        if n_match != 1:
+            raise OverrideUploadError(overs, override_dict)    
+        
 
     def remove_override(self, assignment_id, override_id):
         self.delete('assignments/'+assignment_id+'/overrides/'+override_id)
 
+        #check that it was removed properly
+        overs = self.get_overrides(assignment_id)
+        n_match = len([over for over in overs if over['id'] == override_id])
+        if n_match != 0:
+            raise OverrideRemoveError(overs, override_id)    
+
     def put_grade(self, assignment_id, student_id, score):
         self.put('assignments/'+assignment_id+'/submissions/'+student_id, {'posted_grade' : score})
         
+        #check that it was posted properly
+        #TODO
+        
+
+# TODO add these in???
 #def get_grades(course, assignment): #???
 #    '''Takes a course object, an assignment name, and get the grades for that assignment from Canvas.
 #    

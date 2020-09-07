@@ -1,7 +1,7 @@
 class Person:
 
     def __init__(self, canvasdict):
-        self.__dict__.update(canvasdict)
+        self.canvas_update(canvasdict)
         self.submissions = []
 
     def __repr__(self):
@@ -13,3 +13,6 @@ class Person:
 
     def table_items(self):
         return [self.name, self.canvas_id]
+
+    def canvas_update(self, canvasdict):
+        self.__dict__.update(canvasdict)

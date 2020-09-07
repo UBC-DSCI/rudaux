@@ -7,13 +7,11 @@ import os, sys
 
 #print begin stamp for now while still debugging (useful for reading logs)
 sys.stderr.write('\n\n\n')
-sys.stderr.write('---------------------------------')
-sys.stderr.write('-----------Rudaux----------------')
-sys.stderr.write('---------------------------------')
-sys.stderr.write('DateTime: ' + str(plm.now().in_timezone('America/Vancouver')) + ' Vancouver Time')
-sys.stderr.write('Command: ' + str(sys.argv))
-sys.stderr.write('\n\n\n')
-
+sys.stderr.write('---------------------------------\n')
+sys.stderr.write('-----------Rudaux----------------\n')
+sys.stderr.write('---------------------------------\n')
+sys.stderr.write('DateTime: ' + str(plm.now().in_timezone('America/Vancouver')) + ' Vancouver Time\n')
+sys.stderr.write('Command: ' + str(sys.argv)+'\n')
 
 parser = ArgumentParser(
   description='Manage a Canvas / Jupyterhub / NbGrader course.'
@@ -27,8 +25,8 @@ subparsers = parser.add_subparsers(
 #          Snapshot 
 #------------------------------------
 
-snap_parser = subparsers.add_parser('submission_snapshot', help='Take a snapshot of submissions past the assignment due date.')
-snap_parser.set_defaults(func=commands.submission_snapshot)
+snap_parser = subparsers.add_parser('snapshot', help='Take a snapshot of submissions past the assignment due date.')
+snap_parser.set_defaults(func=commands.snapshot)
 snap_parser.add_argument(
   '--dir',
   dest='directory',
