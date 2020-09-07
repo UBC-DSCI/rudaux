@@ -209,13 +209,13 @@ class Course(object):
     def jupyterhub_snapshot(self):
         print('Taking snapshots')
         for a in self.assignments:
-            if a.due_at < plm.now() and a.name not in self.snapshots:
+            if a.due_at and a.due_at < plm.now() and a.name not in self.snapshots:
                 print('Assignment ' + a.name + ' is past due and no snapshot exists yet. Taking a snapshot...')
                 self.jupyterhub.snapshot_all(a.name)
                 self.snapshots.append(a.name)
             for over in a.overrides:
                 snapname = a.name + '-override-' + over['id']
-                if over['due_at'] < plm.now() and not (snapname in self.snapshots):
+                if over['due_at'] and over['due_at'] < plm.now() and not (snapname in self.snapshots):
                     print('Assignment ' + a.name + ' has override ' + over['id'] + ' for student ' + over['student_ids'][0] + ' and no snapshot exists yet. Taking a snapshot...')
                     self.jupyterhub.snapshot_user(over['student_ids'][0], snapname)
                     self.snapshots.append(snapname)
@@ -225,15 +225,15 @@ class Course(object):
     def apply_latereg_extensions(self, extdays):
         print('Applying late registration extensions')
         for a in self.assignments:
-            if a['due_at'] and a['unlock_at']: #if the assignment has both a due date and unlock date set
-                print('Checking ' + str(a['name']))
+            if a.due_at and a.unlock_at: #if the assignment has both a due date and unlock date set
+                print('Checking ' + str(a.name))
                 for s in self.students:
                     regdate = s.reg_updated if s.reg_updated else s.reg_created
                     if s.status == 'active' and regdate > a.unlock_at:
                         #if student s active and registered after assignment a was unlocked
                         print('Student ' + s.name + ' registration date (' + str(regdate.in_timezone(self.course_info['time_zone']))+') after unlock date of assignment ' + a.name + ' (' + str(a.unlock_at.in_timezone(self.course_info['time_zone'])) + ')')
                         #the common due date
-                        basic_date = a['due_at']
+                        basic_date = a.due_at
                         #the late registration due date
                         latereg_date = regdate.add(days=extdays)
                         if latereg_date > basic_date:
