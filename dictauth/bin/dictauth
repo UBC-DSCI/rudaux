@@ -57,6 +57,13 @@ add_user_parser.add_argument(
   default='',
   help="The value of the SHA512 digest to check."
 )
+add_user_parser.add_argument(
+  '--copy-creds',
+  dest='copy_creds',
+  action='store',
+  default=None,
+  help="The name of the user whose credentials to copy."
+)
 
 remove_user_parser = subparsers.add_parser('remove_user', help='Remove a user from the dictionary.')
 remove_user_parser.set_defaults(func=remove_user)

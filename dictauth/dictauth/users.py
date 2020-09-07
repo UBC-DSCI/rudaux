@@ -61,31 +61,54 @@ def add_user(args):
     salt = args.salt
     digest = args.digest
     directory = args.directory
-    #validate the salt + digest
-    salt_digest_validator_regex = re.compile(r"^[a-f0-9]{128,}")
-    if (not salt_digest_validator_regex.search(salt)) or (not salt_digest_validator_regex.search(digest)):
-        sys.exit(
-             f"""
-             The salt or digest is not valid.
-             Both the salt and digest must be a 128-character long string with characters from a-f and 0-9.
-             Salt: {salt}
-             Dgst: {digest}
-             """
-           )
+    user_creds_to_copy = args.copy_creds
 
-    epwrds = _load_dict(directory)
+    epwrds = None
+    if user_creds_to_copy is None:
+        #validate the salt + digest
+        salt_digest_validator_regex = re.compile(r"^[a-f0-9]{128,}")
+        if (not salt_digest_validator_regex.search(salt)) or (not salt_digest_validator_regex.search(digest)):
+            sys.exit(
+                 f"""
+                 The salt or digest is not valid.
+                 Both the salt and digest must be a 128-character long string with characters from a-f and 0-9.
+                 Salt: {salt}
+                 Dgst: {digest}
+                 """
+               )
 
-    #if the user already exists (or if DictionaryAuthenticator.encrypted_passwords isn't in the file), error
-    if epwrds.get(username):
-        sys.exit(
-             f"""
-             There is already a user named {username} in the dictionary. Please
-             remove them before creating a new user with this same username.  
-             """
-           )
-    epwrds[username] = {'salt' : salt, 'digest' : digest}
+        epwrds = _load_dict(directory)
+
+        #if the user already exists (or if DictionaryAuthenticator.encrypted_passwords isn't in the file), error
+        if epwrds.get(username):
+            sys.exit(
+                 f"""
+                 There is already a user named {username} in the dictionary. Please
+                 remove them before creating a new user with this same username.  
+                 """
+               )
+        epwrds[username] = {'salt' : salt, 'digest' : digest}
+    else:
+        epwrds = _load_dict(directory)
+        if not epwrds.get(user_creds_to_copy): 
+            sys.exit(
+                f"""
+                User {user_creds_to_copy} does not exist in the list of users.
+                Cannot copy credentials. User {username} not created.
+                """)
+        #if the user already exists (or if DictionaryAuthenticator.encrypted_passwords isn't in the file), error
+        if epwrds.get(username):
+            sys.exit(
+                 f"""
+                 There is already a user named {username} in the dictionary. Please
+                 remove them before creating a new user with this same username.  
+                 """
+               )
+        epwrds[username] = {'salt' : epwrds[user_creds_to_copy]['salt'], 'digest' : epwrds[user_creds_to_copy]['digest']}
 
     _save_dict(epwrds, directory)
+        
+        
 
 def remove_user(args):
     username = args.username
