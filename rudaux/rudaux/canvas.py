@@ -144,9 +144,8 @@ class Canvas(object):
                    'has_overrides' : a['has_overrides'],
                    'overrides' : [],
                    'published' : a['published'],
-                   'is_jupyterhub_assignment' : True if 'external_tool_tag_attributes' in a.keys() and len([hostroot for hostroot in self.jupyterhub_host_roots if hostroot in a['external_tool_tag_attributes']['url']]) > 0 else False,
-                   'jupyterhub_host_root' : [hostroot for hostroot in self.jupyterhub_host_roots if hostroot in a['external_tool_tag_attributes']['url']][0] if 'external_tool_tag_attributes' in a.keys() and len([hostroot for hostroot in self.jupyterhub_host_roots if hostroot in a['external_tool_tag_attributes']['url']]) > 0 else None
-                 } for a in asgns ]
+                   'jupyterhub_host_root' : [hostroot for hostroot in self.jupyterhub_host_roots if hostroot in a['external_tool_tag_attributes']['url']][0] 
+                 } for a in asgns if 'external_tool_tag_attributes' in a.keys() and len([hostroot for hostroot in self.jupyterhub_host_roots if hostroot in a['external_tool_tag_attributes']['url']]) > 0]
         for a in processed_asgns:
             if a['has_overrides']:
                 a['overrides'] = self.get_overrides(a['canvas_id'])
@@ -158,6 +157,7 @@ class Canvas(object):
         subms = self.get('assignments/'+assignment_id+'/submissions')
         return [ {
                        'student_id' : str(subm['user_id']), 
+                       'assignment_id' : assignment_id,
                        'grade' : subm['grade'],
                        'score' : subm['score'],
                        'workflow_state' : subm['workflow_state'],

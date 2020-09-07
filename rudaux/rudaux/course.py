@@ -34,7 +34,7 @@ class Course(object):
     Course object for managing a Canvas/JupyterHub/nbgrader course.
     """
 
-    def __init__(self, course_dir):
+    def __init__(self, course_dir, allow_canvas_cache = False):
         """
         Initialize a course from a config file. 
         :param course_dir: The directory your course. If none, defaults to current working directory. 
@@ -70,179 +70,207 @@ class Course(object):
         #=======================================#
         #make sure the student folder root doesn't end with a slash (for careful zfs snapshot syntax)
         self.config.jupyterhub_user_folder_root.rstrip('/')
-
         
-        #================================================================#
-        #      Create objects to interact with Canvas and JupyterHub     #
-        #================================================================#
+        #===================================================================================================#
+        #      Create Canvas object and try to load state (if failure, load cached if we're allowed to)     #
+        #===================================================================================================#
 
-        print('Creating Canvas interaction object')
+        print('Creating Canvas interface...')
         self.canvas = Canvas(self)
+        self.canvas_cache_filename = os.path.join(self.course_dir, self.config.name + '_canvas_cache.pk')
+        self.synchronize_canvas(allow_canvas_cache)
+        
+        #=======================================================#
+        #      Load the jupyterhub state & populate info        #
+        #=======================================================#
 
-        print('Creating JupyterHub interaction object')
+        print('Creating JupyterHub interface...')
         self.jupyterhub = JupyterHub(self)
+        self.jupyterhub_cache_filename = os.path.join(self.course_dir, self.config.name + '_jupyterhub_cache.pk')
+        self.load_jupyterhub_state()
+        
+        print('Done.')
+        
+    #def save_state(self, no_clobber = False, state_filename = None):
+    #    if state_filename is None:
+    #        state_filename = os.path.join(self.course_dir, self.config.name + '_state.pk')
 
-        #=======================================================#
-        #      Create the course state  & populate info         #
-        #=======================================================#
+    #    print('Saving state to file ' + state_filename)
 
-        state_filename = os.path.join(self.course_dir, self.config.name + '_state.pk')
-        print('Checking for saved course state file at ' + state_filename)
+    #    if no_clobber and os.path.exists(state_filename):
+    #        print('State file exists and no_clobber requested; returning without saving to disk')
+    #        return
+    #        
+    #    with open(state_filename, 'wb') as f:
+    #        pk.dump({   'course_info' : self.course_info,
+    #                    'students' : self.students,
+    #                    'fake_students' : self.fake_students,
+    #                    'instructors' : self.instructors,
+    #                    'tas' : self.tas,
+    #                    'assignments' : self.assignments,
+    #                    'submissions' : self.submissions
+    #                    }, f)
+    #    print('Done.')
+    #    return
 
-        if os.path.exists(state_filename):
-            print('Saved state exists. Loading')
-            saved_course = None
-            with open(state_filename, 'rb') as f:
-                saved_course = pk.load(f)
+    #def synchronize(self):
+    #    self.synchronize_canvas()
+    #    self.synchronize_jupyterhub()
 
-            self.course_info = saved_course['course_info']
-            self.students = saved_course['students']
-            self.fake_students = saved_course['fake_students']
-            self.instructors = saved_course['instructors']
-            self.tas = saved_course['tas']
-            self.assignments = saved_course['assignments']
-            self.submissions = saved_course['submissions']
+    #def _update_canvas_items(self, newitems, items, item_cls):
+    #    for newitem in newitems:
+    #        matches = [item for item in items if newitem['canvas_id'] == item.canvas_id]
+    #        if len(matches) > 1:
+    #            raise DuplicateError(newitem, matches)
+    #        elif len(matches) == 1:
+    #            matches[0].canvas_update(newitem)
+    #        else:
+    #            items.append(item_cls(newitem))
+
+    def synchronize_canvas(self, allow_cache = False):
+        try:
+            print('Synchronizing with Canvas...')
+
+            print('Obtaining course information...')
+            self.course_info = self.canvas.get_course_info()
+            print('Done.')
+            
+            print('Obtaining/processing student enrollment information from Canvas...')
+            student_dicts = self.canvas.get_students()
+            self.students = [Person(sd) for sd in student_dicts]
+            print('Done.')
+
+            print('Obtaining/processing TA enrollment information from Canvas...')
+            ta_dicts = self.canvas.get_tas()
+            self.tas = [Person(ta) for ta in ta_dicts]
+            print('Done.')
+
+            print('Obtaining/processing instructor enrollment information from Canvas...')
+            instructor_dicts = self.canvas.get_instructors()
+            self.instructors = [Person(inst) for inst in instructor_dicts]
+            print('Done.')
+
+            print('Obtaining/processing student view / fake student enrollment information from Canvas...')
+            fake_student_dicts = self.canvas.get_fake_students()
+            self.fake_students = [Person(fsd) for fsd in fake_student_dicts]
+            print('Done.')
+
+            print('Obtaining/processing assignment information from Canvas...')
+            assignment_dicts = self.canvas.get_assignments()
+            self.assignments = [Assignment(ad) for ad in assignment_dicts]
+            print('Done.')
+        except Exception as e:
+            print('Exception encountered during synchronization')
+            print(e)
+            if allow_canvas_cache:
+                print('Attempting to fall back to cache...')
+                if os.path.exists(self.canvas_cache_filename):
+                    print('Loading cached canvas state from ' + self.canvas_cache_filename)
+                    canvas_cache = None
+                    with open(self.canvas_cache_filename, 'rb') as f:
+                        canvas_cache = pk.load(f)
+                    self.course_info = canvas_cache['course_info']
+                    self.students = canvas_cache['students']
+                    self.fake_students = canvas_cache['fake_students']
+                    self.instructors = canvas_cache['instructors']
+                    self.tas = canvas_cache['tas']
+                    self.assignments = canvas_cache['assignments']
         else:
-            print('No saved state exists. Collecting information from Canvas/JupyterHub...')
-            
-            self.students = []
-            self.fake_students = []
-            self.instructors = []
-            self.tas = []
-            self.assignments = []
-            self.submissions = [] 
-
-            self.synchronize()
-        print('Done.')
-        
-    def save_state(self, no_clobber = False, state_filename = None):
-        if state_filename is None:
-            state_filename = os.path.join(self.course_dir, self.config.name + '_state.pk')
-
-        print('Saving state to file ' + state_filename)
-
-        if no_clobber and os.path.exists(state_filename):
-            print('State file exists and no_clobber requested; returning without saving to disk')
-            return
-            
-        with open(state_filename, 'wb') as f:
-            pk.dump({   'course_info' : self.course_info,
-                        'students' : self.students,
-                        'fake_students' : self.fake_students,
-                        'instructors' : self.instructors,
-                        'tas' : self.tas,
-                        'assignments' : self.assignments,
-                        'submissions' : self.submissions
-                        }, f)
-        print('Done.')
-        return
-
-    def synchronize(self):
-        self.synchronize_canvas()
-        self.synchronize_jupyterhub()
-
-    def _update_canvas_items(self, newitems, items, item_cls):
-        for newitem in newitems:
-            matches = [item for item in items if newitem['canvas_id'] == item.canvas_id]
-            if len(matches) > 1:
-                raise DuplicateError(newitem, matches)
-            elif len(matches) == 1:
-                matches[0].canvas_update(newitem)
-            else:
-                items.append(item_cls(newitem))
-
-    def synchronize_canvas(self):
-        print('Obtaining course information...')
-        self.course_info = self.canvas.get_course_info()
-        print('Done.')
-        
-        print('Obtaining/processing student enrollment information from Canvas...')
-        student_dicts = self.canvas.get_students()
-        self._update_canvas_items(student_dicts, self.students, Person)
-        print('Done.')
-
-        print('Obtaining/processing TA enrollment information from Canvas...')
-        ta_dicts = self.canvas.get_tas()
-        self._update_canvas_items(ta_dicts, self.tas, Person)
-        print('Done.')
-
-        print('Obtaining/processing instructor enrollment information from Canvas...')
-        instructor_dicts = self.canvas.get_instructors()
-        self._update_canvas_items(instructor_dicts, self.instructors, Person)
-        print('Done.')
-
-        print('Obtaining/processing student view / fake student enrollment information from Canvas...')
-        fake_student_dicts = self.canvas.get_fake_students()
-        self._update_canvas_items(fak_student_dicts, self.fake_students, Person)
-        print('Done.')
-
-        print('Obtaining/processing assignment information from Canvas...')
-        assignment_dicts = self.canvas.get_assignments()
-        self._update_canvas_items(assignment_dicts, self.assignments, Assignment)
-        print('Done.')
+            print('Saving canvas cache file...')
+            with open(self.canvas_cache_filename, 'wb') as f:
+                pk.dump({'course_info' : self.course_info,
+                         'students' : self.students,
+                         'fake_students' : self.fake_students,
+                         'instructors' : self.instructors,
+                         'tas' : self.tas,
+                         'assignments' : self.assignments,
+                         }, f)
         return
     
-    def synchronize_jupyterhub(self):
+    def load_jupyterhub_state(self):
+        print('Loading the JupyterHub state...')
+        
+        if os.path.exists(self.jupyterhub_cache_filename):
+            with open(self.jupyterhub_cache_filename, 'rb') as f:
+                self.submissions, self.snapshots = pk.load(f)
+        else: 
+            print('No cache file found.')
+            self.submissions = {}
+            self.snapshots = []
+
+        return
+    
+    def save_jupyterhub_state(self):
+        print('Saving the JupyterHub state...')
+        with open(self.jupyterhub_cache_filename, 'wb') as f:
+            pk.dump((self.submissions, self.snapshots), f)
         return
 
-    def apply_latereg_extensions(self):
+    def jupyterhub_snapshot(self):
+        print('Taking snapshots')
+        for a in self.assignments:
+            if a.due_at < plm.now() and a.name not in self.snapshots:
+                print('Assignment ' + a.name + ' is past due and no snapshot exists yet. Taking a snapshot...')
+                self.jupyterhub.snapshot_all(a.name)
+                self.snapshots.append(a.name)
+            for over in a.overrides:
+                snapname = a.name + '-override-' + over['id']
+                if over['due_at'] < plm.now() and not (snapname in self.snapshots):
+                    print('Assignment ' + a.name + ' has override ' + over['id'] + ' for student ' + over['student_ids'][0] + ' and no snapshot exists yet. Taking a snapshot...')
+                    self.jupyterhub.snapshot_user(over['student_ids'][0], snapname)
+                    self.snapshots.append(snapname)
+        self.save_jupyterhub_state()
+        print('Done.')
+
+    def apply_latereg_extensions(self, extdays):
         print('Applying late registration extensions')
         for a in self.assignments:
-            if a['due_at']: #if the assignment has a due date set
+            if a['due_at'] and a['unlock_at']: #if the assignment has both a due date and unlock date set
+                print('Checking ' + str(a['name']))
                 for s in self.students:
                     regdate = s.reg_updated if s.reg_updated else s.reg_created
                     if s.status == 'active' and regdate > a.unlock_at:
                         #if student s active and registered after assignment a was unlocked
                         print('Student ' + s.name + ' registration date (' + str(regdate.in_timezone(self.course_info['time_zone']))+') after unlock date of assignment ' + a.name + ' (' + str(a.unlock_at.in_timezone(self.course_info['time_zone'])) + ')')
-                        #check if this student already has an override for this assignment (instructor may have added one manually)
-                        #if yes and it's earlier than latereg extension, remove the override and check removal
-                        #if yes and it's later, keep the later one (in favour of student)
-                        a_s_overrides = [(idx, over) for idx, over in enumerate(a.overrides) if s.canvas_id in over['student_ids'] and over['due_at']]
-                        #make sure this student doesn't appear in multiple overrides for this assignment
-                        if len(a_s_overrides) > 1:
-                            raise MultipleOverrideError(a_s_overrides, s.name, a.name)
-                        if len(a_s_overrides) == 1:
-                            print('Student has previous override for this assignment')
-                            #student already has an override
-                            idx  = a_s_overrides[0][0]
-                            over = a_s_overrides[0][1]
-                            #make sure this override isn't a group override
-                            if len(over['student_ids']) > 1:
-                                raise GroupOverrideError(over, over['student_ids'], a.name) 
-                            #get the due date
-                            prev_override_due_at = over['due_at']
-                            prev_override_id = over['id']
-                            #if it is after the late reg extension, do nothing; otherwise, delete it before creating a new one
-                            if prev_override_due_at >= regdate.add(days=7):
-                                print('Previous override (' + str(prev_override_due_at.in_timezone(self.course_info['time_zone'])) + ') is after late reg date. Skipping...')
-                                continue
-                            else:
-                                print('Previous override (' + str(prev_override_due_at.in_timezone(self.course_info['time_zone'])) + ') is before late reg date. Removing...')
-                                self.canvas.remove_override(a.canvas_id, prev_override_id)
-                                #TODO remove override in the canvas course state
-                        print('Creating late registration override (' + str(regdate.add(days=7).in_timezone(self.course_info['time_zone'])) + ')')
+                        #the common due date
+                        basic_date = a['due_at']
+                        #the late registration due date
+                        latereg_date = regdate.add(days=extdays)
+                        if latereg_date > basic_date:
+                            print('This will cause an automatic late registration extension to ' + str(latereg_date.in_timezone(self.course_info['time_zone'])) + ' unless there are existing overrides. Checking...')
+                            #get the date from a possibly existing override
+                            a_s_overrides = [(idx, over) for idx, over in enumerate(a.overrides) if s.canvas_id in over['student_ids'] and over['due_at']]
+                            if len(a_s_overrides) > 1:
+                                raise MultipleOverrideError(a_s_overrides, s.name, a.name)
+                            if len(a_s_overrides) == 1:
+                                #student already has an override
+                                idx  = a_s_overrides[0][0]
+                                over = a_s_overrides[0][1]
+                                #make sure this override isn't a group override
+                                if len(over['student_ids']) > 1:
+                                    raise GroupOverrideError(over, over['student_ids'], a.name) 
+                                #get the due date
+                                override_date = over['due_at']
+                                override_id = over['id']
+                                print('Student has previous override extension for this assignment to ' + str(override_date.in_timezone(self.course_info['time_zone'])))
+                                #if it is after the late reg extension, do nothing; otherwise, delete it before creating a new one
+                                if override_date >= latereg_date:
+                                    print('Previous override is after late reg date. Skipping...')
+                                    continue
+                                else:
+                                    print('Previous override is before late reg date. Removing...')
+                                    self.canvas.remove_override(a.canvas_id, override_id)
+                        print('Creating late registration override')
                         self.canvas.create_override(a.canvas_id, {'student_ids' : [s.canvas_id],
-                                                                  'due_at' : regdate.add(days=7),
+                                                                  'due_at' : latereg_date,
                                                                   'lock_at' : a.lock_at,
                                                                   'unlock_at' : a.unlock_at,
-                                                                  'title' : s.name+'-'+a.name+'-late-registration'}
+                                                                  'title' : s.name+'-'+a.name+'-latereg'}
                                                    )
         print('Done.')
         return 
 
-    def jupyterhub_snapshot(self):
-        print('Taking snapshots')
-        for a in self.assignments:
-            if a.due_at < plm.now() and not a.snapshot_taken:
-                print('Assignment ' + a.name + ' is past due (due at ' + str(a.due_at.in_timezone(self.course_info['time_zone'])) + ', time now ' +  str(plm.now().in_timezone(self.course_info['time_zone'])) ') and no snapshot exists yet. Taking a snapshot...')
-                self.jupyterhub.snapshot_all(a.name)
-                a.snapshot_taken = True
-            for over in a.overrides:
-                if over['due_at'] < plm.now() and not (over['id'] in a.override_snapshots_taken):
-                    print('Assignment ' + a.name + ' has an override for student ' + over['student_ids'][0] + ' (due at ' + str(over['due_at'].in_timezone(self.course_info['time_zone'])) + ', time now ' +  str(plm.now().in_timezone(self.course_info['time_zone'])) ') and no snapshot exists yet. Taking a snapshot...')
-                    self.jupyterhub.snapshot_user(over['student_ids'][0], a.name + '-' + plm.now().format('YYYY-mm-dd-HH-mm-ss'))
-                    a.override_snapshots_taken.append(over['id'])
-        print('Done.')
+    
 
     def get_jupyterhub_state(self):
         pass

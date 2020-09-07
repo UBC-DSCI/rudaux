@@ -1,7 +1,7 @@
 class Person:
 
-    def __init__(self, canvasdict):
-        self.canvas_update(canvasdict)
+    def __init__(self, canvas_dict):
+        self.__dict__.update(canvas_dict)
         self.submissions = []
 
     def __repr__(self):

@@ -1,8 +1,7 @@
 class Assignment:
 
-    def __init__(self, canvasdict):
-        self.canvas_update(canvasdict)
-        self.submissions = []
+    def __init__(self, canvas_dict):
+        self.__dict__.update(canvas_dict)
         self.snapshot_taken = False
         self.override_snapshots_taken = []
 
