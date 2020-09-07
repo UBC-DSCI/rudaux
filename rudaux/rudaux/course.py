@@ -113,6 +113,7 @@ class Course(object):
             self.submissions = [] 
 
             self.synchronize()
+        print('Done.')
         
     def save_state(self, no_clobber = False, state_filename = None):
         if state_filename is None:
@@ -133,6 +134,7 @@ class Course(object):
                         'assignments' : self.assignments,
                         'submissions' : self.submissions
                         }, f)
+        print('Done.')
         return
 
     def synchronize(self):
@@ -152,27 +154,32 @@ class Course(object):
     def synchronize_canvas(self):
         print('Obtaining course information...')
         self.course_info = self.canvas.get_course_info()
+        print('Done.')
         
         print('Obtaining/processing student enrollment information from Canvas...')
         student_dicts = self.canvas.get_students()
         self._update_canvas_items(student_dicts, self.students, Person)
+        print('Done.')
 
         print('Obtaining/processing TA enrollment information from Canvas...')
         ta_dicts = self.canvas.get_tas()
         self._update_canvas_items(ta_dicts, self.tas, Person)
+        print('Done.')
 
         print('Obtaining/processing instructor enrollment information from Canvas...')
         instructor_dicts = self.canvas.get_instructors()
         self._update_canvas_items(instructor_dicts, self.instructors, Person)
+        print('Done.')
 
         print('Obtaining/processing student view / fake student enrollment information from Canvas...')
         fake_student_dicts = self.canvas.get_fake_students()
         self._update_canvas_items(fak_student_dicts, self.fake_students, Person)
+        print('Done.')
 
         print('Obtaining/processing assignment information from Canvas...')
         assignment_dicts = self.canvas.get_assignments()
         self._update_canvas_items(assignment_dicts, self.assignments, Assignment)
-
+        print('Done.')
         return
     
     def synchronize_jupyterhub(self):
@@ -220,6 +227,7 @@ class Course(object):
                                                                   'unlock_at' : a.unlock_at,
                                                                   'title' : s.name+'-'+a.name+'-late-registration'}
                                                    )
+        print('Done.')
         return 
 
     def jupyterhub_snapshot(self):
@@ -234,6 +242,7 @@ class Course(object):
                     print('Assignment ' + a.name + ' has an override for student ' + over['student_ids'][0] + ' (due at ' + str(over['due_at'].in_timezone(self.course_info['time_zone'])) + ', time now ' +  str(plm.now().in_timezone(self.course_info['time_zone'])) ') and no snapshot exists yet. Taking a snapshot...')
                     self.jupyterhub.snapshot_user(over['student_ids'][0], a.name + '-' + plm.now().format('YYYY-mm-dd-HH-mm-ss'))
                     a.override_snapshots_taken.append(over['id'])
+        print('Done.')
 
     def get_jupyterhub_state(self):
         pass
