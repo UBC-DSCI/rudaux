@@ -6,7 +6,7 @@ import pendulum as plm
 import os, sys
 
 #print begin stamp for now while still debugging (useful for reading logs)
-sys.stderr.write('\n\n\n')
+sys.stderr.write('\n')
 sys.stderr.write('---------------------------------\n')
 sys.stderr.write('-----------Rudaux----------------\n')
 sys.stderr.write('---------------------------------\n')
