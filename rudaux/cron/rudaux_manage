@@ -1,0 +1,6 @@
+# run the snapshot code on the student hub every 30 minutes
+0 * * * * root cd /home/stty2u; rudaux snapshot 2>&1 >> /extra/rudaux.log
+30 * * * * root cd /home/stty2u; rudaux snapshot 2>&1 >> /extra/rudaux.log
+
+# update the registration list every day
+40 23 * * * root cd /home/stty2u; rudaux extend_lateregs 2>&1 >> /extra/rudaux.log
