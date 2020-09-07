@@ -1,2 +1,3 @@
 # Create a new docker events log daily in /extra
-1 0 * * * root timeout 24h docker events > "/extra/docker-events/events_$(date +"\%Y_\%m_\%d").log"
+# make this roll over at the middle of the night pst/pdt
+1 10 * * * root timeout 24h docker events > "/extra/docker-events/events_$(date +"\%Y_\%m_\%d").log"
