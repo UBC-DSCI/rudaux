@@ -204,6 +204,7 @@ class Course(object):
         print('Saving the JupyterHub state...')
         with open(self.jupyterhub_cache_filename, 'wb') as f:
             pk.dump((self.submissions, self.snapshots), f)
+        print('Done.')
         return
 
     def jupyterhub_snapshot(self):
@@ -219,8 +220,8 @@ class Course(object):
                     print('Assignment ' + a.name + ' has override ' + over['id'] + ' for student ' + over['student_ids'][0] + ' and no snapshot exists yet. Taking a snapshot...')
                     self.jupyterhub.snapshot_user(over['student_ids'][0], snapname)
                     self.snapshots.append(snapname)
-        self.save_jupyterhub_state()
         print('Done.')
+        self.save_jupyterhub_state()
 
     def apply_latereg_extensions(self, extdays):
         print('Applying late registration extensions')
