@@ -13,9 +13,9 @@ class Assignment:
         return ['Name', 'Canvas ID', 'Due', 'Unlock', 'Lock']
 
     def table_items(self):
-        return [self.name, self.canvas_id, self.due_at.in_timezone('America/Vancouver').format('YYYY-MM-DD HH:mm:ss') if self.due_at else 'N/A',
-                                           self.unlock_at.in_timezone('America/Vancouver').format('YYYY-MM-DD HH:mm:ss') if self.unlock_at else 'N/A', 
-                                           self.lock_at.in_timezone('America/Vancouver').format('YYYY-MM-DD HH:mm:ss') if self.lock_at else 'N/A']
+        return [self.name, self.canvas_id, self.due_at.in_timezone('America/Vancouver').format('ddd YYYY-MM-DD HH:mm:ss') if self.due_at else 'N/A',
+                                           self.unlock_at.in_timezone('America/Vancouver').format('ddd YYYY-MM-DD HH:mm:ss') if self.unlock_at else 'N/A', 
+                                           self.lock_at.in_timezone('America/Vancouver').format('ddd YYYY-MM-DD HH:mm:ss') if self.lock_at else 'N/A']
 
         #self.all_submissions=[]
         #self.client = docker.from_env()

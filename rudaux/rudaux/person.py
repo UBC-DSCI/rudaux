@@ -12,4 +12,4 @@ class Person:
         return ['Name', 'Canvas ID', 'RegCreated', 'RegUpdated']
 
     def table_items(self):
-        return [self.name, self.canvas_id, self.reg_created.in_timezone('America/Vancouver').format('YYYY-MM-DD HH:mm:ss'), self.reg_updated.in_timezone('America/Vancouver').format('YYYY-MM-DD HH:mm:ss')]
+        return [self.name, self.canvas_id, self.reg_created.in_timezone('America/Vancouver').format('ddd YYYY-MM-DD HH:mm:ss'), self.reg_updated.in_timezone('America/Vancouver').format('ddd YYYY-MM-DD HH:mm:ss')]
