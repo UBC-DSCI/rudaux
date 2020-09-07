@@ -38,7 +38,7 @@ class Canvas(object):
     def __init__(self, course):
         self.base_url = urllib.parse.urljoin(course.config.canvas_domain, 'api/v1/courses/'+course.config.canvas_id+'/')
         self.token = course.config.canvas_token
-        self.jupyterhub_host_roots = course.config.jupyterhub_host_roots
+        self.jupyterhub_host_root = course.config.jupyterhub_host_root
 
     #cache subsequent calls to avoid slow repeated access to canvas api
     @lru_cache(maxsize=None)
@@ -144,9 +144,8 @@ class Canvas(object):
                    'workflow_state' : a['workflow_state'],
                    'has_overrides' : a['has_overrides'],
                    'overrides' : [],
-                   'published' : a['published'],
-                   'jupyterhub_host_root' : [hostroot for hostroot in self.jupyterhub_host_roots if hostroot in a['external_tool_tag_attributes']['url']][0] 
-                 } for a in asgns if 'external_tool_tag_attributes' in a.keys() and len([hostroot for hostroot in self.jupyterhub_host_roots if hostroot in a['external_tool_tag_attributes']['url']]) > 0]
+                   'published' : a['published']
+                 } for a in asgns if 'external_tool_tag_attributes' in a.keys() and self.jupyterhub_host_root in a['external_tool_tag_attributes']['url'] ]
         for a in processed_asgns:
             if a['has_overrides']:
                 a['overrides'] = self.get_overrides(a['canvas_id'])
