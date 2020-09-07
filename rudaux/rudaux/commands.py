@@ -21,9 +21,9 @@ def print_list(args):
     printouts = {'students' : 'Students', 'assignments' : 'Assignments', 'instructors' : 'Instructors', 'tas' : 'Teaching Assistants'}
     none_selected = not any([vars(args)[po] for po in printouts])
     for po in printouts:
-        if vars(args).get(po) or none_selected:
+        if vars(args)[po] or none_selected:
             title = printouts[po]
-            tbl = [type(course.__dict__[po]).table_headings()]
+            tbl = [type(course.__dict__[po][0]).table_headings()]
             for obj in course.__dict__[po]:
                 tbl.append(obj.table_items())
             print(ttbl.AsciiTable(tbl, title).table)
