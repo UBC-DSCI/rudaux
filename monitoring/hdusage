@@ -1,0 +1,3 @@
+# Record hard drive usage every 10 minutes
+*/10 * * * * root df -h | ts '[\%H:\%M:\%S]' >> "/extra/hdusage/usage_$(date +"\%Y_\%m_\%d").log"
+
