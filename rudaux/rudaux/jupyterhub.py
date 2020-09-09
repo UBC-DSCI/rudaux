@@ -19,7 +19,7 @@ class JupyterHub(object):
         self.dry_run = course.dry_run
 
     def snapshot_all(self, snap_name):
-        cmd_list = ['zfs', 'snapshot', '-r', self.student_folder_root + '@'+snap_name]
+        cmd_list = ['zfs', 'snapshot', '-r', self.jupyterhub_user_folder_root + '@'+snap_name]
         if not self.dry_run:
             check_call(cmd_list)
         else:
