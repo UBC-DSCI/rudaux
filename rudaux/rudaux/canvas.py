@@ -183,7 +183,7 @@ class Canvas(object):
             over['student_ids'] = list(map(str, over['student_ids']))
             for key in ['due_at', 'lock_at', 'unlock_at']:
                 if over.get(key) is not None:
-                    over[key] = plm.parse(over[key], tz=tz),
+                    over[key] = plm.parse(over[key], tz=tz)
                 else:
                     over[key] = None
         return overs
