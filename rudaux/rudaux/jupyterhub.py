@@ -1,7 +1,7 @@
 #import git
 from dictauth.users import _load_dict, add_user, remove_user
 from collections import namedtuple
-from subprocess import check_call, check_output, STDOUT
+from subprocess import check_call, check_output, STDOUT, CalledProcessError
 import os
 
 class SnapshotExistsError(Exception):
@@ -22,14 +22,24 @@ class JupyterHub(object):
     def snapshot_all(self, snap_name):
         cmd_list = ['zfs', 'snapshot', '-r', self.jupyterhub_user_folder_root + '@'+snap_name]
         if not self.dry_run:
-            check_call(cmd_list)
+            try:
+                check_output(cmd_list)
+            except CalledProcessError as e:
+                print('Error taking snapshot')
+                print(e)
+                print(e.output)
         else:
             print('[Dry run: would have called: ' + ' '.join(cmd_list) + ']')
 
     def snapshot_user(self, user, snap_name):
         cmd_list = ['zfs', 'snapshot', os.path.join(self.jupyterhub_user_folder_root, user).rstrip('/') + '@'+snap_name]
         if not self.dry_run:
-            check_call(cmd_list)
+            try:
+                check_output(cmd_list)
+            except CalledProcessError as e:
+                print('Error taking snapshot')
+                print(e)
+                print(e.output) 
         else:
             print('[Dry run: would have called: ' + ' '.join(cmd_list) + ']')
 
