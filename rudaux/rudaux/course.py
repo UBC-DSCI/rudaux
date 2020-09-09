@@ -222,7 +222,7 @@ class Course(object):
                 except CalledProcessError as e:
                     print('Error creating snapshot ' + a.name)
                     print('Return code ' + str(e.returncode))
-                    print(e.output)
+                    print(e.output.decode('utf-8'))
                     print('Not updating the taken snapshots list')
                 else:
                     if not self.dry_run:
@@ -233,18 +233,23 @@ class Course(object):
                 snapname = a.name + '-override-' + over['id']
                 if over['due_at'] and over['due_at'] < plm.now() and not (snapname in self.snapshots):
                     print('Assignment ' + a.name + ' has override ' + over['id'] + ' for student ' + over['student_ids'][0] + ' and no snapshot exists yet. Taking a snapshot [' + snapname + ']')
+                    add_to_taken_list = True
                     try:
                         self.jupyterhub.snapshot_user(over['student_ids'][0], snapname)
                     except CalledProcessError as e:
                         print('Error creating snapshot ' + snapname)
                         print('Return code ' + str(e.returncode))
-                        print(e.output)
-                        print('Not updating the taken snapshots list')
-                    else:
-                        if not self.dry_run:
-                            self.snapshots.append(snapname)
+                        print(e.output.decode('utf-8'))
+                        if 'dataset does not exist' not in e.output.decode('utf-8'):
+                            print('Unknown error; not updating the taken snapshots list')
+                            add_to_taken_list = False
                         else:
-                            print('[Dry Run: snapshot name not added to taken list; would have added ' + snapname + ']')
+                            print('Student hasnt created their folder; this counts as a missing submission. Updating taken snapshots list.')
+
+                    if not self.dry_run and add_to_taken_list:
+                        self.snapshots.append(snapname)
+                    elif self.dry_run:
+                        print('[Dry Run: snapshot name not added to taken list; would have added ' + snapname + ']')
         print('Done.')
         self.save_jupyterhub_state()
 
