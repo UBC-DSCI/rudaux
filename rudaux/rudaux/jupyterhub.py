@@ -2,6 +2,7 @@
 from dictauth.users import _load_dict, add_user, remove_user
 from collections import namedtuple
 from subprocess import check_call, check_output, STDOUT
+import os
 
 class SnapshotExistsError(Exception):
     def __init__(self, path):
