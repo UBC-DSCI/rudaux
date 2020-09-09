@@ -217,7 +217,7 @@ class Course(object):
             if a.due_at and a.due_at < plm.now() and a.name not in self.snapshots:
                 print('Assignment ' + a.name + ' is past due and no snapshot exists yet. Taking a snapshot [' + a.name + ']')
                 self.jupyterhub.snapshot_all(a.name)
-                if not dry_run:
+                if not self.dry_run:
                     self.snapshots.append(a.name)
                 else:
                     print('[Dry Run: snapshot name not added to taken list; would have added ' + a.name + ']')
@@ -226,7 +226,7 @@ class Course(object):
                 if over['due_at'] and over['due_at'] < plm.now() and not (snapname in self.snapshots):
                     print('Assignment ' + a.name + ' has override ' + over['id'] + ' for student ' + over['student_ids'][0] + ' and no snapshot exists yet. Taking a snapshot [' + snapname + ']')
                     self.jupyterhub.snapshot_user(over['student_ids'][0], snapname)
-                    if not dry_run:
+                    if not self.dry_run:
                         self.snapshots.append(snapname)
                     else:
                         print('[Dry Run: snapshot name not added to taken list; would have added ' + snapname + ']')
