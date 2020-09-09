@@ -211,12 +211,12 @@ class Course(object):
             print('[Dry Run: state not saved]')
         return
 
-    def jupyterhub_snapshot(self, dry_run = False):
+    def jupyterhub_snapshot(self):
         print('Taking snapshots')
         for a in self.assignments:
             if a.due_at and a.due_at < plm.now() and a.name not in self.snapshots:
                 print('Assignment ' + a.name + ' is past due and no snapshot exists yet. Taking a snapshot [' + a.name + ']')
-                self.jupyterhub.snapshot_all(a.name, dry_run)
+                self.jupyterhub.snapshot_all(a.name)
                 if not dry_run:
                     self.snapshots.append(a.name)
                 else:
@@ -225,7 +225,7 @@ class Course(object):
                 snapname = a.name + '-override-' + over['id']
                 if over['due_at'] and over['due_at'] < plm.now() and not (snapname in self.snapshots):
                     print('Assignment ' + a.name + ' has override ' + over['id'] + ' for student ' + over['student_ids'][0] + ' and no snapshot exists yet. Taking a snapshot [' + snapname + ']')
-                    self.jupyterhub.snapshot_user(over['student_ids'][0], snapname, dry_run)
+                    self.jupyterhub.snapshot_user(over['student_ids'][0], snapname)
                     if not dry_run:
                         self.snapshots.append(snapname)
                     else:
