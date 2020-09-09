@@ -22,24 +22,14 @@ class JupyterHub(object):
     def snapshot_all(self, snap_name):
         cmd_list = ['zfs', 'snapshot', '-r', self.jupyterhub_user_folder_root + '@'+snap_name]
         if not self.dry_run:
-            try:
-                check_output(cmd_list)
-            except CalledProcessError as e:
-                print('Error taking snapshot')
-                print(e)
-                print(e.output)
+            check_output(cmd_list)
         else:
             print('[Dry run: would have called: ' + ' '.join(cmd_list) + ']')
 
     def snapshot_user(self, user, snap_name):
         cmd_list = ['zfs', 'snapshot', os.path.join(self.jupyterhub_user_folder_root, user).rstrip('/') + '@'+snap_name]
         if not self.dry_run:
-            try:
-                check_output(cmd_list)
-            except CalledProcessError as e:
-                print('Error taking snapshot')
-                print(e)
-                print(e.output) 
+            check_output(cmd_list)
         else:
             print('[Dry run: would have called: ' + ' '.join(cmd_list) + ']')
 
