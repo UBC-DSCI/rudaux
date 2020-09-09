@@ -152,7 +152,6 @@ class Canvas(object):
         for a in processed_asgns:
             if a['has_overrides']:
                 a['overrides'] = self.get_overrides(a['canvas_id'])
-                print(a['overrides'])
 
         return processed_asgns
 
