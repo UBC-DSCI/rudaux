@@ -22,19 +22,19 @@ class JupyterHub(object):
     def snapshot_all(self, snap_name):
         cmd_list = ['zfs', 'snapshot', '-r', self.jupyterhub_user_folder_root.strip('/') + '@'+snap_name]
         if not self.dry_run:
-            check_output(cmd_list)
+            check_output(cmd_list, stderr=STDOUT)
         else:
             print('[Dry run: would have called: ' + ' '.join(cmd_list) + ']')
 
     def snapshot_user(self, user, snap_name):
         cmd_list = ['zfs', 'snapshot', os.path.join(self.jupyterhub_user_folder_root, user).strip('/') + '@'+snap_name]
         if not self.dry_run:
-            check_output(cmd_list)
+            check_output(cmd_list, stderr=STDOUT)
         else:
             print('[Dry run: would have called: ' + ' '.join(cmd_list) + ']')
 
     def list_snapshots(self):
-        out = check_output(['zfs', 'list', '-t', 'snapshot'], stderr = STDOUT)
+        print(check_output(['zfs', 'list', '-t', 'snapshot'], stderr = STDOUT))
 
     def create_grader_folder(self, grader_name):
         #make sure there isn't already a folder in /tank/home with this name; never overwrite a grader account

@@ -10,6 +10,7 @@ from .canvas import Canvas
 from .jupyterhub import JupyterHub
 from .person import Person
 from .assignment import Assignment
+from subprocess import CalledProcessError
 
 class MultipleOverrideError(Exception):
     def __init__(self, overrides, sname, aname):
@@ -216,20 +217,34 @@ class Course(object):
         for a in self.assignments:
             if a.due_at and a.due_at < plm.now() and a.name not in self.snapshots:
                 print('Assignment ' + a.name + ' is past due and no snapshot exists yet. Taking a snapshot [' + a.name + ']')
-                self.jupyterhub.snapshot_all(a.name)
-                if not self.dry_run:
-                    self.snapshots.append(a.name)
+                try:
+                    self.jupyterhub.snapshot_all(a.name)
+                except CalledProcessError as e:
+                    print('Error creating snapshot ' + a.name)
+                    print('Return code ' + str(e.returncode))
+                    print(e.output)
+                    print('Not updating the taken snapshots list')
                 else:
-                    print('[Dry Run: snapshot name not added to taken list; would have added ' + a.name + ']')
+                    if not self.dry_run:
+                        self.snapshots.append(a.name)
+                    else:
+                        print('[Dry Run: snapshot name not added to taken list; would have added ' + a.name + ']')
             for over in a.overrides:
                 snapname = a.name + '-override-' + over['id']
                 if over['due_at'] and over['due_at'] < plm.now() and not (snapname in self.snapshots):
                     print('Assignment ' + a.name + ' has override ' + over['id'] + ' for student ' + over['student_ids'][0] + ' and no snapshot exists yet. Taking a snapshot [' + snapname + ']')
-                    self.jupyterhub.snapshot_user(over['student_ids'][0], snapname)
-                    if not self.dry_run:
-                        self.snapshots.append(snapname)
+                    try:
+                        self.jupyterhub.snapshot_user(over['student_ids'][0], snapname)
+                    except CalledProcessError as e:
+                        print('Error creating snapshot ' + snapname)
+                        print('Return code ' + str(e.returncode))
+                        print(e.output)
+                        print('Not updating the taken snapshots list')
                     else:
-                        print('[Dry Run: snapshot name not added to taken list; would have added ' + snapname + ']')
+                        if not self.dry_run:
+                            self.snapshots.append(snapname)
+                        else:
+                            print('[Dry Run: snapshot name not added to taken list; would have added ' + snapname + ']')
         print('Done.')
         self.save_jupyterhub_state()
 
