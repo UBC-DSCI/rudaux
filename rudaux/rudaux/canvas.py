@@ -180,7 +180,7 @@ class Canvas(object):
         overs = self.get('assignments/'+assignment_id+'/overrides')
         for over in overs:
             over['id'] = str(over['id'])
-            over['student_ids'] = map(str, over['student_ids'])
+            over['student_ids'] = list(map(str, over['student_ids']))
             for key in ['due_at', 'lock_at', 'unlock_at']:
                 if over.get(key) is not None:
                     over[key] = plm.parse(over[key], tz=tz),
@@ -201,7 +201,7 @@ class Canvas(object):
             raise InvalidOverrideError(override_dict, multiple_students=True)
 
         #convert student ids to integers
-        override_dict['student_ids'] = map(int, override_dict['student_ids'])
+        override_dict['student_ids'] = list(map(int, override_dict['student_ids']))
 
         #convert dates to canvas date time strings in the course local timezone
         for dk in ['unlock_at', 'due_at', 'lock_at']:
