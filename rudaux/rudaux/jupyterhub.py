@@ -16,12 +16,21 @@ class JupyterHub(object):
         self.jupyterhub_config_dir = course.config.jupyterhub_config_dir
         self.jupyterhub_user_folder_root = course.config.jupyterhub_user_folder_root
         self.assignment_folder_root = course.config.assignment_folder_root
+        self.dry_run = course.dry_run
 
     def snapshot_all(self, snap_name):
-        check_call(['zfs', 'snapshot', '-r', self.student_folder_root + '@'+snap_name])
+        cmd_list = ['zfs', 'snapshot', '-r', self.student_folder_root + '@'+snap_name]
+        if not self.dry_run:
+            check_call(cmd_list)
+        else:
+            print('[Dry run: would have called: ' + ' '.join(cmd_list) + ']')
 
     def snapshot_user(self, user, snap_name):
-        check_call(['zfs', 'snapshot', os.path.join(self.jupyterhub_user_folder_root, user).rstrip('/') + '@'+snap_name])
+        cmd_list = ['zfs', 'snapshot', os.path.join(self.jupyterhub_user_folder_root, user).rstrip('/') + '@'+snap_name]
+        if not self.dry_run:
+            check_call(cmd_list)
+        else:
+            print('[Dry run: would have called: ' + ' '.join(cmd_list) + ']')
 
     def list_snapshots(self):
         out = check_output(['zfs', 'list', '-t', 'snapshot'], stderr = STDOUT)

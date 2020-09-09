@@ -34,6 +34,14 @@ snap_parser.add_argument(
   default=os.getcwd(),
   help="The directory containing the rudaux configuration file."
 )
+snap_parser.add_argument(
+  '--dry-run',
+  dest='dry_run',
+  action='store_true',
+  default=False,
+  help="Specify that the snapshot should not actually be taken and print the zfs command instead."
+)
+
 
 #------------------------------------
 #           List 
@@ -92,6 +100,13 @@ latereg_parser.add_argument(
   action='store',
   default=os.getcwd(),
   help="The directory containing the rudaux configuration file."
+)
+latereg_parser.add_argument(
+  '--dry-run',
+  dest='dry_run',
+  action='store_true',
+  default=False,
+  help="Specify that late registrations should not actually be provided canvas extensions and print the canvas api calls instead."
 )
 
 

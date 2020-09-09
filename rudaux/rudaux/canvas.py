@@ -39,6 +39,7 @@ class Canvas(object):
         self.base_url = urllib.parse.urljoin(course.config.canvas_domain, 'api/v1/courses/'+course.config.canvas_id+'/')
         self.token = course.config.canvas_token
         self.jupyterhub_host_root = course.config.jupyterhub_host_root
+        self.dry_run = course.dry_run
 
     #cache subsequent calls to avoid slow repeated access to canvas api
     @lru_cache(maxsize=None)
@@ -77,16 +78,19 @@ class Canvas(object):
                  'post': requests.post,
                  'delete': requests.delete}
         url = urllib.parse.urljoin(self.base_url, path_suffix)
-        resp = rfuncs[typ](
-            url = url,
-            headers = {
-                'Authorization': f'Bearer {self.token}',
-                'Accept': 'application/json'
-                },
-            json=json_data
-        )
-        if resp.status_code < 200 or resp.status_code > 299:
-            raise CanvasUploadError(url, resp, typ)
+        if not self.dry_run:
+            resp = rfuncs[typ](
+                url = url,
+                headers = {
+                    'Authorization': f'Bearer {self.token}',
+                    'Accept': 'application/json'
+                    },
+                json=json_data
+            )
+            if resp.status_code < 200 or resp.status_code > 299:
+                raise CanvasUploadError(url, resp, typ)
+        else:
+            print('[Dry Run: would have made a ' + typ + ' request with URL: ' + url + ']')
         return
          
 
@@ -206,21 +210,23 @@ class Canvas(object):
         post_json = {'assignment_override' : override_dict}
         self.post('assignments/'+assignment_id+'/overrides', post_json)
 
-        #check that it posted properly
-        overs = self.get_overrides(assignment_id)
-        n_match = len([over for over in overs if over['title'] == override_dict['title']])
-        if n_match != 1:
-            raise OverrideUploadError(overs, override_dict)    
+        #check that it posted properly (only if not dry run)
+        if not self.dry_run:
+            overs = self.get_overrides(assignment_id)
+            n_match = len([over for over in overs if over['title'] == override_dict['title']])
+            if n_match != 1:
+                raise OverrideUploadError(overs, override_dict)    
         
 
     def remove_override(self, assignment_id, override_id):
         self.delete('assignments/'+assignment_id+'/overrides/'+override_id)
 
-        #check that it was removed properly
-        overs = self.get_overrides(assignment_id)
-        n_match = len([over for over in overs if over['id'] == override_id])
-        if n_match != 0:
-            raise OverrideRemoveError(overs, override_id)    
+        #check that it was removed properly (only if not a dry run)
+        if not self.dry_run:
+            overs = self.get_overrides(assignment_id)
+            n_match = len([over for over in overs if over['id'] == override_id])
+            if n_match != 0:
+                raise OverrideRemoveError(overs, override_id)    
 
     def put_grade(self, assignment_id, student_id, score):
         self.put('assignments/'+assignment_id+'/submissions/'+student_id, {'posted_grade' : score})
