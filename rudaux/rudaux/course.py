@@ -327,10 +327,19 @@ class Course(object):
         return 
 
     def run_workflow(self):
-        pass
+        #TODO apply late registration dates
+
+        #TODO create subms
+
+        #TODO update subm due dates
+ 
+        #TODO any assignments past due copy and clone git and generate etc
+
         #TODO clone git repo into this directory 
 
         #TODO generate the assignment
+
+        #TODO process subms of active students; pass docker interface to each subm's call, then pass result back to subm?
 
     def get_jupyterhub_state(self):
         pass

@@ -6,11 +6,32 @@ class Docker(object):
         self.client = docker.from_env()
         self.image = 'ubc-dsci/r-dsci-grading:v0.11.0'
         self.dry_run = course.dry_run
+        self.commands = {}
 
-    def run(self, commands, nthreads):
+    def submit(self, key, command):
+        if key in self.commands:
+            raise ValueError('Cannot submit job ' + key + ' with command ' + command +'\nKey already present')
+        self.commands[key] = command
+
+    def run(self, command):
+        result = {}
+        ctr = self.client.containers.run(self.image, commands[key],
+                                                          detach = False, 
+                                                          remove = False,
+                                                          stderr = True,
+                                                          stdout = True,
+                                                          mem_limit = '2g',
+                                                          volumes = {'local_repo_path' : {'bind': '/home/jupyter', 'mode': 'rw'}}
+                                                          )
+        result['exit_status'] = ctr.status
+        result['log'] = ctr.logs(stdout = True, stderr = True)
+        ctr.remove(v = True, force = True)
+        return result
+
+    def run_all(self, nthreads):
         results = {}
         running = {}
-        for key in commands:
+        for key in self.commands:
             results[key] = {}
             # sleep while we have reached max threads and all running
             while len(running) >= nthreads and all([running[k].status == 'running' for k in running]):
@@ -26,7 +47,7 @@ class Docker(object):
             assert len(running) < nthreads
             try:
                 if not self.dry_run:
-                    ctr = self.client.containers.run(self.image, commands[key],
+                    ctr = self.client.containers.run(self.image, self.commands[key],
                                                           detach = True, 
                                                           remove = False,
                                                           stderr = True,
@@ -51,5 +72,11 @@ class Docker(object):
                 print('Unknown exception encountered when starting docker container: ' + str(commands[key]))
                 results[key]['exit_status'] = 'never_started'
                 results[key]['log'] = str(e)
-            
+
+        # clear the commands queue when done
+        self.commands = {} 
+
         return results
+
+
+
