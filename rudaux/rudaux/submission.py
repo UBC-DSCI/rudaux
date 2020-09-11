@@ -11,6 +11,8 @@ class Submission:
         grader_base_path = "/Users/daisymengxi/Dropbox/0-DSCI/DSCI100-test/"
         grader_submission_path = grader_base_path + ""
 
+        status = 'submitted, cleaned, autograded, manual graded, feedback generated, solution, grade posted'
+
     # Instance Attributes
 def __init__(self, stud, assgmt):
         self.student = stud
