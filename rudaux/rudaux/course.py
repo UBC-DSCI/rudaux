@@ -253,6 +253,7 @@ class Course(object):
         print('Done.')
         self.save_jupyterhub_state()
 
+    #TODO Add dry-run logic here
     def apply_latereg_extensions(self, extdays):
         print('Applying late registration extensions')
         for a in self.assignments:
@@ -300,8 +301,6 @@ class Course(object):
                                                    )
         print('Done.')
         return 
-
-    
 
     def get_jupyterhub_state(self):
         pass

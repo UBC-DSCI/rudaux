@@ -37,27 +37,38 @@ class JupyterHub(object):
         print(check_output(['zfs', 'list', '-t', 'snapshot'], stderr = STDOUT))
 
     def create_grader_folder(self, grader_name):
-        #make sure there isn't already a folder in /tank/home with this name; never overwrite a grader account
-        epwrds = _load_dict(self.jupyterhub_config_dir)
-        CreateArgs = namedtuple('CreateArgs', 'username salt digest directory')
-        args = 'TODO' #CreateArgs(username = ,)
-        add_user(args)
-
-
-        username = 'TODO'
         callysto_user = 'jupyter'
         course = 'dsci100'
-        check_call([os.path.join(self.jupyterhub_config_dir, 'zfs_homedir.sh'), course, username, callysto_user])
-        pass
+        cmd_list = [os.path.join(self.jupyterhub_config_dir, 'zfs_homedir.sh'), course, grader_name, callysto_user]
+        if not self.dry_run:
+            check_output(cmd_list, stderr=STDOUT)
+        else:
+            print('[Dry run: would have called: ' + ' '.join(cmd_list) + ']')
+        #TODO clone git repo into this directory 
     
-    def assign_grader(self, assignment_name, ta_username):
+    def assign_grader(self, grader_name, ta_username):
         #just add authentication using dictauth
-        pass
+        epwrds = _load_dict(self.jupyterhub_config_dir)
+        Args = namedtuple('Args', 'username directory copy_creds')
+        args = Args(username = grader_name, directory = self.jupyterhub_config_dir, copy_creds = ta_username)
+        if not self.dry_run:
+            add_user(args)
+            self.stop()
+            self.start()
+        else:
+            print('[Dry run: would have called add_user with args ' + str(args) + ' and then restarted hub]')
 
-    def unassign_grader(self, assignment_name):
-        #just remove the authentication for the account using dictauth; don't touch the folder
-        #to be called when grading is done
-        pass
+    def unassign_grader(self, grader_name):
+        #just remove authentication using dictauth
+        epwrds = _load_dict(self.jupyterhub_config_dir)
+        Args = namedtuple('Args', 'username directory')
+        args = Args(username = grader_name, directory = self.jupyterhub_config_dir)
+        if not self.dry_run:
+            remove_user(args)
+            self.stop()
+            self.start()
+        else:
+            print('[Dry run: would have called remove_user with args ' + str(args) + ' and then restarted hub]')
 
     def stop(self):
         check_call(['systemctl', 'stop', 'jupyterhub'])
