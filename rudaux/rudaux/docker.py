@@ -1,6 +1,6 @@
 import docker
 
-class DockerGrader(object):
+class Docker(object):
 
     def __init__(self, course):
         self.client = docker.from_env()
@@ -20,19 +20,15 @@ class DockerGrader(object):
                    mem_limit = '2g',
                    volumes = {'local_repo_path' : {'bind': '/home/jupyter', 'mode': 'rw'}}
                    )
-    def generate_assignment(self):
+    def get(self):
         pass
 
-    def autograde(self):
+    def is_done(self):
+        pass
+
+    def container_cap(self):
         pass
     
-    def generate_feedback(self):
-        pass
-
-    def generate_solution(self):
-        pass
-
-    def 
 
 
 

@@ -1,51 +1,16 @@
-#import git
 from dictauth.users import _load_dict, add_user, remove_user
 from collections import namedtuple
-from subprocess import check_call, check_output, STDOUT, CalledProcessError
-import os
-
-class SnapshotExistsError(Exception):
-    def __init__(self, path):
-        self.path = path
+from subprocess import check_call 
 
 class JupyterHub(object):
     """
-    Interface to a local Jupyterhub with NbGrader assignments
+    Interface to Jupyterhub 
     """
 
     def __init__(self, course):
         self.jupyterhub_config_dir = course.config.jupyterhub_config_dir
-        self.jupyterhub_user_folder_root = course.config.jupyterhub_user_folder_root
-        self.assignment_folder_root = course.config.assignment_folder_root
         self.dry_run = course.dry_run
-
-    def snapshot_all(self, snap_name):
-        cmd_list = ['zfs', 'snapshot', '-r', self.jupyterhub_user_folder_root.strip('/') + '@'+snap_name]
-        if not self.dry_run:
-            check_output(cmd_list, stderr=STDOUT)
-        else:
-            print('[Dry run: would have called: ' + ' '.join(cmd_list) + ']')
-
-    def snapshot_user(self, user, snap_name):
-        cmd_list = ['zfs', 'snapshot', os.path.join(self.jupyterhub_user_folder_root, user).strip('/') + '@'+snap_name]
-        if not self.dry_run:
-            check_output(cmd_list, stderr=STDOUT)
-        else:
-            print('[Dry run: would have called: ' + ' '.join(cmd_list) + ']')
-
-    def list_snapshots(self):
-        print(check_output(['zfs', 'list', '-t', 'snapshot'], stderr = STDOUT))
-
-    def create_grader_folder(self, grader_name):
-        callysto_user = 'jupyter'
-        course = 'dsci100'
-        cmd_list = [os.path.join(self.jupyterhub_config_dir, 'zfs_homedir.sh'), course, grader_name, callysto_user]
-        if not self.dry_run:
-            check_output(cmd_list, stderr=STDOUT)
-        else:
-            print('[Dry run: would have called: ' + ' '.join(cmd_list) + ']')
-        #TODO clone git repo into this directory 
-    
+   
     def assign_grader(self, grader_name, ta_username):
         #just add authentication using dictauth
         epwrds = _load_dict(self.jupyterhub_config_dir)

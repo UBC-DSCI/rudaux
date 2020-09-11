@@ -2,35 +2,43 @@ from traitlets.config.configurable import Configurable
 from traitlets import Int, Float, Unicode, Bool
 
 class Submission:
-    # Class Attributes ?
-        #TODO
-        #shared path goes here
-        student_base_path = "/Users/daisymengxi/Dropbox/0-DSCI/DSCI100-test/snapshots"
-        student_submission_path = student_base_path+""
 
-        grader_base_path = "/Users/daisymengxi/Dropbox/0-DSCI/DSCI100-test/"
-        grader_submission_path = grader_base_path + ""
+    def __init__(self, student_canvas_id, assignment_name):
+        self.s_id = student_canvas_id
+        self.a_name = assignment_name
+        self.path = None
+        self.grader = None
+        
+        self.status = 'assigned, collected, cleaned, autograded, manual graded, feedback generated, grade posted, feedback returned, solution returned'
+        self.error = None
 
-        status = 'submitted, cleaned, autograded, manual graded, feedback generated, solution, grade posted'
+    def run_workflow(self):
+        pass
 
-    # Instance Attributes
-def __init__(self, stud, assgmt):
-        self.student = stud
-        self.grader = ""
-        self.assigment = assgmt
-        self.path = "" #studentnumber-YYYY-MM-DD-HHMM
+    def generate_assignment(self):
+        pass
 
-        self.is_collected = False    #is the submission collected by the TA to their directory?
-        self.is_graded = False       #is the submission graded?
-        self.is_grade_posted = False  #is grade posted?
-        self.is_late = False         #is the submission late?
-        self.is_error = False        #some error associated with this submission
+    def collect(self):
+        pass
 
-        # Flags for various errors accumulated as the workflow script runs
-        self.is_assignment_error = False
-        self.is_script_error     = False
-        self.is_docker_error     = False
-        self.error_msg           = []
+    def clean(self):
+        pass
+
+    def autograde(self):
+        pass
+ 
+    def needs_manual_grading(self):
+        pass
+ 
+    def is_manual_grading_done(self):
+        pass
+ 
+    def generate_feedback(self): 
+
+    
+ 
+    def autograde(self):
+        pass
 
  
     #copy student snapshot to grader folder

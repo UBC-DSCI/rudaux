@@ -6,11 +6,14 @@ import terminaltables as ttbl
 from traitlets.config import Config
 from traitlets.config.loader import PyFileConfigLoader
 import editdistance
+from subprocess import CalledProcessError
 from .canvas import Canvas
 from .jupyterhub import JupyterHub
+from .zfs import ZFS
 from .person import Person
 from .assignment import Assignment
-from subprocess import CalledProcessError
+from .dockergrader import DockerGrader
+
 
 class MultipleOverrideError(Exception):
     def __init__(self, overrides, sname, aname):
@@ -90,6 +93,27 @@ class Course(object):
         self.jupyterhub = JupyterHub(self)
         self.jupyterhub_cache_filename = os.path.join(self.course_dir, self.config.name + '_jupyterhub_cache.pk')
         self.load_jupyterhub_state()
+
+
+        #=======================================================#
+        #      Create the interface to ZFS                      #
+        #=======================================================#
+
+        print('Creating ZFS interface...')
+        self.jupyterhub = JupyterHub(self)
+        self.jupyterhub_cache_filename = os.path.join(self.course_dir, self.config.name + '_jupyterhub_cache.pk')
+        self.load_jupyterhub_state()
+
+        #=======================================================#
+        #      Create the interface to Docker                   #
+        #=======================================================#
+
+        print('Creating Docker interface...')
+        self.jupyterhub = JupyterHub(self)
+        self.jupyterhub_cache_filename = os.path.join(self.course_dir, self.config.name + '_jupyterhub_cache.pk')
+        self.load_jupyterhub_state()
+
+
         
         print('Done.')
         
@@ -301,6 +325,12 @@ class Course(object):
                                                    )
         print('Done.')
         return 
+
+    def run_workflow(self):
+        pass
+        #TODO clone git repo into this directory 
+
+        #TODO generate the assignment
 
     def get_jupyterhub_state(self):
         pass
