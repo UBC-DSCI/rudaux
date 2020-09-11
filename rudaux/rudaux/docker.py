@@ -5,21 +5,25 @@ class Docker(object):
     def __init__(self, course):
         self.client = docker.from_env()
         self.image = 'ubc-dsci/r-dsci-grading:v0.11.0'
+
         self.jupyterhub_config_dir = course.config.jupyterhub_config_dir
         self.jupyterhub_user_folder_root = course.config.jupyterhub_user_folder_root
         self.assignment_folder_root = course.config.assignment_folder_root
         self.dry_run = course.dry_run
 
-        
-    def _run(self, command):
-        return self.client.containers.run(self.image, 'command',
-                   detach = True, 
-                   remove = False,
-                   stderr = True,
-                   stdout = True,
-                   mem_limit = '2g',
-                   volumes = {'local_repo_path' : {'bind': '/home/jupyter', 'mode': 'rw'}}
-                   )
+    def run(self, commands, nthreads):
+        results = {}
+        running = []
+        for key in commands:
+            results[key] = self.client.containers.run(self.image, commands[key],
+                                                          detach = True, 
+                                                          remove = False,
+                                                          stderr = True,
+                                                          stdout = True,
+                                                          mem_limit = '2g',
+                                                          volumes = {'local_repo_path' : {'bind': '/home/jupyter', 'mode': 'rw'}}
+                                                          )
+            ctrs = self.client.containers.list()
     def get(self):
         pass
 
