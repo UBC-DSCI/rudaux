@@ -7,11 +7,13 @@ class Docker(object):
         self.image = 'ubc-dsci/r-dsci-grading:v0.11.0'
         self.dry_run = course.dry_run
         self.commands = {}
+        self.job_id = 0
 
-    def submit(self, key, command):
-        if key in self.commands:
-            raise ValueError('Cannot submit job ' + key + ' with command ' + command +'\nKey already present')
+    def submit(self, command):
+        key = 'job-' + str(self.job_id)
         self.commands[key] = command
+        self.job_id += 1
+        return key
 
     def run(self, command):
         result = {}
