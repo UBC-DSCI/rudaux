@@ -1,2 +1,2 @@
 # update the registration list every day
-40 23 * * * root cd /home/stty2u; /usr/local/bin/rudaux extend_lateregs 2>&1 | ts '[\%H:\%M:\%S]' >> rudaux.log
+40 23 * * * root cd /home/stty2u; /usr/local/bin/rudaux extend_lateregs 2>&1 | ts '[\%F-\%H:\%M:\%S]' >> rudaux.log
