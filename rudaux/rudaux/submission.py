@@ -9,10 +9,12 @@ class SubmissionStatus(IntEnum):
     COLLECTED = 1
     CLEANED = 2
     AUTOGRADED = 3
-    MANUAL_GRADED = 4
-    FEEDBACK_GENERATED = 5
-    GRADE_POSTED = 6
-    FEEDBACK_RETURNED = 7
+    NEEDS_MANUAL_GRADING = 4
+    GRADED = 5
+    FEEDBACK_GENERATED = 6
+    GRADE_UPLOADED = 7
+    GRADE_POSTED = 8
+    FEEDBACK_RETURNED = 9
 
 class Submission:
 
@@ -22,8 +24,9 @@ class Submission:
         self.update_due(asgn, stu)
         self.grader = grader
         self.status = SubmissionStatus.ASSIGNED
-        self.solution_returned = False
         self.error = None
+        self.solution_returned = False
+        self.solution_return_error = None
         self.student_folder_root = config.student_folder_root
         self.local_student_path = None
         self.local_grader_path = None
@@ -33,33 +36,78 @@ class Submission:
         self.due_date, override = asgn.get_due_date(stu)
         self.snap_name = a.name if (override is None) else (a.name + '-override-' + override['id'])
 
+    def return_solution(self):
+        pass
+
     def collect(self):
         pass
     
-    def validate_collected(self):
-
-    def clean(self, docker):
-        pass
-
-    def validate_cleaned(self):
-        pass
-
-    def autograde(self, docker):
-        pass
+    def clean(course, anm, stu, grader):
+      #need to check for duplicate cell ids, see
+      #https://github.com/jupyter/nbgrader/issues/1083
+      submitted_path = os.path.join(course['course_storage_path'], 
+                                          grader,
+                                          course['instructor_submitted_path'],
+                                          course['student_name_prefix'] + stu, 
+                                          anm,
+                                          anm + '.ipynb')
+      #open the student's notebook
+      f = open(submitted_path, 'r')
+      nb = json.load(f)
+      f.close()
     
-    def validate_autograded(self):
+      #go through and delete the nbgrader metadata from any duplicated cells
+      cell_ids = set()
+      for cell in nb['cells']:
+        try:
+          cell_id = cell['metadata']['nbgrader']['grade_id']
+        except:
+          continue
+        if cell_id in cell_ids:
+          print('Student ' + stu + ' assignment ' + anm + ' grader ' + grader + ' had a duplicate cell! ID = ' + str(cell_id))
+          print('Removing the nbgrader metainfo from that cell to avoid bugs in autograde')
+          cell['metadata'].pop('nbgrader', None)
+        else:
+          cell_ids.add(cell_id)
+    
+      #write the sanitized notebook back to the submitted folder
+      f = open(submitted_path, 'w')
+      json.dump(nb, f)
+      f.close()
+
+    def submit_autograde(self, docker):
         pass
- 
-    def needs_manual_grading(self, docker):
+  
+    def validate_autograde(self, results):
         pass
- 
-    def is_manual_grading_done(self, docker):
-        pass
- 
-    def generate_feedback(self, docker): 
+
+    def needs_manual_grading(course, anm, stu, grader):
+        gradebook_file = os.path.join(course['course_storage_path'], 
+                                            grader,
+                                            course['instructor_repo_path'],
+                                            course['gradebook_filename'])
+        gb = Gradebook('sqlite:///'+gradebook_file)
+
+        try:
+          subm = gb.find_submission(anm, course['student_name_prefix']+stu)
+          flag = subm.needs_manual_grade
+        except MissingEntry as e:
+          print(e)
+        finally:
+          gb.close()
+
+        return flag
+
+    def submit_generate_feedback(self, docker): 
         pass
     
     def validate_feedback(self): 
+        pass
+
+    def upload_grade(self):
+        pass
+
+    def is_grade_posted(self):
         pass
 
 
@@ -74,57 +122,7 @@ def check_submission_exists(course, anm, stu, grader):
 
 
 
-#need this function to deal with github issue 
-#https://github.com/jupyter/nbgrader/issues/1083
-def remove_duplicate_grade_ids(course, anm, stu, grader):
-  submitted_path = os.path.join(course['course_storage_path'], 
-                                      grader,
-                                      course['instructor_submitted_path'],
-                                      course['student_name_prefix'] + stu, 
-                                      anm,
-                                      anm + '.ipynb')
-  #open the student's notebook
-  f = open(submitted_path, 'r')
-  nb = json.load(f)
-  f.close()
 
-  #go through and delete the nbgrader metadata from any duplicated cells
-  cell_ids = set()
-  for cell in nb['cells']:
-    try:
-      cell_id = cell['metadata']['nbgrader']['grade_id']
-    except:
-      continue
-    if cell_id in cell_ids:
-      print('Student ' + stu + ' assignment ' + anm + ' grader ' + grader + ' had a duplicate cell! ID = ' + str(cell_id))
-      print('Removing the nbgrader metainfo from that cell to avoid bugs in autograde')
-      cell['metadata'].pop('nbgrader', None)
-    else:
-      cell_ids.add(cell_id)
-
-  #write the sanitized notebook back to the submitted folder
-  f = open(submitted_path, 'w')
-  json.dump(nb, f)
-  f.close()
-
-
-
-def check_needs_manual_grading(course, anm, stu, grader):
-  gradebook_file = os.path.join(course['course_storage_path'], 
-                                      grader,
-                                      course['instructor_repo_path'],
-                                      course['gradebook_filename'])
-  gb = Gradebook('sqlite:///'+gradebook_file)
-
-  try:
-    subm = gb.find_submission(anm, course['student_name_prefix']+stu)
-    flag = subm.needs_manual_grade
-  except MissingEntry as e:
-    print(e)
-  finally:
-    gb.close()
-
-  return flag
 
 def upload_grade(course, anm, stu, grader):
   print('Getting grade for student ' + stu + ' assignment ' + anm)

@@ -370,13 +370,33 @@ class Course(object):
 
                     #if due date is past, collect and clean
                     if subm.due_date < plm.now():
-                        #TODO collect
-                        print('Submission is past due. Collecting...')
-                        subm.status = SubmissionStatus.COLLECTED
+                        # collect the assignment
+                        if subm.status == SubmissionStatus.COLLECTED - 1:
+                            print('Submission is past due. Collecting...')
+                            try:
+                                subm.collect()
+                            except Exception as e:
+                                print('Error when collecting')
+                                print(e)
+                                subm.error = e
+                                continue
+                            #success; update status and move on
+                            subm.status = SubmissionStatus.COLLECTED
+                            subm.error = None
                         n_collected += 1
-                        #TODO clean
-                        print('Submission is collected. Cleaning...')
-                        subm.status = SubmissionStatus.CLEANED
+                        # clean the assignment
+                        if subm.status == SubmissionStatus.CLEANED - 1:
+                            print('Submission is collected. Cleaning...')
+                            try:
+                                subm.clean()
+                            except Exception as e:
+                                print('Error when cleaning')
+                                print(e)
+                                subm.error = e
+                                continue
+                            #success; move on. Ensure 
+                            subm.status = SubmissionStatus.CLEANED
+                            subm.error = None
                 #flag this assignment to be returned as long as a collection threshold is passed
                 print('Assignment ' + a.name + ' collected fraction: ' + str(n_collected/n_total) + ', threshold: ' + str(self.config.return_solution_threshold))
                 if n_collected/n_total >= self.config.return_solution_threshold:
@@ -391,32 +411,111 @@ class Course(object):
                     subm = self.submissions[a.name+'-'+s.canvas_id]
                     if not subm.solution_returned:
                         print('Student ' + s.canvas_id + ' not yet returned soln. Returning')
-                        #TODO return solution
-                        pass
+                        try:
+                            subm.return_solution()
+                        except Exception as e:
+                            print('Error when returning solution')
+                            print(e)
+                            subm.solution_return_error = e
+                            continue
+                        subm.solution_returned = True
+                        subm.solution_return_error = None
 
-        #autograde
+        # schedule autograding
         for a in self.assignments:
             if a.due_date < plm.now(): #only process assignments that are past-due
                 for s in self.students:
                     subm = self.submissions[a.name+'-'+s.canvas_id]
                     if subm.status == SubmissionStatus.AUTOGRADED-1:
-                        #TODO autograde
+                        subm.submit_autograde(self.docker)
                 
-        #TODO run all autograding jobs
+        #run all autograding jobs in parallel
+        autograde_results = self.docker.run_all()
 
-        #TODO schedule then run feedback generation 
-      
-        #TODO post grade
+        #check autograding results
+        for a in self.assignments:
+           if a.due_date < plm.now(): #only process assignments that are past-due
+               for s in self.students:
+                   subm = self.submissions[a.name+'-'+s.canvas_id]
+                   if subm.status == SubmissionStatus.AUTOGRADED-1:
+                       try:
+                           subm.validate_autograde(autograde_results)
+                       except Exception as e:
+                            print('Error when autograding')
+                            print(e)
+                            subm.error = e
+                            continue
+                       subm.status = SubmissionStatus.AUTOGRADED
+                       subm.error = None
+
+                   if subm.status == SubmissionStatus.AUTOGRADED:
+                       if subm.needs_manual_grading():
+                           subm.status = SubmissionStatus.NEEDS_MANUAL_GRADING
+                       else:
+                           subm.status = SubmissionStatus.GRADED
+
+        # schedule feedback generation 
+        for a in self.assignments:
+           if a.due_date < plm.now(): #only process assignments that are past-due
+               for s in self.students:
+                   subm = self.submissions[a.name+'-'+s.canvas_id]
+                   if subm.status == SubmissionStatus.FEEDBACK_GENERATED - 1:
+                       subm.submit_generate_feedback(self.docker)
+
+        #run all autograding jobs in parallel
+        feedback_results = self.docker.run_all()
+
+        # check feedback results and upload grades
+        for a in self.assignments:
+           if a.due_date < plm.now(): #only process assignments that are past-due
+               for s in self.students:
+                   subm = self.submissions[a.name+'-'+s.canvas_id]
+                   if subm.status == SubmissionStatus.FEEDBACK_GENERATED - 1:
+                       try:
+                           subm.validate_feedback(feedback_results)
+                       except Exception as e:
+                            print('Error when generating feedback')
+                            print(e)
+                            subm.error = e
+                            continue
+                       subm.status = SubmissionStatus.FEEDBACK_GENERATED
+                       subm.error = None 
+
+                   if subm.status == SubmissionStatus.GRADE_UPLOADED - 1:
+                       try:
+                           subm.upload_grade(self.canvas)
+                       except Exception as e:
+                            print('Error when uploading grade')
+                            print(e)
+                            subm.error = e
+                            continue
+                       subm.status = SubmissionStatus.GRADE_UPLOADED
+                       subm.error = None
+
+        # check which grades have been posted, and if the relevant assignment is in the return_solns list
+        # if both satisfied, return feedback
+        for a in self.assignments:
+           if a.due_date < plm.now() and a.name in return_solns: #only process assignments that are past-due
+               for s in self.students:
+                   subm = self.submissions[a.name+'-'+s.canvas_id]
+                   if subm.status == SubmissionStatus.FEEDBACK_RETURNED - 1 and subm.is_grade_posted(self.canvas):
+                       try:
+                           subm.return_feedback()
+                       except Exception as e:
+                            print('Error when returning feedback')
+                            print(e)
+                            subm.error = e
+                            continue
+                       subm.status = SubmissionStatus.FEEDBACK_RETURNED
+                       subm.error = None
+
+        #finish by saving the current status of all subms and sending out notifications
+        self.save_submissions()
+        self.send_notifications()
  
-    def get_notifications(self):
-        pass
-
     def send_notifications(self):
         #print('Opening a connection to the notifier')
         #self.notifier = self.config.notification_method(self)
-        pass
-
-    def resolve_notification(self):
         pass
 
     def search_students(self, name = None, canvas_id = None, sis_id = None, max_return = 5):
