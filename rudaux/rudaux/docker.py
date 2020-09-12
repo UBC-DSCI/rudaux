@@ -2,10 +2,10 @@ import docker
 
 class Docker(object):
 
-    def __init__(self, course):
+    def __init__(self, config, dry_run):
         self.client = docker.from_env()
         self.image = 'ubc-dsci/r-dsci-grading:v0.11.0'
-        self.dry_run = course.dry_run
+        self.dry_run = dry_run
         self.jobs = {}
         self.job_id = 0
 

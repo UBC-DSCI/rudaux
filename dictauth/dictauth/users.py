@@ -44,7 +44,7 @@ def _load_dict(directory):
         epwrds = {}
     return epwrds
 
-def list_users(args):
+def get_users(args):
     directory = args.directory
     if not os.path.exists(os.path.join(directory, 'jupyterhub_config.py')):
         sys.exit(
@@ -54,7 +54,10 @@ def list_users(args):
              """
            )
     epwrds = _load_dict(directory)
-    print(epwrds.keys())
+    return epwrds.keys() 
+
+def list_users(args):
+    print(get_users(args))
 
 def add_user(args):
     username = args.username

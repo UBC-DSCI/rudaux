@@ -35,11 +35,11 @@ class Canvas(object):
     Interface to the Canvas REST API
     """
 
-    def __init__(self, course):
-        self.base_url = urllib.parse.urljoin(course.config.canvas_domain, 'api/v1/courses/'+course.config.canvas_id+'/')
-        self.token = course.config.canvas_token
-        self.jupyterhub_host_root = course.config.jupyterhub_host_root
-        self.dry_run = course.dry_run
+    def __init__(self, config, dry_run):
+        self.base_url = urllib.parse.urljoin(config.canvas_domain, 'api/v1/courses/'+course.config.canvas_id+'/')
+        self.token = config.canvas_token
+        self.jupyterhub_host_root = config.jupyterhub_host_root
+        self.dry_run = dry_run
 
     #cache subsequent calls to avoid slow repeated access to canvas api
     @lru_cache(maxsize=None)
@@ -195,10 +195,6 @@ class Canvas(object):
             if not override_dict.get(rk):
                 raise InvalidOverrideError(override_dict, missing_key=rk)
 
-        #make sure the override only applies to one student
-        if len(override_dict['student_ids']) != 1:
-            raise InvalidOverrideError(override_dict, multiple_students=True)
-
         #convert student ids to integers
         override_dict['student_ids'] = list(map(int, override_dict['student_ids']))
 
@@ -216,7 +212,6 @@ class Canvas(object):
             n_match = len([over for over in overs if over['title'] == override_dict['title']])
             if n_match != 1:
                 raise OverrideUploadError(overs, override_dict)    
-        
 
     def remove_override(self, assignment_id, override_id):
         self.delete('assignments/'+assignment_id+'/overrides/'+override_id)

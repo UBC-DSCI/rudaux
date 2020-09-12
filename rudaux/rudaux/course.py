@@ -13,24 +13,8 @@ from .zfs import ZFS
 from .person import Person
 from .assignment import Assignment
 from .dockergrader import DockerGrader
-
-
-class MultipleOverrideError(Exception):
-    def __init__(self, overrides, sname, aname):
-        self.overrides = overrides
-        self.sname = sname
-        self.aname = aname
-
-class GroupOverrideError(Exception):
-    def __init__(self, override, snames, aname):
-        self.override = override
-        self.snames = snames
-        self.aname = aname
-
-class DuplicateError(Exception):
-    def __init__(self, key, matches):
-        self.key = key
-        self.matches = matches
+import git
+import shutil
 
 
 class Course(object):
@@ -81,73 +65,44 @@ class Course(object):
         #===================================================================================================#
 
         print('Creating Canvas interface...')
-        self.canvas = Canvas(self)
+        self.canvas = Canvas(self.config, self.dry_run)
         self.canvas_cache_filename = os.path.join(self.course_dir, self.config.name + '_canvas_cache.pk')
         self.synchronize_canvas(allow_canvas_cache)
         
         #=======================================================#
-        #      Load the jupyterhub state & populate info        #
+        #      Create the JupyterHub Interface                  #
         #=======================================================#
 
         print('Creating JupyterHub interface...')
-        self.jupyterhub = JupyterHub(self)
-        self.jupyterhub_cache_filename = os.path.join(self.course_dir, self.config.name + '_jupyterhub_cache.pk')
-        self.load_jupyterhub_state()
-
+        self.jupyterhub = JupyterHub(self.config, self.dry_run)
 
         #=======================================================#
         #      Create the interface to ZFS                      #
         #=======================================================#
 
         print('Creating ZFS interface...')
-        self.zfs = ZFS(self)
+        self.zfs = ZFS(self.config, self.dry_run)
 
         #=======================================================#
         #      Create the interface to Docker                   #
         #=======================================================#
 
         print('Creating Docker interface...')
-        self.docker = Docker(self)
+        self.docker = Docker(self.config, self.dry_run)
 
+        
+        #=======================================================#
+        #      Load the saved state                             #
+        #=======================================================#
+        print('Loading snapshots...')
+        self.snapshots_filename = os.path.join(self.course_dir, self.config.name +'_snapshots.pk')
+        self.load_snapshots()
+        print('Loading submissions...')
+        self.submissions_filename = os.path.join(self.course_dir, self.config.name +'_submissions.pk')
+        self.load_submissions()
         
         print('Done.')
-        
-    #def save_state(self, no_clobber = False, state_filename = None):
-    #    if state_filename is None:
-    #        state_filename = os.path.join(self.course_dir, self.config.name + '_state.pk')
-
-    #    print('Saving state to file ' + state_filename)
-
-    #    if no_clobber and os.path.exists(state_filename):
-    #        print('State file exists and no_clobber requested; returning without saving to disk')
-    #        return
-    #        
-    #    with open(state_filename, 'wb') as f:
-    #        pk.dump({   'course_info' : self.course_info,
-    #                    'students' : self.students,
-    #                    'fake_students' : self.fake_students,
-    #                    'instructors' : self.instructors,
-    #                    'tas' : self.tas,
-    #                    'assignments' : self.assignments,
-    #                    'submissions' : self.submissions
-    #                    }, f)
-    #    print('Done.')
-    #    return
-
-    #def synchronize(self):
-    #    self.synchronize_canvas()
-    #    self.synchronize_jupyterhub()
-
-    #def _update_canvas_items(self, newitems, items, item_cls):
-    #    for newitem in newitems:
-    #        matches = [item for item in items if newitem['canvas_id'] == item.canvas_id]
-    #        if len(matches) > 1:
-    #            raise DuplicateError(newitem, matches)
-    #        elif len(matches) == 1:
-    #            matches[0].canvas_update(newitem)
-    #        else:
-    #            items.append(item_cls(newitem))
-
+       
     def synchronize_canvas(self, allow_cache = False):
         try:
             print('Synchronizing with Canvas...')
@@ -209,43 +164,52 @@ class Course(object):
         return
     
     def load_snapshots(self):
-        print('Loading the JupyterHub state...')
-        
-        if os.path.exists(self.jupyterhub_cache_filename):
-            with open(self.jupyterhub_cache_filename, 'rb') as f:
-                self.submissions, self.snapshots = pk.load(f)
+        print('Loading the list of taken snapshots...')
+        if os.path.exists(self.snapshots_filename):
+            with open(self.snapshots_filename, 'rb') as f:
+                self.snapshots = pk.load(f)
         else: 
-            print('No cache file found. Initializing empty state.')
-            self.submissions = {}
+            print('No snapshots file found. Initializing empty list.')
             self.snapshots = []
         return
 
-    def save_snapshots(self):
-        pass
-
     def load_submissions(self):
-        pass
-    
-    def save_submissions(self):
-        pass
-    
-    def save_jupyterhub_state(self):
-        print('Saving the JupyterHub state...')
-        if not self.dry_run:
-            with open(self.jupyterhub_cache_filename, 'wb') as f:
-                pk.dump((self.submissions, self.snapshots), f)
-            print('Done.')
-        else:
-            print('[Dry Run: state not saved]')
+        print('Loading the list of submissions...')
+        if os.path.exists(self.submissions_filename):
+            with open(self.submissions_filename, 'rb') as f:
+                self.submissions = pk.load(f)
+        else: 
+            print('No submissions file found. Initializing empty dict.')
+            self.submissions = {}
         return
 
-    def jupyterhub_snapshot(self):
+    def save_snapshots(self):
+        print('Saving the taken snapshots list...')
+        if not self.dry_run:
+            with open(self.snapshots_filename, 'wb') as f:
+                pk.dump(self.snapshots, f)
+            print('Done.')
+        else:
+            print('[Dry Run: snapshot list not saved]')
+        return
+
+    def save_submissions(self):
+        print('Saving the submissions list...')
+        if not self.dry_run:
+            with open(self.submissions_filename, 'wb') as f:
+                pk.dump(self.submissions, f)
+            print('Done.')
+        else:
+            print('[Dry Run: submissions not saved]')
+        return
+
+    def take_snapshots(self):
         print('Taking snapshots')
         for a in self.assignments:
             if a.due_at and a.due_at < plm.now() and a.name not in self.snapshots:
                 print('Assignment ' + a.name + ' is past due and no snapshot exists yet. Taking a snapshot [' + a.name + ']')
                 try:
-                    self.jupyterhub.snapshot_all(a.name)
+                    self.zfs.snapshot_all(a.name)
                 except CalledProcessError as e:
                     print('Error creating snapshot ' + a.name)
                     print('Return code ' + str(e.returncode))
@@ -262,7 +226,7 @@ class Course(object):
                     print('Assignment ' + a.name + ' has override ' + over['id'] + ' for student ' + over['student_ids'][0] + ' and no snapshot exists yet. Taking a snapshot [' + snapname + ']')
                     add_to_taken_list = True
                     try:
-                        self.jupyterhub.snapshot_user(over['student_ids'][0], snapname)
+                        self.zfs.snapshot_user(over['student_ids'][0], snapname)
                     except CalledProcessError as e:
                         print('Error creating snapshot ' + snapname)
                         print('Return code ' + str(e.returncode))
@@ -278,9 +242,30 @@ class Course(object):
                     elif self.dry_run:
                         print('[Dry Run: snapshot name not added to taken list; would have added ' + snapname + ']')
         print('Done.')
-        self.save_jupyterhub_state()
+        self.save_snapshots()
 
-    #TODO Add dry-run logic here
+    def get_due_date(self, a, s):
+        basic_date = a.due_at
+
+        #get overrides for the student
+        a_s_overrides = [over for over in a.overrides if s.canvas_id in over['student_ids'] and over['due_at']]
+
+        #if there was no override, return the basic date
+        if len(a_s_overrides) == 0:
+            return basic_date, None
+
+        #if there was one, get the latest override date
+        latest_override = a_s_overrides[0]
+        for over in a_s_overrides:
+            if over['due_at'] > latest_override['due_at']:
+                latest_override = over
+        
+        #return the latest date between the basic and override dates
+        if latest_override['due_at'] > basic_date:
+            return latest_override['due_at'], latest_override
+        else:
+            return basic_date, None
+
     def apply_latereg_extensions(self, extdays):
         need_synchronize = False
         print('Applying late registration extensions')
@@ -292,35 +277,12 @@ class Course(object):
                     if s.status == 'active' and regdate > a.unlock_at:
                         #if student s active and registered after assignment a was unlocked
                         print('Student ' + s.name + ' registration date (' + str(regdate.in_timezone(self.course_info['time_zone']))+') after unlock date of assignment ' + a.name + ' (' + str(a.unlock_at.in_timezone(self.course_info['time_zone'])) + ')')
-                        #the common due date
-                        basic_date = a.due_at
+                        #get their due date w/ no late registration
+                        due_date, override = self.get_due_date(a, s)
                         #the late registration due date
                         latereg_date = regdate.add(days=extdays)
-                        if latereg_date > basic_date:
-                            print('This will cause an automatic late registration extension to ' + str(latereg_date.in_timezone(self.course_info['time_zone'])) + ' unless there are existing overrides. Checking...')
-                            #get the date from a possibly existing override
-                            a_s_overrides = [(idx, over) for idx, over in enumerate(a.overrides) if s.canvas_id in over['student_ids'] and over['due_at']]
-                            if len(a_s_overrides) > 1:
-                                raise MultipleOverrideError(a_s_overrides, s.name, a.name)
-                            if len(a_s_overrides) == 1:
-                                #student already has an override
-                                idx  = a_s_overrides[0][0]
-                                over = a_s_overrides[0][1]
-                                #make sure this override isn't a group override
-                                if len(over['student_ids']) > 1:
-                                    raise GroupOverrideError(over, over['student_ids'], a.name) 
-                                #get the due date
-                                override_date = over['due_at']
-                                override_id = over['id']
-                                print('Student has previous override extension for this assignment to ' + str(override_date.in_timezone(self.course_info['time_zone'])))
-                                #if it is after the late reg extension, do nothing; otherwise, delete it before creating a new one
-                                if override_date >= latereg_date:
-                                    print('Previous override is after late reg date. Skipping...')
-                                    continue
-                                else:
-                                    print('Previous override is before late reg date. Removing...')
-                                    self.canvas.remove_override(a.canvas_id, override_id)
-                            print('Creating late registration override')
+                        if latereg_date > due_date:
+                            print('Creating automatic late registration extension to ' + str(latereg_date.in_timezone(self.course_info['time_zone']))) 
                             need_synchronize = True
                             self.canvas.create_override(a.canvas_id, {'student_ids' : [s.canvas_id],
                                                                   'due_at' : latereg_date,
@@ -346,32 +308,70 @@ class Course(object):
         #apply late registration dates
         self.apply_latereg_extensions(self.config.latereg_extension_days)
 
-        #TODO create subms
+        print('Creating grader folders/accounts for assignments')
+        # make sure each assignment past due has grader folders set up
         for a in self.assignments:
-            if a.due_date
+            # for any assignment past due
+            if a.due_date < plm.now():
+                # create a user folder and jupyterhub account for each grader if needed
+                for i in range(self.config.num_graders):
+                    grader_name = a.name+'-grader-'+str(i)
+                    # create the zfs volume and clone the instructor repo
+                    if not self.zfs.user_folder_exists(grader_name):
+                        print('Assignment ' + a.name + ' past due, no ' + grader_name + ' folder created yet. Creating')
+                        self.zfs.create_user_folder(grader_name)
+                    # if the repo doesn't exist, clone it
+                    repo_path = os.path.join(self.config.user_folder_root, grader_name, self.config.instructor_repo_name)
+                    if not os.path.exists(repo_path):
+                        print('Cloning course repository from ' + self.config.instructor_repo_url)
+                        if not self.dry_run:
+                            try:
+                                os.mkdir(repo_path)
+                                git.Repo.clone_from(self.config.instructor_repo_url, repo_path)
+                            except git.exc.GitCommandError as e:
+                                print('Error cloning course repository.')
+                                print(e)
+                                print('Cleaning up repo path')
+                                shutil.rmtree(repo_path)
+                        else:
+                            print('[Dry Run: would have called mkdir('+repo_path+') and git clone ' + self.config.instructor_repo_url + ' into ' + repo_path)
+                    # if the assignment hasn't been generated yet, generate it
+                    generated_asgns = self.docker.run('nbgrader db assignment list', repo_path)
+                    if a.name not in generated_asgns:
+                        print('Assignment not yet generated. Generating')
+                        output = self.docker.run('nbgrader generate_assignment --force ' + a.name, repo_path)
+                   
+                    # if solution not generated yet, generate it
+                    #TODO
+                    
+                    # create the jupyterhub user
+                    if not self.jupyterhub.grader_exists(grader_name):
+                        self.jupyterhub.assign_grader(grader_name, self.config.graders[a.name][i])
 
-        #TODO update subm due dates
+        print('Creating/collecting/cleaning submissions')
+        # create submissions for assignments
+        for a in self.assignments:
+            if a.due_date < plm.now(): #only process assignments that are past-due
+                for s in self.students:
+                    #if there isn't a submission for this assignment/student, create one and assign it to a grader
+                    if a.name+'-'+s.canvas_id not in self.submissions:
+                        self.submissions[a.name+'-'+s.canvas_id] = Submission()
+                        assign_it
+                    #update the submission due date from canvas
+                    subm = self.submissions[a.name+'-'+s.canvas_id]
+                    subm.due_date,  = self.get_due_date(a, s)
+                    if due_Date_past:
+                        collect_it
+                        clean_it
+                        schedule_for_autograding
+                        return_soln if succesfful
+        
+        #TODO run all autograding jobs
+
+        #TODO schedule then run feedback generation 
+      
+        #TODO post grade
  
-        #TODO any assignments past due copy and clone git and generate etc
-
-        #TODO clone git repo into this directory 
-
-        #TODO generate the assignment
-
-        #TODO process subms of active students; pass docker interface to each subm's call, then pass result back to subm?
-
-    def get_jupyterhub_state(self):
-        pass
-
-    def get_canvas_diff(self):
-        pass
-    
-    def get_jupyterhub_diff(self):
-        pass
-
-    def get_status(self):
-        pass
-
     def get_notifications(self):
         pass
 

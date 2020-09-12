@@ -1,4 +1,4 @@
-from dictauth.users import _load_dict, add_user, remove_user
+from dictauth.users import add_user, remove_user, get_users
 from collections import namedtuple
 from subprocess import check_call 
 
@@ -7,13 +7,12 @@ class JupyterHub(object):
     Interface to Jupyterhub 
     """
 
-    def __init__(self, course):
-        self.jupyterhub_config_dir = course.config.jupyterhub_config_dir
-        self.dry_run = course.dry_run
+    def __init__(self, config, dry_run):
+        self.jupyterhub_config_dir = config.jupyterhub_config_dir
+        self.dry_run = dry_run
    
     def assign_grader(self, grader_name, ta_username):
         #just add authentication using dictauth
-        epwrds = _load_dict(self.jupyterhub_config_dir)
         Args = namedtuple('Args', 'username directory copy_creds')
         args = Args(username = grader_name, directory = self.jupyterhub_config_dir, copy_creds = ta_username)
         if not self.dry_run:
@@ -25,7 +24,6 @@ class JupyterHub(object):
 
     def unassign_grader(self, grader_name):
         #just remove authentication using dictauth
-        epwrds = _load_dict(self.jupyterhub_config_dir)
         Args = namedtuple('Args', 'username directory')
         args = Args(username = grader_name, directory = self.jupyterhub_config_dir)
         if not self.dry_run:
@@ -34,6 +32,12 @@ class JupyterHub(object):
             self.start()
         else:
             print('[Dry run: would have called remove_user with args ' + str(args) + ' and then restarted hub]')
+
+    def grader_exists(self, grader_name):
+        Args = namedtuple('Args', 'directory')
+        args = Args(directory = self.jupyterhub_config_dir)
+        output = get_users(args)
+        return (grader_name in output)
 
     def stop(self):
         check_call(['systemctl', 'stop', 'jupyterhub'])

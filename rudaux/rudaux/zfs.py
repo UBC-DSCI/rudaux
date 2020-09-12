@@ -6,19 +6,19 @@ class ZFS(object):
     Interface to ZFS commands
     """
 
-    def __init__(self, course):
-        self.user_folder_root = course.config.user_folder_root
-        self.dry_run = course.dry_run
+    def __init__(self, config, dry_run):
+        self.user_folder_root = config.user_folder_root
+        self.dry_run = dry_run
 
     def snapshot_all(self, snap_name):
-        cmd_list = ['zfs', 'snapshot', '-r', self.jupyterhub_user_folder_root.strip('/') + '@'+snap_name]
+        cmd_list = ['zfs', 'snapshot', '-r', self.user_folder_root.strip('/') + '@'+snap_name]
         if not self.dry_run:
             check_output(cmd_list, stderr=STDOUT)
         else:
             print('[Dry run: would have called: ' + ' '.join(cmd_list) + ']')
 
     def snapshot_user(self, user, snap_name):
-        cmd_list = ['zfs', 'snapshot', os.path.join(self.jupyterhub_user_folder_root, user).strip('/') + '@'+snap_name]
+        cmd_list = ['zfs', 'snapshot', os.path.join(self.user_folder_root, user).strip('/') + '@'+snap_name]
         if not self.dry_run:
             check_output(cmd_list, stderr=STDOUT)
         else:
@@ -35,4 +35,6 @@ class ZFS(object):
             check_output(cmd_list, stderr=STDOUT)
         else:
             print('[Dry run: would have called: ' + ' '.join(cmd_list) + ']')
- 
+
+    def user_folder_exists(self, username):
+        return os.path.exists(os.path.join(self.user_folder_root, username).rstrip('/'))
