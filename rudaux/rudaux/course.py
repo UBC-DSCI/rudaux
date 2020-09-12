@@ -12,7 +12,7 @@ from .jupyterhub import JupyterHub
 from .zfs import ZFS
 from .person import Person
 from .assignment import Assignment
-from .dockergrader import DockerGrader
+from .docker import Docker
 import git
 import shutil
 
