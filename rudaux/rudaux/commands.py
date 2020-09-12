@@ -30,7 +30,7 @@ def print_list(args):
 
 def apply_latereg_extensions(args):
     course = rudaux.Course(args.directory, dry_run = args.dry_run)
-    course.apply_latereg_extensions(7)
+    course.apply_latereg_extensions()
     course.send_notifications()
 
 def status(args):

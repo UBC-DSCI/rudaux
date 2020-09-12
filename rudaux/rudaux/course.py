@@ -246,7 +246,7 @@ class Course(object):
         print('Done.')
         self.save_snapshots() 
 
-    def apply_latereg_extensions(self, extdays):
+    def apply_latereg_extensions(self): 
         need_synchronize = False
         tz = self.course_info['time_zone']
         fmt = 'ddd YYYY-MM-DD HH:mm:ss'
@@ -263,7 +263,7 @@ class Course(object):
                         due_date, override = a.get_due_date(s)
                         print('Current due date: ' + due_date.in_timezone(tz).format(fmt) + ' from override: ' + str(True if (override is not None) else False))
                         #the late registration due date
-                        latereg_date = regdate.add(days=extdays)
+                        latereg_date = regdate.add(days=self.config.latereg_extension_days)
                         print('Late registration extension date: ' + latereg_date.in_timezone(tz).format(fmt))
                         if latereg_date > due_date:
                             print('Creating automatic late registration extension to ' + latereg_date.in_timezone(tz).format(fmt)) 
@@ -291,12 +291,7 @@ class Course(object):
         print('Done.')
         return 
 
-    def run_workflow(self):
-        tz = self.course_info['time_zone']
-        fmt = 'ddd YYYY-MM-DD HH:mm:ss'
-        #apply late registration dates
-        self.apply_latereg_extensions(self.config.latereg_extension_days)
-
+    def create_grader_folders(self):
         print('Creating grader folders/accounts for assignments')
         # make sure each assignment past due has grader folders set up
         for a in self.assignments:
@@ -343,14 +338,12 @@ class Course(object):
                         print('Grader ' + grader_name + ' not created on the hub yet; assigning ' + self.config.graders[a.name][i])
                         self.jupyterhub.assign_grader(grader_name, self.config.graders[a.name][i])
 
-        print('Creating/collecting/cleaning submissions')
+    def create_submissions(self):
+        print('Creating submissions')
         grader_index = random.randint(0, self.config.num_graders-1) #generates from a <= num <= b uniformly
         # create submissions for assignments
-        return_solns = []
         for a in self.assignments:
             if a.due_date < plm.now(): #only process assignments that are past-due
-                n_collected = 0
-                n_total = 0
                 for s in self.students:
                     print('Submission ' + str(a.name+'-'+s.canvas_id))
                     #if there isn't a submission for this assignment/student, create one and assign it to a grader
@@ -360,9 +353,16 @@ class Course(object):
                         #rotate the graders for the next subm
                         grader_index += 1
                         grader_index = grader_index % self.config.num_graders
-                    subm = self.submissions[a.name+'-'+s.canvas_id]
-                    n_total += 1
 
+    def collect_submissions(self):
+        tz = self.course_info['time_zone']
+        fmt = 'ddd YYYY-MM-DD HH:mm:ss'
+        print('Collecting/cleaning submissions')
+        for a in self.assignments:
+            if a.due_date < plm.now(): #only process assignments that are past-due
+                for s in self.students:
+                    print('Submission ' + str(a.name+'-'+s.canvas_id))
+                    subm = self.submissions[a.name+'-'+s.canvas_id]
                     # if the status is not yet collected, update due date from canvas 
                     if subm.status < SubmissionStatus.COLLECTED:
                         print('Submission not yet collected; updating due date. Cur date: ' + subm.due_date.in_timezone(tz).format(fmt))
@@ -384,7 +384,6 @@ class Course(object):
                             #success; update status and move on
                             subm.status = SubmissionStatus.COLLECTED
                             subm.error = None
-                        n_collected += 1
                         # clean the assignment
                         if subm.status == SubmissionStatus.CLEANED - 1:
                             print('Submission is collected. Cleaning...')
@@ -398,20 +397,30 @@ class Course(object):
                             #success; move on. Ensure 
                             subm.status = SubmissionStatus.CLEANED
                             subm.error = None
-                #flag this assignment to be returned as long as a collection threshold is passed
+  
+    def get_returnable(self):
+        returnable = [] 
+        for a in self.assignments:
+            if a.due_date < plm.now(): #only process assignments that are past-due
+                subms = [subm for subm in self.submissions if subm.a_name == a.name]
+                n_total = len(subms)
+                n_collected = len([subm for subm in subms if subm.status >= SubmissionStatus.COLLECTED])
                 print('Assignment ' + a.name + ' collected fraction: ' + str(n_collected/n_total) + ', threshold: ' + str(self.config.return_solution_threshold))
                 if n_collected/n_total >= self.config.return_solution_threshold:
-                    print('Threshold reached; will return solutions')
-                    return_solns.append(a.name) 
+                    print('Threshold reached; this assignment is now returnable')
+                    returnable.append(a.name)
+        return returnable
 
+    def return_solutions(self, returnable):
+        print('Returning solutions')
         # return soln if at least X% of class has been successfully collected
         for a in self.assignments:
-            if a.name in return_solns:
-                print('Assignment ' + a.name + ' flagged to enable return of solutions.')
+            if a.name in returnable:
+                print('Assignment ' + a.name + ' is returnable.')
                 for s in self.students:
                     subm = self.submissions[a.name+'-'+s.canvas_id]
-                    if not subm.solution_returned:
-                        print('Student ' + s.canvas_id + ' not yet returned soln. Returning')
+                    if not subm.solution_returned and subm.status >= SubmissionStatus.COLLECTED:
+                        print('Student ' + s.canvas_id + ' assignment has been collected but not yet returned soln. Returning')
                         try:
                             subm.return_solution()
                         except Exception as e:
@@ -422,6 +431,7 @@ class Course(object):
                         subm.solution_returned = True
                         subm.solution_return_error = None
 
+    def autograde_submissions(self):
         # schedule autograding
         for a in self.assignments:
             if a.due_date < plm.now(): #only process assignments that are past-due
@@ -455,6 +465,7 @@ class Course(object):
                         else:
                             subm.status = SubmissionStatus.GRADED
 
+    def generate_feedback(self):
         # schedule feedback generation 
         for a in self.assignments:
             if a.due_date < plm.now(): #only process assignments that are past-due
@@ -482,6 +493,12 @@ class Course(object):
                         subm.status = SubmissionStatus.FEEDBACK_GENERATED
                         subm.error = None 
 
+    def upload_grades(self):
+        # upload grades
+        for a in self.assignments:
+            if a.due_date < plm.now(): #only process assignments that are past-due
+                for s in self.students:
+                    subm = self.submissions[a.name+'-'+s.canvas_id]
                     if subm.status == SubmissionStatus.GRADE_UPLOADED - 1:
                         try:
                             subm.upload_grade(self.canvas)
@@ -493,10 +510,11 @@ class Course(object):
                         subm.status = SubmissionStatus.GRADE_UPLOADED
                         subm.error = None
 
+    def return_feedback(self, returnable):
         # check which grades have been posted, and if the relevant assignment is in the return_solns list
         # if both satisfied, return feedback
         for a in self.assignments:
-            if a.due_date < plm.now() and a.name in return_solns: #only process assignments that are past-due
+            if a.name in returnable:
                 for s in self.students:
                     subm = self.submissions[a.name+'-'+s.canvas_id]
                     if subm.status == SubmissionStatus.FEEDBACK_RETURNED - 1 and subm.is_grade_posted(self.canvas):
@@ -509,6 +527,27 @@ class Course(object):
                              continue
                         subm.status = SubmissionStatus.FEEDBACK_RETURNED
                         subm.error = None
+
+    def run_workflow(self): 
+        self.apply_latereg_extensions()
+
+        self.create_grader_folders()
+
+        self.create_submissions()
+
+        self.collect_submissions()
+
+        returnable = self.get_returnable()
+
+        self.return_solutions(returnable)
+
+        self.autograde_submissions()
+
+        self.generate_feedback()
+
+        self.upload_grades()
+        
+        self.return_feedback()
 
         #finish by saving the current status of all subms and sending out notifications
         self.save_submissions()
