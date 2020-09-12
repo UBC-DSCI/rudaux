@@ -13,37 +13,43 @@ class Submission:
         self.status = 'assigned, collected, cleaned, autograded, manual graded, feedback generated, grade posted, feedback returned, solution returned'
         self.error = None
 
-    def run_workflow(self):
+    def assign_to(self, grader):
         pass
 
-    def generate_assignment(self):
+    def generate_assignment(self, docker):
+        pass
+
+    def validate_generated(self):
         pass
 
     def collect(self):
         pass
-
-    def clean(self):
-        pass
-
-    def autograde(self):
-        pass
- 
-    def needs_manual_grading(self):
-        pass
- 
-    def is_manual_grading_done(self):
-        pass
- 
-    def generate_feedback(self): 
-
     
- 
-    def autograde(self):
+    def validate_collected(self):
+
+    def clean(self, docker):
         pass
 
- 
-    #copy student snapshot to grader folder
+    def validate_cleaned(self):
+        pass
+
+    def autograde(self, docker):
+        pass
     
+    def validate_autograded(self):
+        pass
+ 
+    def needs_manual_grading(self, docker):
+        pass
+ 
+    def is_manual_grading_done(self, docker):
+        pass
+ 
+    def generate_feedback(self, docker): 
+        pass
+    
+    def validate_feedback(self): 
+        pass
 
 
 def check_submission_exists(course, anm, stu, grader):

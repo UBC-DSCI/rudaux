@@ -279,6 +279,7 @@ class Course(object):
 
     #TODO Add dry-run logic here
     def apply_latereg_extensions(self, extdays):
+        need_synchronize = False
         print('Applying late registration extensions')
         for a in self.assignments:
             if a.due_at and a.unlock_at: #if the assignment has both a due date and unlock date set
@@ -316,20 +317,35 @@ class Course(object):
                                 else:
                                     print('Previous override is before late reg date. Removing...')
                                     self.canvas.remove_override(a.canvas_id, override_id)
-                        print('Creating late registration override')
-                        self.canvas.create_override(a.canvas_id, {'student_ids' : [s.canvas_id],
+                            print('Creating late registration override')
+                            need_synchronize = True
+                            self.canvas.create_override(a.canvas_id, {'student_ids' : [s.canvas_id],
                                                                   'due_at' : latereg_date,
                                                                   'lock_at' : a.lock_at,
                                                                   'unlock_at' : a.unlock_at,
                                                                   'title' : s.name+'-'+a.name+'-latereg'}
                                                    )
+                        else:
+                            print('Basic due date after registration extension date. No extension required. Skipping.')
+            else:
+                print('Assignment missing either a due date (' + str(a.due_at) + ') or unlock date (' + str(a.unlock_at) + '). Not checking.')
+
+        if need_synchronize:
+            print('Overrides changed. Deleting out-of-date cache and forcing canvas synchronize...')
+            if os.path.exists(self.canvas_cache_filename):
+                os.remove(self.canvas_cache_filename)
+            self.synchronize_canvas(allow_cache = False)
+
         print('Done.')
         return 
 
     def run_workflow(self):
-        #TODO apply late registration dates
+        #apply late registration dates
+        self.apply_latereg_extensions(self.config.latereg_extension_days)
 
         #TODO create subms
+        for a in self.assignments:
+            if a.due_date
 
         #TODO update subm due dates
  
