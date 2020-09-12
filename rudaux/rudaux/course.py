@@ -206,7 +206,7 @@ class Course(object):
     def take_snapshots(self):
         print('Taking snapshots')
         for a in self.assignments:
-            if a.due_at and a.due_at < plm.now() and a.name not in self.snapshots:
+            if (a.due_at is not None) and a.due_at < plm.now() and a.name not in self.snapshots:
                 print('Assignment ' + a.name + ' is past due and no snapshot exists yet. Taking a snapshot [' + a.name + ']')
                 try:
                     self.zfs.snapshot_all(a.name)
@@ -222,7 +222,7 @@ class Course(object):
                         print('[Dry Run: snapshot name not added to taken list; would have added ' + a.name + ']')
             for over in a.overrides:
                 snapname = a.name + '-override-' + over['id']
-                if over['due_at'] and over['due_at'] < plm.now() and not (snapname in self.snapshots):
+                if (over['due_at'] is not None) and over['due_at'] < plm.now() and not (snapname in self.snapshots):
                     print('Assignment ' + a.name + ' has override ' + over['id'] + ' for student ' + over['student_ids'][0] + ' and no snapshot exists yet. Taking a snapshot [' + snapname + ']')
                     add_to_taken_list = True
                     try:
@@ -248,7 +248,7 @@ class Course(object):
         basic_date = a.due_at
 
         #get overrides for the student
-        a_s_overrides = [over for over in a.overrides if s.canvas_id in over['student_ids'] and over['due_at']]
+        a_s_overrides = [over for over in a.overrides if s.canvas_id in over['student_ids'] and (over['due_at'] is not None)]
 
         #if there was no override, return the basic date
         if len(a_s_overrides) == 0:
@@ -272,22 +272,22 @@ class Course(object):
         fmt = 'ddd YYYY-MM-DD HH:mm:ss'
         print('Applying late registration extensions')
         for a in self.assignments:
-            if a.due_at and a.unlock_at: #if the assignment has both a due date and unlock date set
+            if (a.due_at is not None) and (a.unlock_at is not None): #if the assignment has both a due date and unlock date set
                 print('Checking ' + str(a.name))
                 for s in self.students:
-                    regdate = s.reg_updated if s.reg_updated else s.reg_created
+                    regdate = s.reg_updated if (s.reg_updated is not None) else s.reg_created
                     if s.status == 'active' and regdate > a.unlock_at:
                         #if student s active and registered after assignment a was unlocked
                         print('Student ' + s.name + ' registration date (' + regdate.in_timezone(tz).format(fmt)+') after unlock date of assignment ' + a.name + ' (' + a.unlock_at.in_timezone(tz).format(fmt) + ')')
                         #get their due date w/ no late registration
                         due_date, override = self.get_due_date(a, s)
-                        print('Current due date: ' + due_date.in_timezone(tz).format(fmt) + ' from override: ' + str(True if override else False))
+                        print('Current due date: ' + due_date.in_timezone(tz).format(fmt) + ' from override: ' + str(True if (override is not None) else False))
                         #the late registration due date
                         latereg_date = regdate.add(days=extdays)
-                        print('Late registration extension date: ' + latereg_date.in_timezone(tz).format(fmt) + ' from override: ' + str(True if override else False))
+                        print('Late registration extension date: ' + latereg_date.in_timezone(tz).format(fmt) + ' from override: ' + str(True if (override is not None) else False))
                         if latereg_date > due_date:
                             print('Creating automatic late registration extension to ' + latereg_date.in_timezone(tz).format(fmt)) 
-                            if override:
+                            if override is not None:
                                 print('Removing old override')
                                 self.canvas.remove_override(a.canvas_id, override['id'])
                             need_synchronize = True
