@@ -1,25 +1,37 @@
 from traitlets.config.configurable import Configurable
 from traitlets import Int, Float, Unicode, Bool
+from enum import IntEnum
+
+#self.status = 'assigned, collected, cleaned, autograded, manual graded, feedback generated, grade posted, feedback returned, solution returned'
+
+class SubmissionStatus(IntEnum):
+    ASSIGNED = 0
+    COLLECTED = 1
+    CLEANED = 2
+    AUTOGRADED = 3
+    MANUAL_GRADED = 4
+    FEEDBACK_GENERATED = 5
+    GRADE_POSTED = 6
+    FEEDBACK_RETURNED = 7
 
 class Submission:
 
-    def __init__(self, assignment_name, student_canvas_id):
-        self.s_id = student_canvas_id
-        self.a_name = assignment_name
-        self.due_date = None
-        self.snap_name = None
-        self.grader = None
-        self.status = 'assigned, collected, cleaned, autograded, manual graded, feedback generated, grade posted, feedback returned, solution returned'
+    def __init__(self, asgn, stu, grader, config):
+        self.s_id = stu.canvas_id
+        self.a_name = asgn.name
+        self.update_due(asgn, stu)
+        self.grader = grader
+        self.status = SubmissionStatus.ASSIGNED
+        self.solution_returned = False
         self.error = None
+        self.student_folder_root = config.student_folder_root
+        self.local_student_path = None
+        self.local_grader_path = None
+        self.student_prefix = 'student_'
 
-    def assign_to(self, grader):
-        pass
-
-    def generate_assignment(self, docker):
-        pass
-
-    def validate_generated(self):
-        pass
+    def update_due(self, asgn, stu):
+        self.due_date, override = asgn.get_due_date(stu)
+        self.snap_name = a.name if (override is None) else (a.name + '-override-' + override['id'])
 
     def collect(self):
         pass

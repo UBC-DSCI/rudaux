@@ -13,9 +13,10 @@ from .zfs import ZFS
 from .person import Person
 from .assignment import Assignment
 from .docker import Docker
+from .submission import Submission, SubmissionStatus
 import git
 import shutil
-
+import random
 
 class Course(object):
     """
@@ -221,7 +222,7 @@ class Course(object):
                     else:
                         print('[Dry Run: snapshot name not added to taken list; would have added ' + a.name + ']')
             for over in a.overrides:
-                snapname = a.name + '-override-' + over['id']
+                snapname = a.name + '-override-' + over['id'] #TODO don't hard code this pattern here since we need it in submission too
                 if (over['due_at'] is not None) and over['due_at'] < plm.now() and not (snapname in self.snapshots):
                     print('Assignment ' + a.name + ' has override ' + over['id'] + ' for student ' + over['student_ids'][0] + ' and no snapshot exists yet. Taking a snapshot [' + snapname + ']')
                     add_to_taken_list = True
@@ -290,6 +291,8 @@ class Course(object):
         return 
 
     def run_workflow(self):
+        tz = self.course_info['time_zone']
+        fmt = 'ddd YYYY-MM-DD HH:mm:ss'
         #apply late registration dates
         self.apply_latereg_extensions(self.config.latereg_extension_days)
 
@@ -300,7 +303,8 @@ class Course(object):
             if a.due_date < plm.now():
                 # create a user folder and jupyterhub account for each grader if needed
                 for i in range(self.config.num_graders):
-                    grader_name = a.name+'-grader-'+str(i)
+                    grader_name = a.name+'-grader-'+str(i) #TODO don't hardcode this here since it's used below too
+                    print('Checking assignment ' + a.name + ' grader ' + grader_name)
                     # create the zfs volume and clone the instructor repo
                     if not self.zfs.user_folder_exists(grader_name):
                         print('Assignment ' + a.name + ' past due, no ' + grader_name + ' folder created yet. Creating')
@@ -339,23 +343,65 @@ class Course(object):
                         self.jupyterhub.assign_grader(grader_name, self.config.graders[a.name][i])
 
         print('Creating/collecting/cleaning submissions')
+        grader_index = random.randint(0, self.config.num_graders-1) #generates from a <= num <= b uniformly
         # create submissions for assignments
+        return_solns = []
+        for a in self.assignments:
+            if a.due_date < plm.now(): #only process assignments that are past-due
+                n_collected = 0
+                n_total = 0
+                for s in self.students:
+                    print('Submission ' + str(a.name+'-'+s.canvas_id))
+                    #if there isn't a submission for this assignment/student, create one and assign it to a grader
+                    if a.name+'-'+s.canvas_id not in self.submissions:
+                        print('Does not exist; creating, assigned to grader ' + str(a.name+'-grader-'+str(grader_index)))
+                        self.submissions[a.name+'-'+s.canvas_id] = Submission(a, s, a.name+'-grader-'+str(grader_index), self.config) #TODO don't hardcore the submission name key
+                        #rotate the graders for the next subm
+                        grader_index += 1
+                        grader_index = grader_index % self.config.num_graders
+                    subm = self.submissions[a.name+'-'+s.canvas_id]
+                    n_total += 1
+
+                    # if the status is not yet collected, update due date from canvas 
+                    if subm.status < SubmissionStatus.COLLECTED:
+                        print('Submission not yet collected; updating due date. Cur date: ' + subm.due_date.in_timezone(tz).format(fmt))
+                        subm.update_due(a, s)
+                        print('Date updated to: ' + subm.due_date.in_timezone(tz).format(fmt))
+
+                    #if due date is past, collect and clean
+                    if subm.due_date < plm.now():
+                        #TODO collect
+                        print('Submission is past due. Collecting...')
+                        subm.status = SubmissionStatus.COLLECTED
+                        n_collected += 1
+                        #TODO clean
+                        print('Submission is collected. Cleaning...')
+                        subm.status = SubmissionStatus.CLEANED
+                #flag this assignment to be returned as long as a collection threshold is passed
+                print('Assignment ' + a.name + ' collected fraction: ' + str(n_collected/n_total) + ', threshold: ' + str(self.config.return_solution_threshold))
+                if n_collected/n_total >= self.config.return_solution_threshold:
+                    print('Threshold reached; will return solutions')
+                    return_solns.append(a.name) 
+
+        # return soln if at least X% of class has been successfully collected
+        for a in self.assignments:
+            if a.name in return_solns:
+                print('Assignment ' + a.name + ' flagged to enable return of solutions.')
+                for s in self.students:
+                    subm = self.submissions[a.name+'-'+s.canvas_id]
+                    if not subm.solution_returned:
+                        print('Student ' + s.canvas_id + ' not yet returned soln. Returning')
+                        #TODO return solution
+                        pass
+
+        #autograde
         for a in self.assignments:
             if a.due_date < plm.now(): #only process assignments that are past-due
                 for s in self.students:
-                    #if there isn't a submission for this assignment/student, create one and assign it to a grader
-                    if a.name+'-'+s.canvas_id not in self.submissions:
-                        self.submissions[a.name+'-'+s.canvas_id] = Submission()
-                        assign_it
-                    #update the submission due date from canvas
                     subm = self.submissions[a.name+'-'+s.canvas_id]
-                    subm.due_date,  = a.get_due_date(s)
-                    if due_Date_past:
-                        collect_it
-                        clean_it
-                        schedule_for_autograding
-                        return_soln if succesfful
-        
+                    if subm.status == SubmissionStatus.AUTOGRADED-1:
+                        #TODO autograde
+                
         #TODO run all autograding jobs
 
         #TODO schedule then run feedback generation 
