@@ -110,14 +110,13 @@ class Canvas(object):
         people = self.get('enrollments')
         #print(people)
         ppl_typ = [p for p in people if p['type'] == typ]
-        tz = self.get_course_info()['time_zone']
         return [ { 'name' : p['user']['name'],
                    'sortable_name' : p['user']['sortable_name'],
                    'short_name' : p['user']['short_name'],
                    'canvas_id' : str(p['user']['id']),
                    'sis_id' : str(p['user']['sis_user_id']),
-                   'reg_created' : plm.parse(p['created_at'], tz=tz),
-                   'reg_updated' : plm.parse(p['updated_at'], tz=tz),
+                   'reg_created' : plm.parse(p['created_at']),
+                   'reg_updated' : plm.parse(p['updated_at']),
                    'status' : p['enrollment_state']
                   } for p in ppl_typ
                ] 
@@ -137,13 +136,12 @@ class Canvas(object):
     def get_assignments(self):
         asgns = self.get('assignments')
         print(asgns[0])
-        tz = self.get_course_info()['time_zone']
         processed_asgns = [ {  
                    'canvas_id' : str(a['id']),
                    'name' : a['name'],
-                   'due_at' : None if a['due_at'] is None else plm.parse(a['due_at'], tz=tz),
-                   'lock_at' : None if a['lock_at'] is None else plm.parse(a['lock_at'], tz=tz),
-                   'unlock_at' : None if a['unlock_at'] is None else plm.parse(a['unlock_at'], tz=tz),
+                   'due_at' : None if a['due_at'] is None else plm.parse(a['due_at']),
+                   'lock_at' : None if a['lock_at'] is None else plm.parse(a['lock_at']),
+                   'unlock_at' : None if a['unlock_at'] is None else plm.parse(a['unlock_at']),
                    'points_possible' : a['points_possible'],
                    'grading_type' : a['grading_type'],
                    'workflow_state' : a['workflow_state'],
@@ -158,7 +156,6 @@ class Canvas(object):
         return processed_asgns
 
     def get_submissions(self, assignment_id):
-        tz = self.get_course_info()['time_zone']
         subms = self.get('assignments/'+assignment_id+'/submissions')
         return [ {
                        'student_id' : str(subm['user_id']), 
@@ -169,7 +166,7 @@ class Canvas(object):
                        'excused' : subm['excused'],
                        'late_policy_status' : subm['late_policy_status'],
                        'points_deducted' : subm['points_deducted'],
-                       'posted_at' : None if subm['posted_at'] is None else plm.parse(subm['posted_at'], tz=tz),
+                       'posted_at' : None if subm['posted_at'] is None else plm.parse(subm['posted_at']),
                        'late' : subm['late'],
                        'missing' : subm['missing'],
                        'entered_grade' : subm['entered_grade'],
@@ -177,7 +174,6 @@ class Canvas(object):
                 } for s in subms ]
 
     def get_overrides(self, assignment_id):
-        tz = self.get_course_info()['time_zone']
         overs = self.get('assignments/'+assignment_id+'/overrides')
         print('getting overrides')
         for over in overs:
@@ -187,13 +183,12 @@ class Canvas(object):
             over['student_ids'] = list(map(str, over['student_ids']))
             for key in ['due_at', 'lock_at', 'unlock_at']:
                 if over.get(key) is not None:
-                    over[key] = plm.parse(over[key], tz=tz)
+                    over[key] = plm.parse(over[key])
                 else:
                     over[key] = None
         return overs
 
     def create_override(self, assignment_id, override_dict):
-        tz = self.get_course_info()['time_zone']
         #check all required keys
         required_keys = ['student_ids', 'unlock_at', 'due_at', 'lock_at', 'title']
         for rk in required_keys:
@@ -205,7 +200,7 @@ class Canvas(object):
 
         #convert dates to canvas date time strings in the course local timezone
         for dk in ['unlock_at', 'due_at', 'lock_at']:
-            override_dict[dk] = override_dict[dk].in_timezone(tz).format('YYYY-MM-DDTHH:mm:ss\Z')
+            override_dict[dk] = str(override_dict[dk])
 
         print('override dict to create:')
         print(override_dict)
