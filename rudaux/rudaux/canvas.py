@@ -106,6 +106,7 @@ class Canvas(object):
 
     def _get_people_by_type(self, typ):
         people = self.get('enrollments')
+        print(people)
         ppl_typ = [p for p in people if p['type'] == typ]
         tz = self.get_course_info()['time_zone']
         return [ { 'name' : p['user']['name'],
@@ -133,6 +134,7 @@ class Canvas(object):
 
     def get_assignments(self):
         asgns = self.get('assignments')
+        print(asgns)
         tz = self.get_course_info()['time_zone']
         processed_asgns = [ {  
                    'canvas_id' : str(a['id']),
@@ -202,6 +204,9 @@ class Canvas(object):
         #convert dates to canvas date time strings in the course local timezone
         for dk in ['unlock_at', 'due_at', 'lock_at']:
             override_dict[dk] = override_dict[dk].in_timezone(tz).format('YYYY-MM-DDTHH:mm:ss\Z')
+
+        print('override dict to create:')
+        print(override_dict)
 
         #post the override
         post_json = {'assignment_override' : override_dict}
