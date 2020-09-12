@@ -100,8 +100,8 @@ class Canvas(object):
     def post(self, path_suffix, json_data):
         self.upload(path_suffix, json_data, 'post')
 
-    def delete(self, path_suffix, json_data):
-        self.upload(path_suffix, json_data, 'delete')
+    def delete(self, path_suffix):
+        self.upload(path_suffix, None, 'delete')
 
     def get_course_info(self):
         return self.get('')[0]
@@ -135,7 +135,6 @@ class Canvas(object):
 
     def get_assignments(self):
         asgns = self.get('assignments')
-        print(asgns[0])
         processed_asgns = [ {  
                    'canvas_id' : str(a['id']),
                    'name' : a['name'],
