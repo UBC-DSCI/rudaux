@@ -100,19 +100,14 @@ class Course(object):
         #=======================================================#
 
         print('Creating ZFS interface...')
-        self.jupyterhub = JupyterHub(self)
-        self.jupyterhub_cache_filename = os.path.join(self.course_dir, self.config.name + '_jupyterhub_cache.pk')
-        self.load_jupyterhub_state()
+        self.zfs = ZFS(self)
 
         #=======================================================#
         #      Create the interface to Docker                   #
         #=======================================================#
 
         print('Creating Docker interface...')
-        self.jupyterhub = JupyterHub(self)
-        self.jupyterhub_cache_filename = os.path.join(self.course_dir, self.config.name + '_jupyterhub_cache.pk')
-        self.load_jupyterhub_state()
-
+        self.docker = Docker(self)
 
         
         print('Done.')
@@ -213,7 +208,7 @@ class Course(object):
                          }, f)
         return
     
-    def load_jupyterhub_state(self):
+    def load_snapshots(self):
         print('Loading the JupyterHub state...')
         
         if os.path.exists(self.jupyterhub_cache_filename):
@@ -223,8 +218,16 @@ class Course(object):
             print('No cache file found. Initializing empty state.')
             self.submissions = {}
             self.snapshots = []
-
         return
+
+    def save_snapshots(self):
+        pass
+
+    def load_submissions(self):
+        pass
+    
+    def save_submissions(self):
+        pass
     
     def save_jupyterhub_state(self):
         print('Saving the JupyterHub state...')
