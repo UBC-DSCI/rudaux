@@ -43,10 +43,13 @@ class Canvas(object):
 
     #cache subsequent calls to avoid slow repeated access to canvas api
     @lru_cache(maxsize=None)
-    def get(self, path_suffix):
+    def get(self, path_suffix, params = None):
         url = urllib.parse.urljoin(self.base_url, path_suffix)
         resp = None
         resp_items = []
+        full_params = {'per_page' : 100}
+        if params is not None:
+            full_params.update(params)
         while resp is None or 'next' in resp.links.keys():
             resp = requests.get(
                 url = url if resp is None else resp.links['next']['url'],
@@ -54,9 +57,7 @@ class Canvas(object):
                     'Authorization': f'Bearer {self.token}',
                     'Accept': 'application/json'
                     },
-                json = {
-                    'per_page' : 100
-                }
+                json = full_params
             )
 
             if resp.status_code < 200 or resp.status_code > 299:
@@ -133,8 +134,10 @@ class Canvas(object):
         return self._get_people_by_type('TaEnrollment')
 
     def get_assignments(self):
-        asgns = self.get('assignments')
-        print(asgns)
+        #see https://community.canvaslms.com/t5/Question-Forum/Why-is-the-Assignment-due-at-value-that-of-the-last-override/m-p/209593
+        #for why we have to set override_assignment_Dates = false -- basically due_at below gets set really weirdly if
+        #the assignment has overrides unless you include this param
+        asgns = self.get('assignments', params = {'override_assignment_dates' : False}) 
         tz = self.get_course_info()['time_zone']
         processed_asgns = [ {  
                    'canvas_id' : str(a['id']),
