@@ -68,9 +68,6 @@ class Canvas(object):
             else:
                 resp_items.append(resp.json())
 
-        if len(resp_items) == 1:
-            return resp_items[0]
-
         return resp_items
 
     def upload(self, path_suffix, json_data, typ):
@@ -104,7 +101,7 @@ class Canvas(object):
         self.upload(path_suffix, json_data, 'delete')
 
     def get_course_info(self):
-        return self.get('')
+        return self.get('')[0]
 
     def _get_people_by_type(self, typ):
         people = self.get('enrollments')
