@@ -134,7 +134,7 @@ class Canvas(object):
 
     def get_assignments(self):
         asgns = self.get('assignments')
-        #print(asgns)
+        print(asgns)
         tz = self.get_course_info()['time_zone']
         processed_asgns = [ {  
                    'canvas_id' : str(a['id']),
