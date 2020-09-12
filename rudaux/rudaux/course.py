@@ -58,7 +58,7 @@ class Course(object):
         #          Validate Config              #
         #=======================================#
         #make sure the student folder root doesn't end with a slash (for careful zfs snapshot syntax)
-        self.config.jupyterhub_user_folder_root.rstrip('/')
+        self.config.user_folder_root.rstrip('/')
         
         #===================================================================================================#
         #      Create Canvas object and try to load state (if failure, load cached if we're allowed to)     #
