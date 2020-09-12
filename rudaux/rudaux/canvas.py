@@ -177,7 +177,9 @@ class Canvas(object):
     def get_overrides(self, assignment_id):
         tz = self.get_course_info()['time_zone']
         overs = self.get('assignments/'+assignment_id+'/overrides')
+        print(overs)
         for over in overs:
+            print(over)
             over['id'] = str(over['id'])
             over['student_ids'] = list(map(str, over['student_ids']))
             for key in ['due_at', 'lock_at', 'unlock_at']:
