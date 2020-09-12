@@ -3,13 +3,12 @@ from traitlets import Int, Float, Unicode, Bool
 
 class Submission:
 
-    def __init__(self, student_canvas_id, assignment_name):
+    def __init__(self, assignment_name, student_canvas_id):
         self.s_id = student_canvas_id
         self.a_name = assignment_name
-        self.path = None
-        self.grader = None
         self.due_date = None
-        
+        self.snap_name = None
+        self.grader = None
         self.status = 'assigned, collected, cleaned, autograded, manual graded, feedback generated, grade posted, feedback returned, solution returned'
         self.error = None
 

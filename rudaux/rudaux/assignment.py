@@ -17,6 +17,28 @@ class Assignment:
                                            self.unlock_at.in_timezone('America/Vancouver').format('ddd YYYY-MM-DD HH:mm:ss') if self.unlock_at else 'N/A', 
                                            self.lock_at.in_timezone('America/Vancouver').format('ddd YYYY-MM-DD HH:mm:ss') if self.lock_at else 'N/A']
 
+    def get_due_date(self, s):
+        basic_date = self.due_at
+
+        #get overrides for the student
+        overrides = [over for over in self.overrides if s.canvas_id in over['student_ids'] and (over['due_at'] is not None)]
+
+        #if there was no override, return the basic date
+        if len(overrides) == 0:
+            return basic_date, None
+
+        #if there was one, get the latest override date
+        latest_override = overrides[0]
+        for over in overrides:
+            if over['due_at'] > latest_override['due_at']:
+                latest_override = over
+        
+        #return the latest date between the basic and override dates
+        if latest_override['due_at'] > basic_date:
+            return latest_override['due_at'], latest_override
+        else:
+            return basic_date, None
+
         #self.all_submissions=[]
         #self.client = docker.from_env()
         #self.container = client.containers.get('45e6d2de7c54') #TODO what container?

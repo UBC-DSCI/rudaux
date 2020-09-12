@@ -242,29 +242,7 @@ class Course(object):
                     elif self.dry_run:
                         print('[Dry Run: snapshot name not added to taken list; would have added ' + snapname + ']')
         print('Done.')
-        self.save_snapshots()
-
-    def get_due_date(self, a, s):
-        basic_date = a.due_at
-
-        #get overrides for the student
-        a_s_overrides = [over for over in a.overrides if s.canvas_id in over['student_ids'] and (over['due_at'] is not None)]
-
-        #if there was no override, return the basic date
-        if len(a_s_overrides) == 0:
-            return basic_date, None
-
-        #if there was one, get the latest override date
-        latest_override = a_s_overrides[0]
-        for over in a_s_overrides:
-            if over['due_at'] > latest_override['due_at']:
-                latest_override = over
-        
-        #return the latest date between the basic and override dates
-        if latest_override['due_at'] > basic_date:
-            return latest_override['due_at'], latest_override
-        else:
-            return basic_date, None
+        self.save_snapshots() 
 
     def apply_latereg_extensions(self, extdays):
         need_synchronize = False
@@ -280,7 +258,7 @@ class Course(object):
                         #if student s active and registered after assignment a was unlocked
                         print('Student ' + s.name + ' registration date (' + regdate.in_timezone(tz).format(fmt)+') after unlock date of assignment ' + a.name + ' (' + a.unlock_at.in_timezone(tz).format(fmt) + ')')
                         #get their due date w/ no late registration
-                        due_date, override = self.get_due_date(a, s)
+                        due_date, override = a.get_due_date(s)
                         print('Current due date: ' + due_date.in_timezone(tz).format(fmt) + ' from override: ' + str(True if (override is not None) else False))
                         #the late registration due date
                         latereg_date = regdate.add(days=extdays)
@@ -315,63 +293,68 @@ class Course(object):
         #apply late registration dates
         self.apply_latereg_extensions(self.config.latereg_extension_days)
 
-        #print('Creating grader folders/accounts for assignments')
-        ## make sure each assignment past due has grader folders set up
-        #for a in self.assignments:
-        #    # for any assignment past due
-        #    if a.due_date < plm.now():
-        #        # create a user folder and jupyterhub account for each grader if needed
-        #        for i in range(self.config.num_graders):
-        #            grader_name = a.name+'-grader-'+str(i)
-        #            # create the zfs volume and clone the instructor repo
-        #            if not self.zfs.user_folder_exists(grader_name):
-        #                print('Assignment ' + a.name + ' past due, no ' + grader_name + ' folder created yet. Creating')
-        #                self.zfs.create_user_folder(grader_name)
-        #            # if the repo doesn't exist, clone it
-        #            repo_path = os.path.join(self.config.user_folder_root, grader_name, self.config.instructor_repo_name)
-        #            if not os.path.exists(repo_path):
-        #                print('Cloning course repository from ' + self.config.instructor_repo_url)
-        #                if not self.dry_run:
-        #                    try:
-        #                        os.mkdir(repo_path)
-        #                        git.Repo.clone_from(self.config.instructor_repo_url, repo_path)
-        #                    except git.exc.GitCommandError as e:
-        #                        print('Error cloning course repository.')
-        #                        print(e)
-        #                        print('Cleaning up repo path')
-        #                        shutil.rmtree(repo_path)
-        #                else:
-        #                    print('[Dry Run: would have called mkdir('+repo_path+') and git clone ' + self.config.instructor_repo_url + ' into ' + repo_path)
-        #            # if the assignment hasn't been generated yet, generate it
-        #            generated_asgns = self.docker.run('nbgrader db assignment list', repo_path)
-        #            if a.name not in generated_asgns:
-        #                print('Assignment not yet generated. Generating')
-        #                output = self.docker.run('nbgrader generate_assignment --force ' + a.name, repo_path)
-        #           
-        #            # if solution not generated yet, generate it
-        #            #TODO
-        #            
-        #            # create the jupyterhub user
-        #            if not self.jupyterhub.grader_exists(grader_name):
-        #                self.jupyterhub.assign_grader(grader_name, self.config.graders[a.name][i])
+        print('Creating grader folders/accounts for assignments')
+        # make sure each assignment past due has grader folders set up
+        for a in self.assignments:
+            # for any assignment past due
+            if a.due_date < plm.now():
+                # create a user folder and jupyterhub account for each grader if needed
+                for i in range(self.config.num_graders):
+                    grader_name = a.name+'-grader-'+str(i)
+                    # create the zfs volume and clone the instructor repo
+                    if not self.zfs.user_folder_exists(grader_name):
+                        print('Assignment ' + a.name + ' past due, no ' + grader_name + ' folder created yet. Creating')
+                        self.zfs.create_user_folder(grader_name)
+                    # if the repo doesn't exist, clone it
+                    repo_path = os.path.join(self.config.user_folder_root, grader_name, self.config.instructor_repo_name)
+                    if not os.path.exists(repo_path):
+                        print('Cloning course repository from ' + self.config.instructor_repo_url)
+                        if not self.dry_run:
+                            try:
+                                os.mkdir(repo_path)
+                                git.Repo.clone_from(self.config.instructor_repo_url, repo_path)
+                            except git.exc.GitCommandError as e:
+                                print('Error cloning course repository.')
+                                print(e)
+                                print('Cleaning up repo path')
+                                shutil.rmtree(repo_path)
+                        else:
+                            print('[Dry Run: would have called mkdir('+repo_path+') and git clone ' + self.config.instructor_repo_url + ' into ' + repo_path)
+                    # if the assignment hasn't been generated yet, generate it
+                    generated_asgns = self.docker.run('nbgrader db assignment list', repo_path)
+                    if a.name not in generated_asgns:
+                        print('Assignment not yet generated. Generating')
+                        output = self.docker.run('nbgrader generate_assignment --force ' + a.name, repo_path)
+                   
+                    # if solution not generated yet, generate it
+                    local_path = os.path.join('source', a.name, a.name + '.ipynb')
+                    soln_name = a.name + '_solution.html' 
+                    if not os.path.exists(os.path.join(repo_path, soln_name):
+                        print('Solution not generated; generating')
+                        self.docker.run('jupyter nbconvert ' + local_path + ' --output=' + soln_name + ' --output-dir=.') 
+                    
+                    # create the jupyterhub user
+                    if not self.jupyterhub.grader_exists(grader_name):
+                        print('Grader ' + grader_name + ' not created on the hub yet; assigning ' + self.config.graders[a.name][i])
+                        self.jupyterhub.assign_grader(grader_name, self.config.graders[a.name][i])
 
-        #print('Creating/collecting/cleaning submissions')
-        ## create submissions for assignments
-        #for a in self.assignments:
-        #    if a.due_date < plm.now(): #only process assignments that are past-due
-        #        for s in self.students:
-        #            #if there isn't a submission for this assignment/student, create one and assign it to a grader
-        #            if a.name+'-'+s.canvas_id not in self.submissions:
-        #                self.submissions[a.name+'-'+s.canvas_id] = Submission()
-        #                assign_it
-        #            #update the submission due date from canvas
-        #            subm = self.submissions[a.name+'-'+s.canvas_id]
-        #            subm.due_date,  = self.get_due_date(a, s)
-        #            if due_Date_past:
-        #                collect_it
-        #                clean_it
-        #                schedule_for_autograding
-        #                return_soln if succesfful
+        print('Creating/collecting/cleaning submissions')
+        # create submissions for assignments
+        for a in self.assignments:
+            if a.due_date < plm.now(): #only process assignments that are past-due
+                for s in self.students:
+                    #if there isn't a submission for this assignment/student, create one and assign it to a grader
+                    if a.name+'-'+s.canvas_id not in self.submissions:
+                        self.submissions[a.name+'-'+s.canvas_id] = Submission()
+                        assign_it
+                    #update the submission due date from canvas
+                    subm = self.submissions[a.name+'-'+s.canvas_id]
+                    subm.due_date,  = a.get_due_date(s)
+                    if due_Date_past:
+                        collect_it
+                        clean_it
+                        schedule_for_autograding
+                        return_soln if succesfful
         
         #TODO run all autograding jobs
 
