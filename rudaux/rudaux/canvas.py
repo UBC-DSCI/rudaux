@@ -47,6 +47,9 @@ class Canvas(object):
         url = urllib.parse.urljoin(self.base_url, path_suffix)
         resp = None
         resp_items = []
+        #see https://community.canvaslms.com/t5/Question-Forum/Why-is-the-Assignment-due-at-value-that-of-the-last-override/m-p/209593
+        #for why we have to set override_assignment_dates = false below -- basically due_at below gets set really weirdly if
+        #the assignment has overrides unless you include this param
         while resp is None or 'next' in resp.links.keys():
             resp = requests.get(
                 url = url if resp is None else resp.links['next']['url'],
@@ -132,9 +135,6 @@ class Canvas(object):
         return self._get_people_by_type('TaEnrollment')
 
     def get_assignments(self):
-        #see https://community.canvaslms.com/t5/Question-Forum/Why-is-the-Assignment-due-at-value-that-of-the-last-override/m-p/209593
-        #for why we have to set override_assignment_Dates = false -- basically due_at below gets set really weirdly if
-        #the assignment has overrides unless you include this param
         asgns = self.get('assignments')
         tz = self.get_course_info()['time_zone']
         processed_asgns = [ {  
