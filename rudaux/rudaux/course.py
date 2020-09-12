@@ -14,6 +14,7 @@ from .person import Person
 from .assignment import Assignment
 from .docker import Docker
 from .submission import Submission, SubmissionStatus
+from notification import SMTP
 import git
 import shutil
 import random
@@ -434,89 +435,93 @@ class Course(object):
 
         #check autograding results
         for a in self.assignments:
-           if a.due_date < plm.now(): #only process assignments that are past-due
-               for s in self.students:
-                   subm = self.submissions[a.name+'-'+s.canvas_id]
-                   if subm.status == SubmissionStatus.AUTOGRADED-1:
-                       try:
-                           subm.validate_autograde(autograde_results)
-                       except Exception as e:
-                            print('Error when autograding')
-                            print(e)
-                            subm.error = e
-                            continue
-                       subm.status = SubmissionStatus.AUTOGRADED
-                       subm.error = None
+            if a.due_date < plm.now(): #only process assignments that are past-due
+                for s in self.students:
+                    subm = self.submissions[a.name+'-'+s.canvas_id]
+                    if subm.status == SubmissionStatus.AUTOGRADED-1:
+                        try:
+                            subm.validate_autograde(autograde_results)
+                        except Exception as e:
+                             print('Error when autograding')
+                             print(e)
+                             subm.error = e
+                             continue
+                        subm.status = SubmissionStatus.AUTOGRADED
+                        subm.error = None
 
-                   if subm.status == SubmissionStatus.AUTOGRADED:
-                       if subm.needs_manual_grading():
-                           subm.status = SubmissionStatus.NEEDS_MANUAL_GRADING
-                       else:
-                           subm.status = SubmissionStatus.GRADED
+                    if subm.status == SubmissionStatus.AUTOGRADED:
+                        if subm.needs_manual_grading():
+                            subm.status = SubmissionStatus.NEEDS_MANUAL_GRADING
+                        else:
+                            subm.status = SubmissionStatus.GRADED
 
         # schedule feedback generation 
         for a in self.assignments:
-           if a.due_date < plm.now(): #only process assignments that are past-due
-               for s in self.students:
-                   subm = self.submissions[a.name+'-'+s.canvas_id]
-                   if subm.status == SubmissionStatus.FEEDBACK_GENERATED - 1:
-                       subm.submit_generate_feedback(self.docker)
+            if a.due_date < plm.now(): #only process assignments that are past-due
+                for s in self.students:
+                    subm = self.submissions[a.name+'-'+s.canvas_id]
+                    if subm.status == SubmissionStatus.FEEDBACK_GENERATED - 1:
+                        subm.submit_generate_feedback(self.docker)
 
         #run all autograding jobs in parallel
         feedback_results = self.docker.run_all()
 
         # check feedback results and upload grades
         for a in self.assignments:
-           if a.due_date < plm.now(): #only process assignments that are past-due
-               for s in self.students:
-                   subm = self.submissions[a.name+'-'+s.canvas_id]
-                   if subm.status == SubmissionStatus.FEEDBACK_GENERATED - 1:
-                       try:
-                           subm.validate_feedback(feedback_results)
-                       except Exception as e:
-                            print('Error when generating feedback')
-                            print(e)
-                            subm.error = e
-                            continue
-                       subm.status = SubmissionStatus.FEEDBACK_GENERATED
-                       subm.error = None 
+            if a.due_date < plm.now(): #only process assignments that are past-due
+                for s in self.students:
+                    subm = self.submissions[a.name+'-'+s.canvas_id]
+                    if subm.status == SubmissionStatus.FEEDBACK_GENERATED - 1:
+                        try:
+                            subm.validate_feedback(feedback_results)
+                        except Exception as e:
+                             print('Error when generating feedback')
+                             print(e)
+                             subm.error = e
+                             continue
+                        subm.status = SubmissionStatus.FEEDBACK_GENERATED
+                        subm.error = None 
 
-                   if subm.status == SubmissionStatus.GRADE_UPLOADED - 1:
-                       try:
-                           subm.upload_grade(self.canvas)
-                       except Exception as e:
-                            print('Error when uploading grade')
-                            print(e)
-                            subm.error = e
-                            continue
-                       subm.status = SubmissionStatus.GRADE_UPLOADED
-                       subm.error = None
+                    if subm.status == SubmissionStatus.GRADE_UPLOADED - 1:
+                        try:
+                            subm.upload_grade(self.canvas)
+                        except Exception as e:
+                             print('Error when uploading grade')
+                             print(e)
+                             subm.error = e
+                             continue
+                        subm.status = SubmissionStatus.GRADE_UPLOADED
+                        subm.error = None
 
         # check which grades have been posted, and if the relevant assignment is in the return_solns list
         # if both satisfied, return feedback
         for a in self.assignments:
-           if a.due_date < plm.now() and a.name in return_solns: #only process assignments that are past-due
-               for s in self.students:
-                   subm = self.submissions[a.name+'-'+s.canvas_id]
-                   if subm.status == SubmissionStatus.FEEDBACK_RETURNED - 1 and subm.is_grade_posted(self.canvas):
-                       try:
-                           subm.return_feedback()
-                       except Exception as e:
-                            print('Error when returning feedback')
-                            print(e)
-                            subm.error = e
-                            continue
-                       subm.status = SubmissionStatus.FEEDBACK_RETURNED
-                       subm.error = None
+            if a.due_date < plm.now() and a.name in return_solns: #only process assignments that are past-due
+                for s in self.students:
+                    subm = self.submissions[a.name+'-'+s.canvas_id]
+                    if subm.status == SubmissionStatus.FEEDBACK_RETURNED - 1 and subm.is_grade_posted(self.canvas):
+                        try:
+                            subm.return_feedback()
+                        except Exception as e:
+                             print('Error when returning feedback')
+                             print(e)
+                             subm.error = e
+                             continue
+                        subm.status = SubmissionStatus.FEEDBACK_RETURNED
+                        subm.error = None
 
         #finish by saving the current status of all subms and sending out notifications
         self.save_submissions()
         self.send_notifications()
  
     def send_notifications(self):
-        #print('Opening a connection to the notifier')
-        #self.notifier = self.config.notification_method(self)
-        pass
+        notifier = SMTP(self.config, self.dry_run)
+        for a in self.assignments:
+            if a.due_date < plm.now(): 
+                for s in self.students:
+                    subm = self.submissions[a.name+'-'+s.canvas_id]
+                    notifier.notify(recipient_name, recipient_address, subject, message)
+        notifier.close()
 
     def search_students(self, name = None, canvas_id = None, sis_id = None, max_return = 5):
         #get exact matches for IDs

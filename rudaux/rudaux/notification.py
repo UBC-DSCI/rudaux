@@ -9,13 +9,14 @@ class SMTPSendError(Exception):
         pass
 
 class SMTP(object):
-    def __init__(self, course):
-        self.server = smtplib.SMTP(course.config.smtp.hostname)
+    def __init__(self, config, dry_run):
+        self.dry_run = dry_run
+        self.server = smtplib.SMTP(config.smtp.hostname)
         self.server.ehlo()
         self.server.starttls()
-        self.server.login(course.config.smtp.username, course.config.smtp.passwd)
-        self.from_address = course.config.smtp.address
-        self.message_template = '\r\n'.join(['From: '+course.config.smtp.address,
+        self.server.login(config.smtp.username, config.smtp.passwd)
+        self.from_address = config.smtp.address
+        self.message_template = '\r\n'.join(['From: '+config.smtp.address,
                                   'To: {}',
                                   'Subject: {}',
                                   '',
@@ -24,7 +25,7 @@ class SMTP(object):
                                   '{}'
                                   '',
                                   'Beep boop,',
-                                  course.config.name + ' Email Bot'])
+                                  config.name + ' Email Bot'])
 
     def notify(self, recipient_name, recipient_address, subject, message):
         self.server.sendmail(self.from_address, 
