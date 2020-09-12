@@ -268,6 +268,8 @@ class Course(object):
 
     def apply_latereg_extensions(self, extdays):
         need_synchronize = False
+        tz = self.course_info['time_zone']
+        fmt = 'ddd YYYY-MM-DD HH:mm:ss'
         print('Applying late registration extensions')
         for a in self.assignments:
             if a.due_at and a.unlock_at: #if the assignment has both a due date and unlock date set
@@ -276,13 +278,13 @@ class Course(object):
                     regdate = s.reg_updated if s.reg_updated else s.reg_created
                     if s.status == 'active' and regdate > a.unlock_at:
                         #if student s active and registered after assignment a was unlocked
-                        print('Student ' + s.name + ' registration date (' + str(regdate.in_timezone(self.course_info['time_zone']))+') after unlock date of assignment ' + a.name + ' (' + str(a.unlock_at.in_timezone(self.course_info['time_zone'])) + ')')
+                        print('Student ' + s.name + ' registration date (' + regdate.in_timezone(tz).format(fmt)+') after unlock date of assignment ' + a.name + ' (' + a.unlock_at.in_timezone(tz).format(fmt) + ')')
                         #get their due date w/ no late registration
                         due_date, override = self.get_due_date(a, s)
                         #the late registration due date
                         latereg_date = regdate.add(days=extdays)
                         if latereg_date > due_date:
-                            print('Creating automatic late registration extension to ' + str(latereg_date.in_timezone(self.course_info['time_zone']))) 
+                            print('Creating automatic late registration extension to ' + latereg_date.in_timezone(tz).format(fmt)) 
                             need_synchronize = True
                             self.canvas.create_override(a.canvas_id, {'student_ids' : [s.canvas_id],
                                                                   'due_at' : latereg_date,
