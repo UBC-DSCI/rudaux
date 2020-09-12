@@ -284,7 +284,7 @@ class Course(object):
                         print('Current due date: ' + due_date.in_timezone(tz).format(fmt) + ' from override: ' + str(True if (override is not None) else False))
                         #the late registration due date
                         latereg_date = regdate.add(days=extdays)
-                        print('Late registration extension date: ' + latereg_date.in_timezone(tz).format(fmt) + ' from override: ' + str(True if (override is not None) else False))
+                        print('Late registration extension date: ' + latereg_date.in_timezone(tz).format(fmt))
                         if latereg_date > due_date:
                             print('Creating automatic late registration extension to ' + latereg_date.in_timezone(tz).format(fmt)) 
                             if override is not None:

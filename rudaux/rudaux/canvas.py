@@ -42,7 +42,9 @@ class Canvas(object):
         self.dry_run = dry_run
 
     #cache subsequent calls to avoid slow repeated access to canvas api
-    @lru_cache(maxsize=None)
+    #@lru_cache(maxsize=None) TODO -- be careful, e.g., get_overrides overwrites the dict return, which is cached
+    #so when you call get again it breaks things
+    #disabling the cache for now. In the future should call cache_clear() when certain get functions are called.
     def get(self, path_suffix):
         url = urllib.parse.urljoin(self.base_url, path_suffix)
         resp = None
@@ -173,7 +175,7 @@ class Canvas(object):
                 } for s in subms ]
 
     def get_overrides(self, assignment_id):
-        overs = self.get('assignments/'+assignment_id+'/overrides')
+        overs = self.get('assignments/'+assignment_id+'/overrides').deepcopy() 
         print('getting overrides')
         for over in overs:
             print('override')
