@@ -54,7 +54,8 @@ class Canvas(object):
                     'Authorization': f'Bearer {self.token}',
                     'Accept': 'application/json'
                     },
-                json = {'per_page' : 100, 'override_assignment_dates' : False}
+                json = {'per_page' : 100},
+                params = {'override_assignment_dates' : False}
             )
 
             if resp.status_code < 200 or resp.status_code > 299:
