@@ -36,7 +36,7 @@ class Canvas(object):
     """
 
     def __init__(self, config, dry_run):
-        self.base_url = urllib.parse.urljoin(config.canvas_domain, 'api/v1/courses/'+course.config.canvas_id+'/')
+        self.base_url = urllib.parse.urljoin(config.canvas_domain, 'api/v1/courses/'+config.canvas_id+'/')
         self.token = config.canvas_token
         self.jupyterhub_host_root = config.jupyterhub_host_root
         self.dry_run = dry_run
