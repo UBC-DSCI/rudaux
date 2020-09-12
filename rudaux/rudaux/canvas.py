@@ -45,6 +45,7 @@ class Canvas(object):
     #@lru_cache(maxsize=None) TODO -- be careful, e.g., get_overrides overwrites the dict return, which is cached
     #so when you call get again it breaks things
     #disabling the cache for now. In the future should call cache_clear() when certain get functions are called.
+    #also sometimes we need to force no cache when synchronizing (after various updates)
     def get(self, path_suffix):
         url = urllib.parse.urljoin(self.base_url, path_suffix)
         resp = None
@@ -110,7 +111,6 @@ class Canvas(object):
 
     def _get_people_by_type(self, typ):
         people = self.get('enrollments')
-        #print(people)
         ppl_typ = [p for p in people if p['type'] == typ]
         return [ { 'name' : p['user']['name'],
                    'sortable_name' : p['user']['sortable_name'],
@@ -175,11 +175,8 @@ class Canvas(object):
                 } for s in subms ]
 
     def get_overrides(self, assignment_id):
-        overs = self.get('assignments/'+assignment_id+'/overrides').deepcopy() 
-        print('getting overrides')
+        overs = self.get('assignments/'+assignment_id+'/overrides')
         for over in overs:
-            print('override')
-            print(over)
             over['id'] = str(over['id'])
             over['student_ids'] = list(map(str, over['student_ids']))
             for key in ['due_at', 'lock_at', 'unlock_at']:
@@ -202,9 +199,6 @@ class Canvas(object):
         #convert dates to canvas date time strings in the course local timezone
         for dk in ['unlock_at', 'due_at', 'lock_at']:
             override_dict[dk] = str(override_dict[dk])
-
-        print('override dict to create:')
-        print(override_dict)
 
         #post the override
         post_json = {'assignment_override' : override_dict}
