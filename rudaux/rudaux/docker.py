@@ -6,27 +6,29 @@ class Docker(object):
         self.client = docker.from_env()
         self.image = 'ubc-dsci/r-dsci-grading:v0.11.0'
         self.dry_run = course.dry_run
-        self.commands = {}
+        self.jobs = {}
         self.job_id = 0
 
-    def submit(self, command):
+    def submit(self, command, homedir = None):
         key = 'job-' + str(self.job_id)
-        self.commands[key] = command
+        self.jobs[key] = {'command': command, 'homedir' : homedir}
         self.job_id += 1
         return key
 
-    def run(self, command):
-        ctr, result = self._run_container(self.commands[key], False)
+    def run(self, command, homedir = None):
+        ctr, result = self._run_container(command, homedir)
         if ctr:
+            while ctr.status == 'running':
+                sleep(0.25)
             result['exit_status'] = ctr.status
             result['log'] = ctr.logs(stdout = True, stderr = True)
-            ctr.remove(v = True, force = True)
+            ctr.remove(force = True)
         return result
 
     def run_all(self, nthreads):
         results = {}
         running = {}
-        for key in self.commands:
+        for key in self.jobs:
             results[key] = {}
             # sleep while we have reached max threads and all running
             while len(running) >= nthreads and all([running[k].status == 'running' for k in running]):
@@ -36,30 +38,30 @@ class Docker(object):
                 if running[k].status != 'running':
                     results[k]['exit_status'] = running[k].status
                     results[k]['log'] = running[k].logs(stdout = True, stderr = True)
-                    running[k].remove(v = True, force = True)
+                    running[k].remove(force = True)
                     running.pop(k, None)
             # add a new container
             assert len(running) < nthreads
-            ctr, results[key] = self._run_container(self.commands[key], True)
+            ctr, results[key] = self._run_container(self.jobs[key]['command'], self.jobs[key]['homedir'])
             if ctr:
                 running[key] = ctr
         # clear the commands queue when done
-        self.commands = {} 
+        self.jobs = {} 
 
         return results
 
-    def _run_container(self, command, detach):
+    def _run_container(self, command, homedir):
         ctr = None
         result = {}
         try:
             if not self.dry_run:
                 ctr = self.client.containers.run(self.image, command,
-                                                      detach = detach, 
+                                                      detach = True,
                                                       remove = False,
                                                       stderr = True,
                                                       stdout = True,
                                                       mem_limit = '2g',
-                                                      volumes = {'local_repo_path' : {'bind': '/home/jupyter', 'mode': 'rw'}}
+                                                      volumes = {homedir : {'bind': '/home/jupyter', 'mode': 'rw'}} if homedir else {}
                                                       )
             else:
                 print('[Dry Run: would have started docker container ' + key + ' with command: ' + commands[key] + ']')

@@ -8,6 +8,7 @@ class Submission:
         self.a_name = assignment_name
         self.path = None
         self.grader = None
+        self.due_date = None
         
         self.status = 'assigned, collected, cleaned, autograded, manual graded, feedback generated, grade posted, feedback returned, solution returned'
         self.error = None
