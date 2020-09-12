@@ -54,7 +54,7 @@ def get_users(args):
              """
            )
     epwrds = _load_dict(directory)
-    return epwrds.keys() 
+    return list(epwrds.keys())
 
 def list_users(args):
     print(get_users(args))
