@@ -677,7 +677,7 @@ class Course(object):
         #
         #self.return_feedback()
 
-        #self.save_submissions()
+        self.save_submissions()
  
     def send_notifications(self):
         self.smtp.connect()
