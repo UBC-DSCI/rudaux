@@ -109,6 +109,29 @@ latereg_parser.add_argument(
   help="Specify that late registrations should not actually be provided canvas extensions and print the canvas api calls instead."
 )
 
+#---------------------------------------------
+#           Run workflow
+#---------------------------------------------
+
+run_parser = subparsers.add_parser('run', help='Run the course management workflow')
+run_parser.set_defaults(func=commands.run)
+run_parser.add_argument(
+  '--dir',
+  dest='directory',
+  action='store',
+  default=os.getcwd(),
+  help="The directory containing the rudaux configuration file."
+)
+#run_parser.add_argument(
+#  '--dry-run',
+#  dest='dry_run',
+#  action='store_true',
+#  default=False,
+#  help="(DRY RUN CURRENTLY DOES NOT WORK FOR THIS FUNCTION) Don't take any actions that actually change state; print function usage instead"
+#)
+
+
+
 
 # Parse the arguments!
 args = parser.parse_args()

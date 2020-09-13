@@ -93,6 +93,12 @@ class Course(object):
         print('Creating Docker interface...')
         self.docker = Docker(self.config, self.dry_run)
 
+        #=======================================================#
+        #      Create the interface to SMTP                     #
+        #=======================================================#
+
+        print('Creating SMTP interface...')
+        self.smtp = SMTP(self.config, self.dry_run)
         
         #=======================================================#
         #      Load the saved state                             #
@@ -628,36 +634,30 @@ class Course(object):
               """
             )
 
-        self.create_submissions()
+        #self.create_submissions()
 
-        self.collect_submissions()
+        #self.collect_submissions()
 
-        returnable = self.get_returnable()
+        #returnable = self.get_returnable()
 
-        self.return_solutions(returnable)
+        #self.return_solutions(returnable)
 
-        self.autograde_submissions()
+        #self.autograde_submissions()
 
-        self.generate_feedback()
+        #self.generate_feedback()
 
-        self.upload_grades()
+        #self.upload_grades()
  
-        needs_posting = self.check_posted()
-        
-        self.return_feedback()
+        #needs_posting = self.check_posted()
+        #
+        #self.return_feedback()
 
-        self.save_submissions()
-
-        self.send_notifications()
+        #self.save_submissions()
  
     def send_notifications(self):
-        notifier = SMTP(self.config, self.dry_run)
-        for a in self.assignments:
-            if a.due_date < plm.now(): 
-                for s in self.students:
-                    subm = self.submissions[a.name+'-'+s.canvas_id]
-                    notifier.notify(recipient_name, recipient_address, subject, message)
-        notifier.close()
+        self.smtp.connect()
+        self.smtp.notify_all()
+        self.smtp.close()
 
     def search_students(self, name = None, canvas_id = None, sis_id = None, max_return = 5):
         #get exact matches for IDs

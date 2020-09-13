@@ -1,39 +1,63 @@
 import smtplib
 
-class SMTPOpenError(Exception):
-    def __init__(self):
-        pass
-
-class SMTPSendError(Exception):
-    def __init__(self):
-        pass
+class NotifyError(Exception):
+    def __init__(self, message):
+        self.message = message
 
 class SMTP(object):
     def __init__(self, config, dry_run):
         self.dry_run = dry_run
-        self.server = smtplib.SMTP(config.smtp.hostname)
-        self.server.ehlo()
-        self.server.starttls()
-        self.server.login(config.smtp.username, config.smtp.passwd)
-        self.from_address = config.smtp.address
-        self.message_template = '\r\n'.join(['From: '+config.smtp.address,
+        self.hostname = config.smtp.hostname
+        self.username = config.smtp.username
+        self.passwd = config.smtp.passwd
+        self.address = config.smtp.address
+        self.contact_info = config.smtp.contact_info
+        self.message_template = '\r\n'.join(['From: '+self.address,
                                   'To: {}',
-                                  'Subject: {}',
+                                  'Subject: ['+config.name+'] Notifications',
                                   '',
-                                  'Greetings {},',
+                                  'Greetings Human {},',
                                   '',
                                   '{}'
                                   '',
                                   'Beep boop,',
                                   config.name + ' Email Bot'])
-        self.contact_info = config.smtp.contact_info
+        self.notifications = {}
+        self.connected = False
 
-    def notify(self, recipient, subject, message):
-        self.server.sendmail(self.from_address, 
+    def submit(self, recipient, message):
+        if recipient not in self.notifications:
+            self.notifications[recipient] = []
+        self.notifications[recipient].append(message)
+
+    def connect(self):
+        self.server = smtplib.SMTP(self.hostname)
+        self.server.ehlo()
+        self.server.starttls()
+        self.server.login(self.username, self.passwd)
+        self.connected = True
+
+    #TODO implement saving messages to disk with timestamp if send fails
+    def notify(self, recipient, message):
+        if not self.connected:
+            raise NotifyError('Not connected to SMTP server; cannot send notifications')
+        self.server.sendmail(self.address, 
 				self.contact_info[recipient]['address'], 
-				self.message_template.format(self.contact_info[recipient]['address'], subject, self.contact_info[recipient]['name'], message)
+				self.message_template.format(self.contact_info[recipient]['address'], self.contact_info[recipient]['name'], message)
                             )
 
+    def notify_all(self):
+        if not self.connected:
+            raise NotifyError('Not connected to SMTP server; cannot send notifications')
+        for recip in self.notifications:
+            if len(self.notifications[recip]) > 0:
+                self.notify(recip, '\r\n\r\n-------------------\r\n\r\n'.join(self.notifications[recip]))
+            self.notifications[recip] = []
 
     def close(self):
-        self.server.quit()
+        if connected:       
+            self.server.quit()
+            self.connected = False
+
+
+
