@@ -26,11 +26,12 @@ class SMTP(object):
                                   '',
                                   'Beep boop,',
                                   config.name + ' Email Bot'])
+        self.contact_info = config.smtp.contact_info
 
-    def notify(self, recipient_name, recipient_address, subject, message):
+    def notify(self, recipient, subject, message):
         self.server.sendmail(self.from_address, 
-				recipient_address, 
-				self.message_template.format(recipient_address, subject, recipient_name, message)
+				self.contact_info[recipient]['address'], 
+				self.message_template.format(self.contact_info[recipient]['address'], subject, self.contact_info[recipient]['name'], message)
                             )
 
 

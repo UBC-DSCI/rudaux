@@ -550,18 +550,18 @@ class Course(object):
         try:
             self.create_grader_folders()
         except NBError as e:
-            error_message = ''
+            error_message = e.message +'\nDocker output:\n' +e.docker_output
             create_folder_error = True
         except git.exc.GitCommandError as e:
-            error_message = ''
+            error_message = str(e)
             create_folder_error = True
         except Exception as e:    
-            error_message = ''
+            error_message = str(e)
             create_folder_error = True
 
         if create_folder_error:
             notifier = SMTP(self.config, self.dry_run)
-            notifier.notify(recipient_name, recipient_address, subject, message)
+            notifier.notify(recipient, '['+self.config.name+'] Action Required: grader folder creation failed', error_message)
             notifier.close()   
             sys.exit(
               f"""
