@@ -375,10 +375,6 @@ class Course(object):
 
                     # if the assignment hasn't been generated yet, generate it
                     generated_asgns = self.docker.run('nbgrader db assignment list', repo_path)
-
-                    print(generated_asgns)
-                    sys.exit("test exit")                  
-
                     print('Checking if assignment ' + a.name + ' has been generated for grader ' + grader_name)
                     if a.name not in generated_asgns['log']:
                         print('Assignment not yet generated. Generating')
