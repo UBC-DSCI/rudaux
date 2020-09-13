@@ -13,8 +13,8 @@ class JupyterHub(object):
    
     def assign_grader(self, grader_name, ta_username):
         #just add authentication using dictauth
-        Args = namedtuple('Args', 'username directory copy_creds')
-        args = Args(username = grader_name, directory = self.jupyterhub_config_dir, copy_creds = ta_username)
+        Args = namedtuple('Args', 'username directory copy_creds salt digest')
+        args = Args(username = grader_name, directory = self.jupyterhub_config_dir, copy_creds = ta_username, salt = None, digest = None)
         if not self.dry_run:
             add_user(args)
             self.stop()
