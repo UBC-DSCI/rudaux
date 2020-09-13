@@ -12,6 +12,7 @@ class Docker(object):
         self.client = docker.from_env()
         self.image = config.grading_image
         self.dry_run = dry_run
+        self.n_threads = config.num_docker_threads
         self.jobs = {}
         self.job_id = 0
         self.runsts = ['running', 'created']
@@ -33,13 +34,13 @@ class Docker(object):
             ctr.remove(force = True)
         return result
 
-    def run_all(self, nthreads):
+    def run_all(self):
         results = {}
         running = {}
         for key in self.jobs:
             results[key] = {}
             # sleep while we have reached max threads and all running
-            while len(running) >= nthreads and all([running[k].status in self.runsts for k in running]):
+            while len(running) >= self.n_threads and all([running[k].status in self.runsts for k in running]):
                 time.sleep(0.25)
                 for k in running:
                     running[k].reload()
@@ -51,7 +52,7 @@ class Docker(object):
                     running[k].remove(force = True)
                     running.pop(k, None)
             # add a new container
-            assert len(running) < nthreads
+            assert len(running) < self.n_threads
             ctr, results[key] = self._run_container(self.jobs[key]['command'], self.jobs[key]['homedir'])
             if ctr:
                 running[key] = ctr
