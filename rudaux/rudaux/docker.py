@@ -13,6 +13,7 @@ class Docker(object):
         self.dry_run = dry_run
         self.jobs = {}
         self.job_id = 0
+        self.runsts = ['running', 'created']
 
     def submit(self, command, homedir = None):
         key = 'job-' + str(self.job_id)
@@ -23,7 +24,7 @@ class Docker(object):
     def run(self, command, homedir = None):
         ctr, result = self._run_container(command, homedir)
         if ctr:
-            while ctr.status == 'running':
+            while ctr.status in self.runsts:
                 sleep(0.25)
             result['exit_status'] = ctr.status
             result['log'] = ctr.logs(stdout = True, stderr = True).decode('utf-8')
@@ -36,11 +37,11 @@ class Docker(object):
         for key in self.jobs:
             results[key] = {}
             # sleep while we have reached max threads and all running
-            while len(running) >= nthreads and all([running[k].status == 'running' for k in running]):
+            while len(running) >= nthreads and all([running[k].status in self.runsts for k in running]):
                 sleep(0.25)
             # clean out nonrunning containers
             for k in running:
-                if running[k].status != 'running':
+                if running[k].status not in self.runsts:
                     results[k]['exit_status'] = running[k].status
                     results[k]['log'] = running[k].logs(stdout = True, stderr = True).decode('utf-8')
                     running[k].remove(force = True)
