@@ -1,4 +1,5 @@
 import docker
+import time
 
 class DockerError(Exception):
     def __init__(self, message, docker_output):
@@ -25,7 +26,7 @@ class Docker(object):
         ctr, result = self._run_container(command, homedir)
         if ctr:
             while ctr.status in self.runsts:
-                sleep(0.25)
+                time.sleep(0.25)
             result['exit_status'] = ctr.status
             result['log'] = ctr.logs(stdout = True, stderr = True).decode('utf-8')
             ctr.remove(force = True)
@@ -38,7 +39,7 @@ class Docker(object):
             results[key] = {}
             # sleep while we have reached max threads and all running
             while len(running) >= nthreads and all([running[k].status in self.runsts for k in running]):
-                sleep(0.25)
+                time.sleep(0.25)
             # clean out nonrunning containers
             for k in running:
                 if running[k].status not in self.runsts:
