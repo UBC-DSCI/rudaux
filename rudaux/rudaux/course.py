@@ -12,17 +12,12 @@ from .jupyterhub import JupyterHub
 from .zfs import ZFS
 from .person import Person
 from .assignment import Assignment
-from .docker import Docker
+from .docker import Docker, DockerError
 from .submission import Submission, SubmissionStatus
 from notification import SMTP
 import git
 import shutil
 import random
-
-class NBError(Exception):
-    def __init__(self, message, docker_output):
-        self.message = message
-        self.docker_output = docker_output
 
 class Course(object):
     """
@@ -354,6 +349,16 @@ class Course(object):
                             print('[Dry Run: would have removed any file/folder at ' + repo_path + ', called mkdir('+repo_path+') and git clone ' + self.config.instructor_repo_url + ' into ' + repo_path)
                     else:
                         print('Repo valid.')
+
+                    # make sure the submitted/ folder exists
+                    subm_path = os.path.join(repo_path, 'submitted')
+                    print('Checking if ' + str(subm_path) + ' exists')
+                    if not os.path.exists(subm_path):
+                        os.mkdir(subm_path)
+                        os.chown(subm_path, jupyter_uid,jupyter_uid)
+                    else:
+                        print('Exists already.')
+
                     # if the assignment hasn't been generated yet, generate it
                     generated_asgns = self.docker.run('nbgrader db assignment list', repo_path)
                     print('Checking if assignment ' + a.name + ' has been generated for grader ' + grader_name)
@@ -361,7 +366,7 @@ class Course(object):
                         print('Assignment not yet generated. Generating')
                         output = self.docker.run('nbgrader generate_assignment --force ' + a.name, repo_path)
                         if 'ERROR' in output['log']:
-                            raise NBError('Error generating assignment ' + a.name + ' in grader folder ' + grader_name + ' at repo path ' + repo_path, output['log'])
+                            raise DockerError('Error generating assignment ' + a.name + ' in grader folder ' + grader_name + ' at repo path ' + repo_path, output['log'])
                     else:
                         print('Assignment already generated')
                    
@@ -373,7 +378,7 @@ class Course(object):
                         print('Solution not generated; generating')
                         output = self.docker.run('jupyter nbconvert ' + local_path + ' --output=' + soln_name + ' --output-dir=.', repo_path) 
                         if 'ERROR' in output['log']:
-                            raise NBError('Error generating solution for assignment ' + a.name + ' in grader folder ' + grader_name + ' at repo path ' + repo_path, output['log'])
+                            raise DockerError('Error generating solution for assignment ' + a.name + ' in grader folder ' + grader_name + ' at repo path ' + repo_path, output['log'])
                     else:
                         print('Solution already generated')
 
@@ -491,14 +496,14 @@ class Course(object):
                         try:
                             subm.validate_autograde(autograde_results)
                         except Exception as e:
-                             print('Error when autograding')
-                             print(e)
-                             subm.error = e
-                             continue
+                            print('Error when autograding')
+                            print(e)
+                            subm.error = e
+                            continue
                         subm.status = SubmissionStatus.AUTOGRADED
                         subm.error = None
 
-                    if subm.status == SubmissionStatus.AUTOGRADED:
+                    if subm.status == SubmissionStatus.AUTOGRADED or subm.status == SubmissionStatus.NEEDS_MANUAL_GRADING:
                         if subm.needs_manual_grading():
                             subm.status = SubmissionStatus.NEEDS_MANUAL_GRADING
                         else:
@@ -525,10 +530,10 @@ class Course(object):
                         try:
                             subm.validate_feedback(feedback_results)
                         except Exception as e:
-                             print('Error when generating feedback')
-                             print(e)
-                             subm.error = e
-                             continue
+                            print('Error when generating feedback')
+                            print(e)
+                            subm.error = e
+                            continue
                         subm.status = SubmissionStatus.FEEDBACK_GENERATED
                         subm.error = None 
 
@@ -542,12 +547,40 @@ class Course(object):
                         try:
                             subm.upload_grade(self.canvas)
                         except Exception as e:
-                             print('Error when uploading grade')
-                             print(e)
-                             subm.error = e
-                             continue
+                            print('Error when uploading grade')
+                            print(e)
+                            subm.error = e
+                            continue
                         subm.status = SubmissionStatus.GRADE_UPLOADED
                         subm.error = None
+
+    def check_posted(self):
+        needs_posting = []
+        # check whether each grade has been posted
+        for a in self.assignments:
+            if a.due_date < plm.now(): #only process assignments that are past-due
+                all_posted = True
+                canvas_subms = self.canvas.get_submissions(a.canvas_id)
+                posted_ats = {subm['student_id'] : subm['posted_at'] for subm in canvas_subms}
+                for s in self.students:
+                    subm = self.submissions[a.name+'-'+s.canvas_id]
+                    if subm.status == SubmissionStatus.GRADE_POSTED - 1:
+                        try:
+                            is_posted = (posted_ats[s.canvas_id] is not None)
+                        except Exception as e:
+                            print('Error when checking if grade is posted')
+                            print(e)
+                            subm.error = e
+                            all_posted = False
+                            continue
+                        if is_posted:
+                            subm.status = SubmissionStatus.GRADE_POSTED
+                        else:
+                            all_posted = False
+                        subm.error = None
+                if not all_posted:
+                    needs_posting.append(a.name) 
+        return needs_posting
 
     def return_feedback(self, returnable):
         # check which grades have been posted, and if the relevant assignment is in the return_solns list
@@ -574,7 +607,7 @@ class Course(object):
         create_folder_error = False
         try:
             self.create_grader_folders()
-        except NBError as e:
+        except DockerError as e:
             error_message = e.message +'\nDocker output:\n' +e.docker_output
             create_folder_error = True
         except git.exc.GitCommandError as e:
@@ -608,6 +641,8 @@ class Course(object):
         self.generate_feedback()
 
         self.upload_grades()
+ 
+        needs_posting = self.check_posted()
         
         self.return_feedback()
 

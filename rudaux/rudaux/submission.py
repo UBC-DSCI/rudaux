@@ -1,8 +1,10 @@
 from traitlets.config.configurable import Configurable
 from traitlets import Int, Float, Unicode, Bool
 from enum import IntEnum
-
-#self.status = 'assigned, collected, cleaned, autograded, manual graded, feedback generated, grade posted, feedback returned, solution returned'
+import os, shutil, pwd
+import json
+from nbgrader.api import Gradebook, MissingEntry
+from .docker import DockerError
 
 class SubmissionStatus(IntEnum):
     ASSIGNED = 0
@@ -20,6 +22,8 @@ class Submission:
 
     def __init__(self, asgn, stu, grader, config):
         self.s_id = stu.canvas_id
+        self.a_id = asgn.canvas_id
+        self.s_name = stu.name
         self.a_name = asgn.name
         self.update_due(asgn, stu)
         self.grader = grader
@@ -39,161 +43,107 @@ class Submission:
 
     def collect(self):
         self.assignment_snap_path = os.path.join(self.student_folder_root, self.s_id, '.zfs', 'snapshot', self.snap_name, 'dsci-100/materials', self.a_name, self.a_name+'.ipynb')
-        self.submission_path = os.path.join(self.user_folder_root, 
+        submission_folder = os.path.join(self.grader_repo_path, 'submitted', self.student_prefix + self.s_id, self.a_name)
+        self.submission_path = os.path.join(submission_folder, self.a_name+'.ipynb')
+        shutil.copy(self.assignment_snap_path, self.submission_path) 
+        jupyter_uid = pwd.getpwnam('jupyter').pw_uid
+        os.chown(self.submission_path, jupyter_uid, jupyter_uid)
         
+    def clean(self):
+        #need to check for duplicate cell ids, see
+        #https://github.com/jupyter/nbgrader/issues/1083
+        
+        #open the student's notebook
+        f = open(self.submission_path, 'r')
+        nb = json.load(f)
+        f.close()
+    
+        #go through and delete the nbgrader metadata from any duplicated cells
+        cell_ids = set()
+        for cell in nb['cells']:
+          try:
+            cell_id = cell['metadata']['nbgrader']['grade_id']
+          except:
+            continue
+          if cell_id in cell_ids:
+            print('Student ' + self.s_id + ' assignment ' + self.a_name + ' grader ' + self.grader + ' had a duplicate cell! ID = ' + str(cell_id))
+            print('Removing the nbgrader metainfo from that cell to avoid bugs in autograde')
+            cell['metadata'].pop('nbgrader', None)
+          else:
+            cell_ids.add(cell_id)
+    
+        #write the sanitized notebook back to the submitted folder
+        f = open(self.submission_path, 'w')
+        json.dump(nb, f)
+        f.close()
 
     def return_solution(self):
-        pass
-
-    def clean(self):
-      #need to check for duplicate cell ids, see
-      #https://github.com/jupyter/nbgrader/issues/1083
-      submitted_path = os.path.join(course['course_storage_path'], 
-                                          grader,
-                                          course['instructor_submitted_path'],
-                                          course['student_name_prefix'] + stu, 
-                                          anm,
-                                          anm + '.ipynb')
-      #open the student's notebook
-      f = open(submitted_path, 'r')
-      nb = json.load(f)
-      f.close()
-    
-      #go through and delete the nbgrader metadata from any duplicated cells
-      cell_ids = set()
-      for cell in nb['cells']:
-        try:
-          cell_id = cell['metadata']['nbgrader']['grade_id']
-        except:
-          continue
-        if cell_id in cell_ids:
-          print('Student ' + stu + ' assignment ' + anm + ' grader ' + grader + ' had a duplicate cell! ID = ' + str(cell_id))
-          print('Removing the nbgrader metainfo from that cell to avoid bugs in autograde')
-          cell['metadata'].pop('nbgrader', None)
-        else:
-          cell_ids.add(cell_id)
-    
-      #write the sanitized notebook back to the submitted folder
-      f = open(submitted_path, 'w')
-      json.dump(nb, f)
-      f.close()
+        soln_path_grader = os.path.join(self.grader_repo_path, self.a_name + '.html')
+        soln_path_student = os.path.join(self.student_folder_root, self.s_id, 'dsci-100/materials', self.a_name, self.a_name + '_soln.html')
+        shutil.copy(soln_path_grader, soln_path_student) 
+        jupyter_uid = pwd.getpwnam('jupyter').pw_uid
+        os.chown(soln_path_student, jupyter_uid, jupyter_uid)
 
     def submit_autograde(self, docker):
-        pass
+        self.docker_job_id = docker.submit('nbgrader autograde --assignment=' + self.a_name + ' --student='+self.student_prefix+self.s_id, self.grader_repo_path)
   
     def validate_autograde(self, results):
-        pass
+        res = results[self.docker_job_id]
+        if 'ERROR' in res['log']:
+            raise DockerError('Error autograding assignment ' + self.a_name + ' for student ' + self.s_id + ' in grader folder ' + self.grader + ' at repo path ' + self.grader_repo_path + '. Exit status ' + res['exit_status'], res['log'])
 
-    def needs_manual_grading(course, anm, stu, grader):
-        gradebook_file = os.path.join(course['course_storage_path'], 
-                                            grader,
-                                            course['instructor_repo_path'],
-                                            course['gradebook_filename'])
-        gb = Gradebook('sqlite:///'+gradebook_file)
-
+    def needs_manual_grading(self):
         try:
-          subm = gb.find_submission(anm, course['student_name_prefix']+stu)
-          flag = subm.needs_manual_grade
-        except MissingEntry as e:
-          print(e)
+            gb = Gradebook('sqlite:///'+self.grader_repo_path +'/gradebook.db')
+            subm = gb.find_submission(self.a_name, self.student_prefix+self.s_id)
+            flag = subm.needs_manual_grade
         finally:
-          gb.close()
-
+            gb.close()
         return flag
 
     def submit_generate_feedback(self, docker): 
-        pass
+        docker.submit('nbgrader generate_feedback --force --assignment=' + self.a_name + ' --student=' + self.student_prefix+self.s_id, self.grader_repo_path)
     
-    def validate_feedback(self): 
-        pass
-
-    def upload_grade(self):
-        pass
-
-    def is_grade_posted(self):
-        pass
+    def validate_feedback(self, results): 
+        if 'ERROR' in res['log']:
+            raise DockerError('Error generating feedback for ' + self.a_name + ' for student ' + self.s_id + ' in grader folder ' + self.grader + ' at repo path ' + self.grader_repo_path + '. Exit status ' + res['exit_status'], res['log'])
 
 
-def check_submission_exists(course, anm, stu, grader):
-  submitted_path = os.path.join(course['course_storage_path'], 
-                                      grader,
-                                      course['instructor_submitted_path'],
-                                      course['student_name_prefix'] + stu, 
-                                      anm,
-                                      anm + '.ipynb')
-  return os.path.exists(submitted_path)
+    def return_feedback(self):
+        fdbk_path_grader = os.path.join(self.grader_repo_path, 'feedback', self.student_prefix+self.s_id, self.a_name, self.a_name + '.html')
+        fdbk_path_student = os.path.join(self.student_folder_root, self.s_id, 'dsci-100/materials', self.a_name, self.a_name + '_feedback.html')
+        shutil.copy(fdbk_path_grader, fdbk_path_student) 
+        jupyter_uid = pwd.getpwnam('jupyter').pw_uid
+        os.chown(fdbk_path_student, jupyter_uid, jupyter_uid)
 
+    def upload_grade(self, canvas):
+        try:
+            gb = Gradebook('sqlite:///'+self.grader_repo_path +'/gradebook.db')
+            subm = gb.find_submission(self.a_name, self.student_prefix+self.s_id)
+            score = subm.score
+        finally:
+            gb.close()
 
+        max_score = self.compute_max_score()
+    
+        print('Student ' + self.s_id + ' assignment ' + self.a_name + ' score: ' + str(score))
+        print('Assignment ' + self.a_name + ' max score: ' + str(max_score))
+        print('Pct Score: ' + str(100*score/max_score))
+        print('Posting to canvas...')
+        canvas.put_grade(self.a_id, self.s_id, str(100*score/max_score))
 
-
-
-def upload_grade(course, anm, stu, grader):
-  print('Getting grade for student ' + stu + ' assignment ' + anm)
-  course_dir_path = os.path.join(course['course_storage_path'], 
-                                      grader,
-                                      course['instructor_repo_path'])
-
-  gradebook_file = os.path.join(course['course_storage_path'], 
-                                      grader,
-                                      course['instructor_repo_path'],
-                                      course['gradebook_filename'])
-  gb = Gradebook('sqlite:///'+gradebook_file)
-
-  try:
-    subm = gb.find_submission(anm, course['student_name_prefix']+stu)
-    score = subm.score
-  except MissingEntry as e:
-    print(e)
-  finally:
-    gb.close()
-  max_score = compute_max_score(course, anm, grader)
-
-  print('Student ' + stu + ' assignment ' + anm + ' score: ' + str(score))
-  print('Assignment ' + anm + ' max score: ' + str(max_score))
-  print('Pct Score: ' + str(100*score/max_score))
-  print('Posting to canvas...')
-  canvas.post_grade(course, anm, stu, str(100*score/max_score))
-
-def compute_max_score(course, anm, grader):
-  #for some incredibly annoying reason, nbgrader refuses to compute a max_score for anything (so we cannot easily convert scores to percentages)
-  #let's compute the max_score from the notebook manually then....
-
-  release_notebook_file = os.path.join(course['course_storage_path'], 
-                                      grader,
-                                      course['instructor_release_path'],
-                                      anm,
-                                      anm+'.ipynb')
-  f = open(release_notebook_file, 'r')
-  parsed_json = json.load(f)
-  f.close()
-  pts = 0
-  for cell in parsed_json['cells']:
-    try:
-      pts += cell['metadata']['nbgrader']['points']
-    except Exception as e:
-      #will throw exception if cells dont exist / not right type -- that's fine, it'll happen a lot.
-      pass
-  return pts
-
-
-
-
-       
-        ##create the local path 
-        #local_repo_path = os.path.join(course['course_storage_path'], 
-        #                                    grader,
-        #                                    course['instructor_repo_path'])
-
-        #print('Running a docker container to check if assignment ' + anm + ' exists for ' + grader)
-        #docker_command = 'docker run --rm -v ' + local_repo_path +':/home/jupyter ubcdsci/r-dsci-grading nbgrader db assignment list'
-        #print(docker_command)
-        #result = str(subprocess.check_output(docker_command.split(' ')))
-        #print('Result:')
-        #print(result)
-        #if anm not in result:
-        #  print('Need to generate assignment ' + anm + ' for grader ' + grader)
-        #  docker_command = 'docker run --rm -v ' + local_repo_path +':/home/jupyter ubcdsci/r-dsci-grading nbgrader generate_assignment --force ' + anm
-        #  print(docker_command)
-        #  subprocess.check_output(docker_command.split(' '))
-
-
+    def compute_max_score(self):
+      #for some incredibly annoying reason, nbgrader refuses to compute a max_score for anything (so we cannot easily convert scores to percentages)
+      #let's compute the max_score from the notebook manually then....
+      release_nb_path = os.path.join(self.grader_repo_path, 'release', self.a_name, self.a_name+'.ipynb')
+      f = open(release_nb_path, 'r')
+      parsed_json = json.load(f)
+      f.close()
+      pts = 0
+      for cell in parsed_json['cells']:
+        try:
+          pts += cell['metadata']['nbgrader']['points']
+        except Exception as e:
+          #will throw exception if cells dont exist / not right type -- that's fine, it'll happen a lot.
+          pass
+      return pts

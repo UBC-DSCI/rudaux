@@ -1,5 +1,10 @@
 import docker
 
+class DockerError(Exception):
+    def __init__(self, message, docker_output):
+        self.message = message
+        self.docker_output = docker_output
+
 class Docker(object):
 
     def __init__(self, config, dry_run):

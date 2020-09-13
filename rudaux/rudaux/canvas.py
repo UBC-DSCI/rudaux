@@ -255,34 +255,4 @@ class Canvas(object):
 #        scores.update( {res['user_id'] : res['score'] for res in resp.json()} )
 #    return scores
 #
-#def grades_need_posting(course, assignment):
-#    '''Takes a course object, an assignment name, and get the grades for that assignment from Canvas.
-#    
-#    Example:
-#    course.get_grades(course, 'worksheet_01')'''
-#    assignment_id = get_assignment_id(course, assignment)
-#    url_path = posixpath.join("api", "v1", "courses", course['course_id'], "assignments", assignment_id, "submissions")
-#    api_url = urllib.parse.urljoin(course['hostname'], url_path)
-#    token = course['token']
-#
-#    #get enrollments to avoid the test student's submissions
-#    real_stu_ids = list(get_enrollment_dates(course).keys())
-#  
-#    resp = None
-#    posted_flags = []
-#    while resp is None or resp.links['current']['url'] != resp.links['last']['url']:
-#        resp = requests.get(
-#            url = api_url if resp is None else resp.links['next']['url'],
-#            headers = {
-#                "Authorization": f"Bearer {token}",
-#                "Accept": "application/json+canvas-string-ids"
-#                },
-#            json={
-#              "per_page":"100"
-#            }
-#        )
-#        posted_flags.extend([ (subm_grd['posted_at'] is not None) for subm_grd in resp.json() if subm_grd['user_id'] in real_stu_ids])
-#
-#    return not all(posted_flags)
-
 
