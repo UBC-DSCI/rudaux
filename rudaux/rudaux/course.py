@@ -19,6 +19,11 @@ import git
 import shutil
 import random
 
+class NBError(Exception):
+    def __init__(self, message, docker_output):
+        self.message = message
+        self.docker_output = docker_output
+
 class Course(object):
     """
     Course object for managing a Canvas/JupyterHub/nbgrader course.
@@ -305,19 +310,25 @@ class Course(object):
                     if not self.zfs.user_folder_exists(grader_name):
                         print('Assignment ' + a.name + ' past due, no ' + grader_name + ' folder created yet. Creating')
                         self.zfs.create_user_folder(grader_name)
-                    # if the repo doesn't exist, clone it
+                    # if not a valid repo with an nbgrader config file, clone it
                     repo_path = os.path.join(self.config.user_folder_root, grader_name, self.config.instructor_repo_name)
-                    if not os.path.exists(repo_path):
-                        print('Cloning course repository from ' + self.config.instructor_repo_url)
+                    repo_valid = False
+                    try:
+                        tmprepo = git.Repo(repo_path)
+                    except:
+                        pass
+                    else:
+                        repo_valid = True
+                    if not repo_valid:
+                        print(repo_path + ' is not a valid course repo. Cleaning and cloning course repository from ' + self.config.instructor_repo_url)
                         if not self.dry_run:
-                            try:
-                                os.mkdir(repo_path)
-                                git.Repo.clone_from(self.config.instructor_repo_url, repo_path)
-                            except git.exc.GitCommandError as e:
-                                print('Error cloning course repository.')
-                                print(e)
-                                print('Cleaning up repo path')
-                                shutil.rmtree(repo_path)
+                            if os.path.exists(repo_path):
+                                if os.path.isdir(repo_path):
+                                    shutil.rmtree(repo_path)
+                                else:
+                                    os.remove(repo_path)
+                            os.mkdir(repo_path)
+                            git.Repo.clone_from(self.config.instructor_repo_url, repo_path)
                         else:
                             print('[Dry Run: would have called mkdir('+repo_path+') and git clone ' + self.config.instructor_repo_url + ' into ' + repo_path)
                     # if the assignment hasn't been generated yet, generate it
@@ -325,13 +336,17 @@ class Course(object):
                     if a.name not in generated_asgns:
                         print('Assignment not yet generated. Generating')
                         output = self.docker.run('nbgrader generate_assignment --force ' + a.name, repo_path)
+                        if 'ERROR' in output:
+                            raise NBError('Error generating assignment ' + a.name + ' in grader folder ' + grader_name + ' at repo path ' + repo_path, output)
                    
                     # if solution not generated yet, generate it
                     local_path = os.path.join('source', a.name, a.name + '.ipynb')
                     soln_name = a.name + '_solution.html' 
                     if not os.path.exists(os.path.join(repo_path, soln_name):
                         print('Solution not generated; generating')
-                        self.docker.run('jupyter nbconvert ' + local_path + ' --output=' + soln_name + ' --output-dir=.') 
+                        output = self.docker.run('jupyter nbconvert ' + local_path + ' --output=' + soln_name + ' --output-dir=.', repo_path) 
+                        if 'ERROR' in output:
+                            raise NBError('Error generating solution for assignment ' + a.name + ' in grader folder ' + grader_name + ' at repo path ' + repo_path, output)
                     
                     # create the jupyterhub user
                     if not self.jupyterhub.grader_exists(grader_name):
@@ -531,7 +546,29 @@ class Course(object):
     def run_workflow(self): 
         self.apply_latereg_extensions()
 
-        self.create_grader_folders()
+        create_folder_error = False
+        try:
+            self.create_grader_folders()
+        except NBError as e:
+            error_message = ''
+            create_folder_error = True
+        except git.exc.GitCommandError as e:
+            error_message = ''
+            create_folder_error = True
+        except Exception as e:    
+            error_message = ''
+            create_folder_error = True
+
+        if create_folder_error:
+            notifier = SMTP(self.config, self.dry_run)
+            notifier.notify(recipient_name, recipient_address, subject, message)
+            notifier.close()   
+            sys.exit(
+              f"""
+              Error encountered while creating grader folders. Email sent to instructor.
+              Message: {error_message}
+              """
+            )
 
         self.create_submissions()
 
