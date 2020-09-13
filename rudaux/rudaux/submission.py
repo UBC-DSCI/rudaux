@@ -31,7 +31,7 @@ class Submission:
         self.error = None
         self.solution_returned = False
         self.solution_return_error = None
-        self.grader_repo_path = os.path.join(config.user_folder_root, grader, config.instructor_repo_name)
+        self.grader_repo_path = os.path.join(config.user_folder_root, grader)
         self.student_folder_root = config.student_folder_root
         self.assignment_snap_path = None
         self.submission_path = None
@@ -52,6 +52,7 @@ class Submission:
         self.submission_path = os.path.join(submission_folder, self.a_name+'.ipynb')
         shutil.copy(self.assignment_snap_path, self.submission_path) 
 
+        os.chown(os.path.join(self.grader_repo_path, 'submitted'), jupyter_uid, jupyter_uid)
         os.chown(os.path.join(self.grader_repo_path, 'submitted', self.student_prefix + self.s_id), jupyter_uid, jupyter_uid)
         os.chown(os.path.join(self.grader_repo_path, 'submitted', self.student_prefix + self.s_id, self.a_name), jupyter_uid, jupyter_uid)
         os.chown(self.submission_path, jupyter_uid, jupyter_uid)

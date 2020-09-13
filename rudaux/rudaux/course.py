@@ -328,14 +328,7 @@ class Course(object):
                         print('User exists!')
 
                     # if not a valid repo with an nbgrader config file, clone it
-                    repo_path = os.path.join(self.config.user_folder_root, grader_name, self.config.instructor_repo_name)
-                    print('Checking if ' + str(repo_path) + ' exists')
-                    if not os.path.exists(repo_path):
-                        os.mkdir(repo_path)
-                        os.chown(repo_path, jupyter_uid,jupyter_uid)
-                    else:
-                        print('Exists already.')
-
+                    repo_path = os.path.join(self.config.user_folder_root, grader_name)
                     #TODO if there's an error cloning the repo or an unknown error when doing the initial test repo create
                     # email instructor and print a message to tell the user to create a deploy key
                     print('Checking if ' + str(repo_path) + ' is a valid course git repository')
@@ -362,16 +355,6 @@ class Course(object):
                             print('[Dry Run: would have removed any file/folder at ' + repo_path + ', called mkdir('+repo_path+') and git clone ' + self.config.instructor_repo_url + ' into ' + repo_path)
                     else:
                         print('Repo valid.')
-
-                    # make sure the submitted/ folder exists
-                    subm_path = os.path.join(repo_path, 'submitted')
-                    print('Checking if ' + str(subm_path) + ' exists')
-                    if not os.path.exists(subm_path):
-                        print('Does not exist; creating')
-                        os.mkdir(subm_path)
-                        os.chown(subm_path, jupyter_uid,jupyter_uid)
-                    else:
-                        print('Exists already.')
 
                     # if the assignment hasn't been generated yet, generate it
                     generated_asgns = self.docker.run('nbgrader db assignment list', repo_path)
