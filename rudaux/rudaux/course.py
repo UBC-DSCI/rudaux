@@ -334,6 +334,7 @@ class Course(object):
                     else:
                         print('Exists already.')
 
+                    #TODO if there's an error cloning the repo, print a message to tell the user to create a deploy key
                     print('Checking if ' + str(repo_path) + ' is a valid course git repository')
                     repo_valid = False
                     try:

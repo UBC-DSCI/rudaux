@@ -55,7 +55,7 @@ class SMTP(object):
             self.notifications[recip] = []
 
     def close(self):
-        if connected:       
+        if self.connected:       
             self.server.quit()
             self.connected = False
 
