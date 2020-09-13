@@ -27,6 +27,7 @@ class Docker(object):
         if ctr:
             while ctr.status in self.runsts:
                 print(ctr.status)
+                print(ctr.logs(stdout = True, stderr = True).decode('utf-8'))
                 time.sleep(0.25)
             result['exit_status'] = ctr.status
             result['log'] = ctr.logs(stdout = True, stderr = True).decode('utf-8')
