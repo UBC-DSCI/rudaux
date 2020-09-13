@@ -586,8 +586,8 @@ class Course(object):
         
         self.return_feedback()
 
-        #finish by saving the current status of all subms and sending out notifications
         self.save_submissions()
+
         self.send_notifications()
  
     def send_notifications(self):
