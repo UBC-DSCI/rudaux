@@ -14,7 +14,7 @@ from .person import Person
 from .assignment import Assignment
 from .docker import Docker, DockerError
 from .submission import Submission, SubmissionStatus
-from notification import SMTP
+from .notification import SMTP
 import git
 import shutil
 import random
