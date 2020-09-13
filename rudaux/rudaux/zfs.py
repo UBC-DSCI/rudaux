@@ -11,21 +11,21 @@ class ZFS(object):
         self.dry_run = dry_run
 
     def snapshot_all(self, snap_name):
-        cmd_list = ['zfs', 'snapshot', '-r', self.user_folder_root.strip('/') + '@'+snap_name]
+        cmd_list = ['/usr/sbin/zfs', 'snapshot', '-r', self.user_folder_root.strip('/') + '@'+snap_name]
         if not self.dry_run:
             check_output(cmd_list, stderr=STDOUT)
         else:
             print('[Dry run: would have called: ' + ' '.join(cmd_list) + ']')
 
     def snapshot_user(self, user, snap_name):
-        cmd_list = ['zfs', 'snapshot', os.path.join(self.user_folder_root, user).strip('/') + '@'+snap_name]
+        cmd_list = ['/usr/sbin/zfs', 'snapshot', os.path.join(self.user_folder_root, user).strip('/') + '@'+snap_name]
         if not self.dry_run:
             check_output(cmd_list, stderr=STDOUT)
         else:
             print('[Dry run: would have called: ' + ' '.join(cmd_list) + ']')
 
     def list_snapshots(self):
-        print(check_output(['zfs', 'list', '-t', 'snapshot'], stderr = STDOUT))
+        print(check_output(['/usr/sbin/zfs', 'list', '-t', 'snapshot'], stderr = STDOUT))
 
     def create_user_folder(self, username):
         callysto_user = 'jupyter'
