@@ -452,6 +452,7 @@ class Course(object):
   
     def get_returnable(self):
         returnable = [] 
+        print(self.submissions[:10])
         print('Checking which assignments are returnable')
         for a in self.assignments:
             if a.due_at < plm.now(): #only process assignments that are past-due
