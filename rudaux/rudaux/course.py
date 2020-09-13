@@ -18,6 +18,7 @@ from .notification import SMTP
 import git
 import shutil
 import random
+import traceback
 
 class Course(object):
     """
@@ -147,6 +148,7 @@ class Course(object):
         except Exception as e:
             print('Exception encountered during synchronization')
             print(e)
+            print(traceback.format_exc())
             if allow_canvas_cache:
                 print('Attempting to fall back to cache...')
                 if os.path.exists(self.canvas_cache_filename):
@@ -334,12 +336,16 @@ class Course(object):
                     else:
                         print('Exists already.')
 
-                    #TODO if there's an error cloning the repo, print a message to tell the user to create a deploy key
+                    #TODO if there's an error cloning the repo or an unknown error when doing the initial test repo create
+                    # email instructor and print a message to tell the user to create a deploy key
                     print('Checking if ' + str(repo_path) + ' is a valid course git repository')
                     repo_valid = False
+                    #allow no such path or invalid repo errors; everything else should raise
                     try:
                         tmprepo = git.Repo(repo_path)
-                    except:
+                    except git.exc.InvalidGitRepositoryError as e:
+                        pass
+                    except git.exc.NoSuchPathError as e:
                         pass
                     else:
                         repo_valid = True
@@ -427,7 +433,7 @@ class Course(object):
                             print('Submission is past due. Collecting...')
                             try:
                                 subm.collect()
-                            except Exception as e:
+                            except Exception as e: #TODO make this exception more specific and raise if unknown type
                                 print('Error when collecting')
                                 print(e)
                                 subm.error = e
@@ -440,7 +446,7 @@ class Course(object):
                             print('Submission is collected. Cleaning...')
                             try:
                                 subm.clean()
-                            except Exception as e:
+                            except Exception as e: #TODO make this exception more specific and raise if unknown type
                                 print('Error when cleaning')
                                 print(e)
                                 subm.error = e
@@ -474,7 +480,7 @@ class Course(object):
                         print('Student ' + s.canvas_id + ' assignment has been collected but not yet returned soln. Returning')
                         try:
                             subm.return_solution()
-                        except Exception as e:
+                        except Exception as e: #TODO make this exception more specific and raise if unknown type
                             print('Error when returning solution')
                             print(e)
                             subm.solution_return_error = e
@@ -502,7 +508,7 @@ class Course(object):
                     if subm.status == SubmissionStatus.AUTOGRADED-1:
                         try:
                             subm.validate_autograde(autograde_results)
-                        except Exception as e:
+                        except Exception as e: #TODO make this exception more specific and raise if unknown type
                             print('Error when autograding')
                             print(e)
                             subm.error = e
@@ -536,7 +542,7 @@ class Course(object):
                     if subm.status == SubmissionStatus.FEEDBACK_GENERATED - 1:
                         try:
                             subm.validate_feedback(feedback_results)
-                        except Exception as e:
+                        except Exception as e: #TODO make this exception more specific and raise if unknown type
                             print('Error when generating feedback')
                             print(e)
                             subm.error = e
@@ -553,7 +559,7 @@ class Course(object):
                     if subm.status == SubmissionStatus.GRADE_UPLOADED - 1:
                         try:
                             subm.upload_grade(self.canvas)
-                        except Exception as e:
+                        except Exception as e: #TODO make this exception more specific and raise if unknown type
                             print('Error when uploading grade')
                             print(e)
                             subm.error = e
@@ -574,7 +580,7 @@ class Course(object):
                     if subm.status == SubmissionStatus.GRADE_POSTED - 1:
                         try:
                             is_posted = (posted_ats[s.canvas_id] is not None)
-                        except Exception as e:
+                        except Exception as e: #TODO make this exception more specific and raise if unknown type
                             print('Error when checking if grade is posted')
                             print(e)
                             subm.error = e
@@ -599,7 +605,7 @@ class Course(object):
                     if subm.status == SubmissionStatus.FEEDBACK_RETURNED - 1 and subm.is_grade_posted(self.canvas):
                         try:
                             subm.return_feedback()
-                        except Exception as e:
+                        except Exception as e: #TODO make this exception more specific and raise if unknown type
                              print('Error when returning feedback')
                              print(e)
                              subm.error = e
@@ -616,17 +622,20 @@ class Course(object):
             self.create_grader_folders()
         except DockerError as e:
             error_message = e.message +'\nDocker output:\n' +e.docker_output
+            error_traceback = traceback.format_exc()
             create_folder_error = True
         except git.exc.GitCommandError as e:
             error_message = str(e)
+            error_traceback = traceback.format_exc()
             create_folder_error = True
         except Exception as e:    
             error_message = str(e)
+            error_traceback = traceback.format_exc()
             create_folder_error = True
 
         if create_folder_error:
             self.smtp.connect()
-            self.smtp.notify(self.config.instructor_user, 'Action Required: grader folder creation failed\r\n' + error_message)
+            self.smtp.notify(self.config.instructor_user, 'Action Required: grader folder creation failed\r\n' + error_message + '\r\n' + error_traceback)
             self.smtp.close()   
             sys.exit(
               f"""
