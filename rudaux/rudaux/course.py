@@ -323,7 +323,7 @@ class Course(object):
                     print('Checking if jupyter user ' + grader_name + ' exists')
                     if not self.jupyterhub.grader_exists(grader_name):
                         print('Grader ' + grader_name + ' not created on the hub yet; assigning ' + self.config.graders[a.name][i])
-                        self.jupyterhub.assign_grader(grader_name, self.config.graders[a.name][i])
+                        self.jupyterhub.assign_grader(grader_name, self.config.graders[a.name][i])   
                     else:
                         print('User exists!')
 
@@ -504,6 +504,7 @@ class Course(object):
         autograde_results = self.docker.run_all()
 
         #check autograding results
+        graders_to_notify = {} #TODO separate the notification out into its own functionality... or use the notification.submit here
         for a in self.assignments:
             if a.due_at < plm.now(): #only process assignments that are past-due
                 for s in self.students:
@@ -522,8 +523,18 @@ class Course(object):
                     if subm.status == SubmissionStatus.AUTOGRADED or subm.status == SubmissionStatus.NEEDS_MANUAL_GRADING:
                         if subm.needs_manual_grading():
                             subm.status = SubmissionStatus.NEEDS_MANUAL_GRADING
+                            grader_ta = self.config.graders[a.name][int(subm.grader.split('-')[-1])]
+                            if grader_ta not in graders_to_notify:
+                                graders_to_notify[grader_ta] = []
+                            graders_to_notify[grader_ta].append(subm.grader + ' -- ' + subm.a_name + ' -- student ' + subm.s_id)
                         else:
                             subm.status = SubmissionStatus.GRADED
+
+        #notify graders of remaining manual tasks
+        self.smtp.connect()
+        for grader in graders_to_notify:
+            self.smtp.notify(grader, 'You have manual grading tasks to do! \r\n Each entry below is an assignment that you have to grade, and is listed in the format [grader user account] -- [assignment name] -- [student id]. \r\n To grade the assignments, please sign in to the course JupyterHub with the [grader user account] username and the same password as your personal user account.')
+        self.smtp.close()
 
     def generate_feedback(self):
         # schedule feedback generation 
