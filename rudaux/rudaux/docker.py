@@ -26,9 +26,8 @@ class Docker(object):
         ctr, result = self._run_container(command, homedir)
         if ctr:
             while ctr.status in self.runsts:
-                print(ctr.status)
-                print(ctr.logs(stdout = True, stderr = True).decode('utf-8'))
                 time.sleep(0.25)
+                ctr.reload()
             result['exit_status'] = ctr.status
             result['log'] = ctr.logs(stdout = True, stderr = True).decode('utf-8')
             ctr.remove(force = True)
@@ -42,6 +41,8 @@ class Docker(object):
             # sleep while we have reached max threads and all running
             while len(running) >= nthreads and all([running[k].status in self.runsts for k in running]):
                 time.sleep(0.25)
+                for k in running:
+                    running[k].reload()
             # clean out nonrunning containers
             for k in running:
                 if running[k].status not in self.runsts:
