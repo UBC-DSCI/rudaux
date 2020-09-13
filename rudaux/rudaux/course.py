@@ -648,7 +648,7 @@ class Course(object):
               """
             )
 
-        #self.create_submissions()
+        self.create_submissions()
 
         #self.collect_submissions()
 
