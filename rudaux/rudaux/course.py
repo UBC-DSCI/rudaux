@@ -279,7 +279,7 @@ class Course(object):
                                                                   'title' : s.name+'-'+a.name+'-latereg'}
                                                    )
                         else:
-                            print('Basic due date after registration extension date. No extension required. Skipping.')
+                            print('Current due date after registration extension date. No extension required. Skipping.')
             else:
                 print('Assignment missing either a due date (' + str(a.due_at) + ') or unlock date (' + str(a.unlock_at) + '). Not checking.')
 
