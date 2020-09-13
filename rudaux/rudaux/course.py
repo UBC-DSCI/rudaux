@@ -304,7 +304,7 @@ class Course(object):
         # make sure each assignment past due has grader folders set up
         for a in self.assignments:
             # for any assignment past due
-            if a.due_date < plm.now():
+            if a.due_at < plm.now():
                 # create a user folder and jupyterhub account for each grader if needed
                 print('Checking assignment ' + a.name + ' with grader list ' + str(self.config.graders[a.name]))
                 for i in range(len(self.config.graders[a.name])):
@@ -393,7 +393,7 @@ class Course(object):
         print('Creating submissions')
         # create submissions for assignments
         for a in self.assignments:
-            if a.due_date < plm.now(): #only process assignments that are past-due
+            if a.due_at < plm.now(): #only process assignments that are past-due
                 grader_index = random.randint(0, len(self.config.graders[a.name])-1) #generates from a <= num <= b uniformly
                 for s in self.students:
                     print('Submission ' + str(a.name+'-'+s.canvas_id))
@@ -410,7 +410,7 @@ class Course(object):
         fmt = 'ddd YYYY-MM-DD HH:mm:ss'
         print('Collecting/cleaning submissions')
         for a in self.assignments:
-            if a.due_date < plm.now(): #only process assignments that are past-due
+            if a.due_at < plm.now(): #only process assignments that are past-due
                 for s in self.students:
                     print('Submission ' + str(a.name+'-'+s.canvas_id))
                     subm = self.submissions[a.name+'-'+s.canvas_id]
@@ -452,7 +452,7 @@ class Course(object):
     def get_returnable(self):
         returnable = [] 
         for a in self.assignments:
-            if a.due_date < plm.now(): #only process assignments that are past-due
+            if a.due_at < plm.now(): #only process assignments that are past-due
                 subms = [subm for subm in self.submissions if subm.a_name == a.name]
                 n_total = len(subms)
                 n_collected = len([subm for subm in subms if subm.status >= SubmissionStatus.COLLECTED])
@@ -485,7 +485,7 @@ class Course(object):
     def autograde_submissions(self):
         # schedule autograding
         for a in self.assignments:
-            if a.due_date < plm.now(): #only process assignments that are past-due
+            if a.due_at < plm.now(): #only process assignments that are past-due
                 for s in self.students:
                     subm = self.submissions[a.name+'-'+s.canvas_id]
                     if subm.status == SubmissionStatus.AUTOGRADED-1:
@@ -496,7 +496,7 @@ class Course(object):
 
         #check autograding results
         for a in self.assignments:
-            if a.due_date < plm.now(): #only process assignments that are past-due
+            if a.due_at < plm.now(): #only process assignments that are past-due
                 for s in self.students:
                     subm = self.submissions[a.name+'-'+s.canvas_id]
                     if subm.status == SubmissionStatus.AUTOGRADED-1:
@@ -519,7 +519,7 @@ class Course(object):
     def generate_feedback(self):
         # schedule feedback generation 
         for a in self.assignments:
-            if a.due_date < plm.now(): #only process assignments that are past-due
+            if a.due_at < plm.now(): #only process assignments that are past-due
                 for s in self.students:
                     subm = self.submissions[a.name+'-'+s.canvas_id]
                     if subm.status == SubmissionStatus.FEEDBACK_GENERATED - 1:
@@ -530,7 +530,7 @@ class Course(object):
 
         # check feedback results and upload grades
         for a in self.assignments:
-            if a.due_date < plm.now(): #only process assignments that are past-due
+            if a.due_at < plm.now(): #only process assignments that are past-due
                 for s in self.students:
                     subm = self.submissions[a.name+'-'+s.canvas_id]
                     if subm.status == SubmissionStatus.FEEDBACK_GENERATED - 1:
@@ -547,7 +547,7 @@ class Course(object):
     def upload_grades(self):
         # upload grades
         for a in self.assignments:
-            if a.due_date < plm.now(): #only process assignments that are past-due
+            if a.due_at < plm.now(): #only process assignments that are past-due
                 for s in self.students:
                     subm = self.submissions[a.name+'-'+s.canvas_id]
                     if subm.status == SubmissionStatus.GRADE_UPLOADED - 1:
@@ -565,7 +565,7 @@ class Course(object):
         needs_posting = []
         # check whether each grade has been posted
         for a in self.assignments:
-            if a.due_date < plm.now(): #only process assignments that are past-due
+            if a.due_at < plm.now(): #only process assignments that are past-due
                 all_posted = True
                 canvas_subms = self.canvas.get_submissions(a.canvas_id)
                 posted_ats = {subm['student_id'] : subm['posted_at'] for subm in canvas_subms}
@@ -626,7 +626,7 @@ class Course(object):
 
         if create_folder_error:
             self.smtp.connect()
-            self.smtp.notify(self.config.instructor_user, '\r\nAction Required: grader folder creation failed\r\n' + error_message)
+            self.smtp.notify(self.config.instructor_user, 'Action Required: grader folder creation failed\r\n' + error_message)
             self.smtp.close()   
             sys.exit(
               f"""

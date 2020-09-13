@@ -20,6 +20,7 @@ class SMTP(object):
                                   '',
                                   '{}'
                                   '',
+                                  '',
                                   'Beep boop,',
                                   config.name + ' Email Bot'])
         self.notifications = {}
