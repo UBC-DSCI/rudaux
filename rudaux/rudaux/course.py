@@ -452,6 +452,7 @@ class Course(object):
   
     def get_returnable(self):
         returnable = [] 
+        print('Checking which assignments are returnable')
         for a in self.assignments:
             if a.due_at < plm.now(): #only process assignments that are past-due
                 subms = [subm for subm in self.submissions if subm.a_name == a.name]
@@ -485,23 +486,28 @@ class Course(object):
 
     def autograde_submissions(self):
         # schedule autograding
+        print('Submitting autograding jobs')
         for a in self.assignments:
             if a.due_at < plm.now(): #only process assignments that are past-due
                 for s in self.students:
                     subm = self.submissions[a.name+'-'+s.canvas_id]
                     if subm.status == SubmissionStatus.AUTOGRADED-1:
+                        print('Scheduling autograding for submission ' + a.name+'-'+s.canvas_id)
                         subm.submit_autograde(self.docker)
                 
         #run all autograding jobs in parallel
+        print('Running all autograding jobs in docker')
         autograde_results = self.docker.run_all()
 
         #check autograding results
+        print('Validating autograde results')
         graders_to_notify = {} #TODO separate the notification out into its own functionality... or use the notification.submit here
         for a in self.assignments:
             if a.due_at < plm.now(): #only process assignments that are past-due
                 for s in self.students:
                     subm = self.submissions[a.name+'-'+s.canvas_id]
                     if subm.status == SubmissionStatus.AUTOGRADED-1:
+                        print('Validating autograding for submission ' + a.name+'-'+s.canvas_id)
                         try:
                             subm.validate_autograde(autograde_results)
                         except Exception as e: #TODO make this exception more specific and raise if unknown type
@@ -513,39 +519,48 @@ class Course(object):
                         subm.error = None
 
                     if subm.status == SubmissionStatus.AUTOGRADED or subm.status == SubmissionStatus.NEEDS_MANUAL_GRADING:
+                        print('Checking whether submission ' + a.name+'-'+s.canvas_id + ' needs manual grading')
                         if subm.needs_manual_grading():
+                            print('Needs manual grading. Notifying grader.')
                             subm.status = SubmissionStatus.NEEDS_MANUAL_GRADING
                             grader_ta = self.config.graders[a.name][int(subm.grader.split('-')[-1])]
                             if grader_ta not in graders_to_notify:
                                 graders_to_notify[grader_ta] = []
                             graders_to_notify[grader_ta].append(subm.grader + ' -- ' + subm.a_name + ' -- student ' + subm.s_id)
                         else:
+                            print('Doesnt need manual grading. Setting to GRADED')
                             subm.status = SubmissionStatus.GRADED
 
         #notify graders of remaining manual tasks
+        print('Notifying graders that have manual grading tasks')
         self.smtp.connect()
         for grader in graders_to_notify:
             self.smtp.notify(grader, 'You have manual grading tasks to do! \r\n Each entry below is an assignment that you have to grade, and is listed in the format [grader user account] -- [assignment name] -- [student id]. \r\n To grade the assignments, please sign in to the course JupyterHub with the [grader user account] username and the same password as your personal user account.')
         self.smtp.close()
 
     def generate_feedback(self):
+        print('Submitting feedback generation jobs')
         # schedule feedback generation 
         for a in self.assignments:
             if a.due_at < plm.now(): #only process assignments that are past-due
                 for s in self.students:
                     subm = self.submissions[a.name+'-'+s.canvas_id]
                     if subm.status == SubmissionStatus.FEEDBACK_GENERATED - 1:
+                        print('Scheduling feedback generation for submission ' + a.name+'-'+s.canvas_id)
                         subm.submit_generate_feedback(self.docker)
 
         #run all autograding jobs in parallel
+        print('Running all feedback generation jobs in docker')
         feedback_results = self.docker.run_all()
 
         # check feedback results and upload grades
+        print('Validating feedback generation')
         for a in self.assignments:
             if a.due_at < plm.now(): #only process assignments that are past-due
                 for s in self.students:
                     subm = self.submissions[a.name+'-'+s.canvas_id]
                     if subm.status == SubmissionStatus.FEEDBACK_GENERATED - 1:
+                        print('Validating feedback for submission ' + a.name+'-'+s.canvas_id)
                         try:
                             subm.validate_feedback(feedback_results)
                         except Exception as e: #TODO make this exception more specific and raise if unknown type
@@ -557,12 +572,14 @@ class Course(object):
                         subm.error = None 
 
     def upload_grades(self):
+        print('Uploading grades')
         # upload grades
         for a in self.assignments:
             if a.due_at < plm.now(): #only process assignments that are past-due
                 for s in self.students:
                     subm = self.submissions[a.name+'-'+s.canvas_id]
                     if subm.status == SubmissionStatus.GRADE_UPLOADED - 1 or subm.status == SubmissionStatus.MISSING:
+                        print('Uploading grade for submission ' + a.name+'-'+s.canvas_id)
                         try:
                             subm.upload_grade(self.canvas)
                         except Exception as e: #TODO make this exception more specific and raise if unknown type
@@ -575,6 +592,7 @@ class Course(object):
 
     def check_posted(self):
         needs_posting = []
+        print('Checking which assignments have unposted grades')
         # check whether each grade has been posted
         for a in self.assignments:
             if a.due_at < plm.now(): #only process assignments that are past-due
@@ -584,6 +602,7 @@ class Course(object):
                 for s in self.students:
                     subm = self.submissions[a.name+'-'+s.canvas_id]
                     if subm.status == SubmissionStatus.GRADE_POSTED - 1:
+                        print('Checking grade posting for submission ' + a.name+'-'+s.canvas_id)
                         try:
                             is_posted = (posted_ats[s.canvas_id] is not None)
                         except Exception as e: #TODO make this exception more specific and raise if unknown type
@@ -599,9 +618,11 @@ class Course(object):
                         subm.error = None
                 if not all_posted:
                     needs_posting.append(a.name) 
+        print('Assignments that need posting: ' + ', '.join(needs_posting))
         return needs_posting
 
     def return_feedback(self, returnable):
+        print('Returning feedback')
         # check which grades have been posted, and if the relevant assignment is in the return_solns list
         # if both satisfied, return feedback
         for a in self.assignments:
@@ -609,6 +630,7 @@ class Course(object):
                 for s in self.students:
                     subm = self.submissions[a.name+'-'+s.canvas_id]
                     if subm.status == SubmissionStatus.FEEDBACK_RETURNED - 1 and subm.is_grade_posted(self.canvas):
+                        print('Returning feedback for submission ' + a.name+'-'+s.canvas_id)
                         try:
                             subm.return_feedback()
                         except Exception as e: #TODO make this exception more specific and raise if unknown type
