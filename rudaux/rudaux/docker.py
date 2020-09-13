@@ -26,7 +26,7 @@ class Docker(object):
             while ctr.status == 'running':
                 sleep(0.25)
             result['exit_status'] = ctr.status
-            result['log'] = ctr.logs(stdout = True, stderr = True)
+            result['log'] = ctr.logs(stdout = True, stderr = True).decode('utf-8')
             ctr.remove(force = True)
         return result
 
@@ -42,7 +42,7 @@ class Docker(object):
             for k in running:
                 if running[k].status != 'running':
                     results[k]['exit_status'] = running[k].status
-                    results[k]['log'] = running[k].logs(stdout = True, stderr = True)
+                    results[k]['log'] = running[k].logs(stdout = True, stderr = True).decode('utf-8')
                     running[k].remove(force = True)
                     running.pop(k, None)
             # add a new container

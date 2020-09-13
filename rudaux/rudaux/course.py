@@ -375,12 +375,16 @@ class Course(object):
 
                     # if the assignment hasn't been generated yet, generate it
                     generated_asgns = self.docker.run('nbgrader db assignment list', repo_path)
+
+                    print(generated_asgns)
+                    sys.exit("test exit")                  
+
                     print('Checking if assignment ' + a.name + ' has been generated for grader ' + grader_name)
-                    if a.name not in generated_asgns:
+                    if a.name not in generated_asgns['log']:
                         print('Assignment not yet generated. Generating')
                         output = self.docker.run('nbgrader generate_assignment --force ' + a.name, repo_path)
-                        print(output['log'].decode('utf-8'))
-                        if 'ERROR' in output['log'].decode('utf-8'):
+                        print(output['log'])
+                        if 'ERROR' in output['log']:
                             raise DockerError('Error generating assignment ' + a.name + ' in grader folder ' + grader_name + ' at repo path ' + repo_path, output['log'])
                     else:
                         print('Assignment already generated')
@@ -392,8 +396,8 @@ class Course(object):
                     if not os.path.exists(os.path.join(repo_path, soln_name)):
                         print('Solution not generated; generating')
                         output = self.docker.run('jupyter nbconvert ' + local_path + ' --output=' + soln_name + ' --output-dir=.', repo_path) 
-                        print(output['log'].decode('utf-8'))
-                        if 'ERROR' in output['log'].decode('utf-8'):
+                        print(output['log'])
+                        if 'ERROR' in output['log']:
                             raise DockerError('Error generating solution for assignment ' + a.name + ' in grader folder ' + grader_name + ' at repo path ' + repo_path, output['log'])
                     else:
                         print('Solution already generated')
