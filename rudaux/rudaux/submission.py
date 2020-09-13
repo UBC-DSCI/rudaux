@@ -39,7 +39,7 @@ class Submission:
 
     def update_due(self, asgn, stu):
         self.due_date, override = asgn.get_due_date(stu)
-        self.snap_name = a.name if (override is None) else (a.name + '-override-' + override['id'])
+        self.snap_name = asgn.name if (override is None) else (asgn.name + '-override-' + override['id'])
 
     def collect(self):
         self.assignment_snap_path = os.path.join(self.student_folder_root, self.s_id, '.zfs', 'snapshot', self.snap_name, 'dsci-100/materials', self.a_name, self.a_name+'.ipynb')
