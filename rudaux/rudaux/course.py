@@ -310,7 +310,8 @@ class Course(object):
                 # create a user folder and jupyterhub account for each grader if needed
                 print('Checking assignment ' + a.name + ' with grader list ' + str(self.config.graders[a.name]))
                 for i in range(len(self.config.graders[a.name])):
-                    grader_name = a.name+'-grader-'+str(i) #TODO don't hardcode this here since it's used below too
+                    #TODO PUT THIS CODE BACK AFTER TEST GRADER NAME JHUB LOGIN grader_name = a.name+'-grader-'+str(i) #TODO don't hardcode this here since it's used below too
+                    grader_name = a.name.replace('_','')
                     print('Checking assignment ' + a.name + ' grader ' + grader_name)
 
                     # create the zfs volume and clone the instructor repo
@@ -409,7 +410,8 @@ class Course(object):
                     #if there isn't a submission for this assignment/student, create one and assign it to a grader
                     if a.name+'-'+s.canvas_id not in self.submissions:
                         print('Does not exist; creating, assigned to grader ' + str(a.name+'-grader-'+str(grader_index)))
-                        self.submissions[a.name+'-'+s.canvas_id] = Submission(a, s, a.name+'-grader-'+str(grader_index), self.config) #TODO don't hardcode the submission name key
+                        #TODO PUT THIS CODE BACK IN AFTER TEST JHUB LOGIN self.submissions[a.name+'-'+s.canvas_id] = Submission(a, s, a.name+'-grader-'+str(grader_index), self.config) #TODO don't hardcode the submission name key
+                        self.submissions[a.name+'-'+s.canvas_id] = Submission(a, s, a.name.replace('_', ''), self.config) #TODO don't hardcode the submission name key
                         #rotate the graders for the next subm
                         grader_index += 1
                         grader_index = grader_index % len(self.config.graders[a.name])
