@@ -379,7 +379,7 @@ class Course(object):
                     if a.name not in generated_asgns:
                         print('Assignment not yet generated. Generating')
                         output = self.docker.run('nbgrader generate_assignment --force ' + a.name, repo_path)
-                        if 'ERROR' in output['log']:
+                        if 'ERROR' in output['log'].decode('utf-8'):
                             raise DockerError('Error generating assignment ' + a.name + ' in grader folder ' + grader_name + ' at repo path ' + repo_path, output['log'])
                     else:
                         print('Assignment already generated')
@@ -391,7 +391,7 @@ class Course(object):
                     if not os.path.exists(os.path.join(repo_path, soln_name)):
                         print('Solution not generated; generating')
                         output = self.docker.run('jupyter nbconvert ' + local_path + ' --output=' + soln_name + ' --output-dir=.', repo_path) 
-                        if 'ERROR' in output['log']:
+                        if 'ERROR' in output['log'].decode('utf-8'):
                             raise DockerError('Error generating solution for assignment ' + a.name + ' in grader folder ' + grader_name + ' at repo path ' + repo_path, output['log'])
                     else:
                         print('Solution already generated')
