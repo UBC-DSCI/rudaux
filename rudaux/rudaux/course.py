@@ -413,6 +413,8 @@ class Course(object):
                         #rotate the graders for the next subm
                         grader_index += 1
                         grader_index = grader_index % len(self.config.graders[a.name])
+                    else:
+                        print('Submission exists.')
 
     def collect_submissions(self):
         tz = self.course_info['time_zone']
@@ -661,7 +663,7 @@ class Course(object):
 
         self.create_submissions()
 
-        #self.collect_submissions()
+        self.collect_submissions()
 
         #returnable = self.get_returnable()
 
