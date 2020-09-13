@@ -367,6 +367,7 @@ class Course(object):
                     subm_path = os.path.join(repo_path, 'submitted')
                     print('Checking if ' + str(subm_path) + ' exists')
                     if not os.path.exists(subm_path):
+                        print('Does not exist; creating')
                         os.mkdir(subm_path)
                         os.chown(subm_path, jupyter_uid,jupyter_uid)
                     else:

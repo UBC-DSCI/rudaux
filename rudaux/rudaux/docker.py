@@ -9,7 +9,7 @@ class Docker(object):
 
     def __init__(self, config, dry_run):
         self.client = docker.from_env()
-        self.image = 'ubc-dsci/r-dsci-grading:v0.11.0'
+        self.image = config.grading_image
         self.dry_run = dry_run
         self.jobs = {}
         self.job_id = 0
@@ -58,6 +58,7 @@ class Docker(object):
     def _run_container(self, command, homedir):
         ctr = None
         result = {}
+        #TODO don't do this here, but maybe in the external caller: email instructor when errors?
         try:
             if not self.dry_run:
                 ctr = self.client.containers.run(self.image, command,
@@ -69,21 +70,27 @@ class Docker(object):
                                                       volumes = {homedir : {'bind': '/home/jupyter', 'mode': 'rw'}} if homedir else {}
                                                       )
             else:
-                print('[Dry Run: would have started docker container ' + key + ' with command: ' + commands[key] + ']')
+                print('[Dry Run: would have started docker container with command: ' + command + ']')
                 result['exit_status'] = 'dry_run'
                 result['log'] = 'dry_run'
         except docker.errors.APIError as e:
-            print('Docker APIError exception encountered when starting docker container: ' + str(commands[key]))
+            print('Docker APIError exception encountered when starting docker container')
+            print('Command: ' + command)
+            print('Homedir: ' + homedir)
             result['exit_status'] = 'never_started'
             result['log'] = str(e)
             ctr = None
         except docker.errors.ImageNotFound as e:
-            print('Docker ImageNotFound exception encountered when starting docker container: ' + str(commands[key]))
+            print('Docker ImageNotFound exception encountered when starting docker container')
+            print('Command: ' + command)
+            print('Homedir: ' + homedir)
             result['exit_status'] = 'never_started'
             result['log'] = str(e)
             ctr = None
         except Exception as e:
-            print('Unknown exception encountered when starting docker container: ' + str(commands[key]))
+            print('Unknown exception encountered when starting docker container')
+            print('Command: ' + command)
+            print('Homedir: ' + homedir)
             result['exit_status'] = 'never_started'
             result['log'] = str(e) 
             ctr = None
