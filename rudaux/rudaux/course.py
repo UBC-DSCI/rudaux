@@ -625,8 +625,8 @@ class Course(object):
             create_folder_error = True
 
         if create_folder_error:
-            notifier = SMTP(self.config, self.dry_run)
-            notifier.notify(recipient, '['+self.config.name+'] Action Required: grader folder creation failed', error_message)
+            self.smtp.connect()
+            self.smtp.notify(self.config.instructor_user, '['+self.config.name+'] Action Required: grader folder creation failed', error_message)
             notifier.close()   
             sys.exit(
               f"""
