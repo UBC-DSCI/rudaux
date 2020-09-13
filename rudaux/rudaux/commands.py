@@ -24,7 +24,7 @@ def run(args):
     # if course setup fails, do ???
     # do a non-blocking update: 
     # if update fails (e.g. canvas is down), just take snapshots based on previous course obj. Snapshots are cheap and we may as well be conservative
-    course.run_workflow(args)
+    course.run_workflow()
 
     course.send_notifications()
 
