@@ -380,7 +380,7 @@ class Course(object):
                     local_path = os.path.join('source', a.name, a.name + '.ipynb')
                     soln_name = a.name + '_solution.html' 
                     print('Checking if solution generated...')
-                    if not os.path.exists(os.path.join(repo_path, soln_name):
+                    if not os.path.exists(os.path.join(repo_path, soln_name)):
                         print('Solution not generated; generating')
                         output = self.docker.run('jupyter nbconvert ' + local_path + ' --output=' + soln_name + ' --output-dir=.', repo_path) 
                         if 'ERROR' in output['log']:
