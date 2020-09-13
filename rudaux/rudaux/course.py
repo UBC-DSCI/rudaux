@@ -452,11 +452,10 @@ class Course(object):
   
     def get_returnable(self):
         returnable = [] 
-        print(self.submissions[:10])
         print('Checking which assignments are returnable')
         for a in self.assignments:
             if a.due_at < plm.now(): #only process assignments that are past-due
-                subms = [subm for subm in self.submissions if subm.a_name == a.name]
+                subms = [self.submissions[subm] for subm in self.submissions if self.submissions[subm].a_name == a.name]
                 n_total = len(subms)
                 n_collected = len([subm for subm in subms if subm.status >= SubmissionStatus.COLLECTED])
                 print('Assignment ' + a.name + ' collected fraction: ' + str(n_collected/n_total) + ', threshold: ' + str(self.config.return_solution_threshold))
