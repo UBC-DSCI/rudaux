@@ -42,11 +42,18 @@ class Submission:
         self.snap_name = asgn.name if (override is None) else (asgn.name + '-override-' + override['id'])
 
     def collect(self):
+        jupyter_uid = pwd.getpwnam('jupyter').pw_uid
+        #path to student snapshotted assignment
         self.assignment_snap_path = os.path.join(self.student_folder_root, self.s_id, '.zfs', 'snapshot', self.snap_name, 'dsci-100/materials', self.a_name, self.a_name+'.ipynb')
+        #grader submission folder
+        #TODO we are about to makedirs this. In course.py we make the submitted folder, but this code will make it too if ti doesn't exist. Maybe remove the outer code?
         submission_folder = os.path.join(self.grader_repo_path, 'submitted', self.student_prefix + self.s_id, self.a_name)
+        os.makedirs(submission_folder, exist_ok=True)
         self.submission_path = os.path.join(submission_folder, self.a_name+'.ipynb')
         shutil.copy(self.assignment_snap_path, self.submission_path) 
-        jupyter_uid = pwd.getpwnam('jupyter').pw_uid
+
+        os.chown(os.path.join(self.grader_repo_path, 'submitted', self.student_prefix + self.s_id), jupyter_uid, jupyter_uid)
+        os.chown(os.path.join(self.grader_repo_path, 'submitted', self.student_prefix + self.s_id, self.a_name), jupyter_uid, jupyter_uid)
         os.chown(self.submission_path, jupyter_uid, jupyter_uid)
         
     def clean(self):
