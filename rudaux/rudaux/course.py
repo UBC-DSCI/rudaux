@@ -641,6 +641,7 @@ class Course(object):
               f"""
               Error encountered while creating grader folders. Email sent to instructor.
               Message: {error_message}
+              Trace: {error_traceback}
               """
             )
 

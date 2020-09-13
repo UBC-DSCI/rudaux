@@ -8,6 +8,7 @@ class ZFS(object):
 
     def __init__(self, config, dry_run):
         self.user_folder_root = config.user_folder_root
+        self.jupyterhub_config_dir = config.jupyterhub_config_dir
         self.dry_run = dry_run
 
     def snapshot_all(self, snap_name):

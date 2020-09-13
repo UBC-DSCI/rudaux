@@ -31,6 +31,7 @@ class SMTP(object):
             self.notifications[recipient] = []
         self.notifications[recipient].append(message)
 
+    #TODO deal with smtplib exceptions
     def connect(self):
         self.server = smtplib.SMTP(self.hostname)
         self.server.ehlo()
@@ -39,6 +40,7 @@ class SMTP(object):
         self.connected = True
 
     #TODO implement saving messages to disk with timestamp if send fails
+    #TODO deal with smtplib exceptions
     def notify(self, recipient, message):
         if not self.connected:
             raise NotifyError('Not connected to SMTP server; cannot send notifications')
@@ -47,6 +49,7 @@ class SMTP(object):
 				self.message_template.format(self.contact_info[recipient]['address'], self.contact_info[recipient]['name'], message)
                             )
 
+    #TODO deal with smtplib exceptions
     def notify_all(self):
         if not self.connected:
             raise NotifyError('Not connected to SMTP server; cannot send notifications')
@@ -55,6 +58,7 @@ class SMTP(object):
                 self.notify(recip, '\r\n\r\n-------------------\r\n\r\n'.join(self.notifications[recip]))
             self.notifications[recip] = []
 
+    #TODO deal with smtplib exceptions
     def close(self):
         if self.connected:       
             self.server.quit()
