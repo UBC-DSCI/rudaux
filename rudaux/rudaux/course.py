@@ -425,7 +425,11 @@ class Course(object):
                             except Exception as e: #TODO make this exception more specific and raise if unknown type
                                 print('Error when collecting')
                                 print(e)
-                                subm.error = e
+                                if "No such file" in str(e):
+                                    print("Student did not submit on time. Marking MISSING")
+                                    subm.status = SubmissionStatus.MISSING
+                                else:
+                                    subm.error = e
                                 continue
                             #success; update status and move on
                             subm.status = SubmissionStatus.COLLECTED
@@ -443,6 +447,8 @@ class Course(object):
                             #success; move on. Ensure 
                             subm.status = SubmissionStatus.CLEANED
                             subm.error = None
+                    else:
+                        print('Submission not due yet.')
   
     def get_returnable(self):
         returnable = [] 
@@ -556,7 +562,7 @@ class Course(object):
             if a.due_at < plm.now(): #only process assignments that are past-due
                 for s in self.students:
                     subm = self.submissions[a.name+'-'+s.canvas_id]
-                    if subm.status == SubmissionStatus.GRADE_UPLOADED - 1:
+                    if subm.status == SubmissionStatus.GRADE_UPLOADED - 1 or subm.status == SubmissionStatus.MISSING:
                         try:
                             subm.upload_grade(self.canvas)
                         except Exception as e: #TODO make this exception more specific and raise if unknown type
@@ -660,7 +666,7 @@ class Course(object):
         #self.upload_grades()
  
         #needs_posting = self.check_posted()
-        #
+
         #self.return_feedback()
 
         self.save_submissions()

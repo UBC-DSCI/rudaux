@@ -17,6 +17,7 @@ class SubmissionStatus(IntEnum):
     GRADE_UPLOADED = 7
     GRADE_POSTED = 8
     FEEDBACK_RETURNED = 9
+    MISSING = 10
 
 class Submission:
 
@@ -29,6 +30,8 @@ class Submission:
         self.grader = grader
         self.status = SubmissionStatus.ASSIGNED
         self.error = None
+        self.score = None
+        self.max_score = None
         self.solution_returned = False
         self.solution_return_error = None
         self.grader_repo_path = os.path.join(config.user_folder_root, grader)
@@ -118,23 +121,34 @@ class Submission:
 
 
     def return_feedback(self):
-        fdbk_path_grader = os.path.join(self.grader_repo_path, 'feedback', self.student_prefix+self.s_id, self.a_name, self.a_name + '.html')
-        fdbk_path_student = os.path.join(self.student_folder_root, self.s_id, 'dsci-100/materials', self.a_name, self.a_name + '_feedback.html')
-        shutil.copy(fdbk_path_grader, fdbk_path_student) 
-        jupyter_uid = pwd.getpwnam('jupyter').pw_uid
-        os.chown(fdbk_path_student, jupyter_uid, jupyter_uid)
+        if not os.path.exists(self.assignment_snap_path) and self.score == 0:
+            #this was a missing submission
+            print("Not returning feedback; missing soln and score 0")
+        else:
+            fdbk_path_grader = os.path.join(self.grader_repo_path, 'feedback', self.student_prefix+self.s_id, self.a_name, self.a_name + '.html')
+            fdbk_path_student = os.path.join(self.student_folder_root, self.s_id, 'dsci-100/materials', self.a_name, self.a_name + '_feedback.html')
+            shutil.copy(fdbk_path_grader, fdbk_path_student) 
+            jupyter_uid = pwd.getpwnam('jupyter').pw_uid
+            os.chown(fdbk_path_student, jupyter_uid, jupyter_uid)
 
     def upload_grade(self, canvas):
-        try:
-            gb = Gradebook('sqlite:///'+self.grader_repo_path +'/gradebook.db')
-            subm = gb.find_submission(self.a_name, self.student_prefix+self.s_id)
-            score = subm.score
-        finally:
-            gb.close()
+
+        if self.status == SubmissionStatus.MISSING:
+            score = 0
+        else:
+            try:
+                gb = Gradebook('sqlite:///'+self.grader_repo_path +'/gradebook.db')
+                subm = gb.find_submission(self.a_name, self.student_prefix+self.s_id)
+                score = subm.score
+            finally:
+                gb.close()
 
         max_score = self.compute_max_score()
+
+        self.score = score
+        self.max_score = max_score
     
-        print('Student ' + self.s_id + ' assignment ' + self.a_name + ' score: ' + str(score))
+        print('Student ' + self.s_id + ' assignment ' + self.a_name + ' score: ' + str(score) + (' [MISSING]' if self.status == SubmissionStatus.MISSING else ''))
         print('Assignment ' + self.a_name + ' max score: ' + str(max_score))
         print('Pct Score: ' + str(100*score/max_score))
         print('Posting to canvas...')
