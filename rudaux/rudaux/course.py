@@ -655,17 +655,22 @@ class Course(object):
 
         self.collect_submissions()
 
-        #returnable = self.get_returnable()
+        returnable = self.get_returnable()
 
         #self.return_solutions(returnable)
 
-        #self.autograde_submissions()
+        self.autograde_submissions()
 
-        #self.generate_feedback()
+        self.generate_feedback()
 
-        #self.upload_grades()
+        self.upload_grades()
  
-        #needs_posting = self.check_posted()
+        needs_posting = self.check_posted()
+
+        if len(needs_posting) > 0:
+            self.smtp.connect()
+            self.smtp.notify(self.config.instructor_user, 'Action Required: Post grades for assignments:\r\n' + '\r\n'.join(needs_posting))
+            self.smtp.close()   
 
         #self.return_feedback()
 
