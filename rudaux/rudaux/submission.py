@@ -27,22 +27,25 @@ class Submission:
         self.error = None
         self.solution_returned = False
         self.solution_return_error = None
+        self.grader_repo_path = os.path.join(config.user_folder_root, grader, config.instructor_repo_name)
         self.student_folder_root = config.student_folder_root
-        self.local_student_path = None
-        self.local_grader_path = None
+        self.assignment_snap_path = None
+        self.submission_path = None
         self.student_prefix = 'student_'
 
     def update_due(self, asgn, stu):
         self.due_date, override = asgn.get_due_date(stu)
         self.snap_name = a.name if (override is None) else (a.name + '-override-' + override['id'])
 
+    def collect(self):
+        self.assignment_snap_path = os.path.join(self.student_folder_root, self.s_id, '.zfs', 'snapshot', self.snap_name, 'dsci-100/materials', self.a_name, self.a_name+'.ipynb')
+        self.submission_path = os.path.join(self.user_folder_root, 
+        
+
     def return_solution(self):
         pass
 
-    def collect(self):
-        pass
-    
-    def clean(course, anm, stu, grader):
+    def clean(self):
       #need to check for duplicate cell ids, see
       #https://github.com/jupyter/nbgrader/issues/1083
       submitted_path = os.path.join(course['course_storage_path'], 

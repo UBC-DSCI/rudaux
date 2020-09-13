@@ -1,4 +1,4 @@
-import os, sys
+import os, sys, pwd
 import pickle as pk
 import tqdm
 import pendulum as plm
@@ -66,6 +66,7 @@ class Course(object):
         #=======================================#
         #make sure the student folder root doesn't end with a slash (for careful zfs snapshot syntax)
         self.config.user_folder_root.rstrip('/')
+        #TODO make sure the user_folder_root is actually right; we use rm and chown on subdirectories below
         
         #===================================================================================================#
         #      Create Canvas object and try to load state (if failure, load cached if we're allowed to)     #
@@ -298,20 +299,41 @@ class Course(object):
 
     def create_grader_folders(self):
         print('Creating grader folders/accounts for assignments')
+        jupyter_uid = pwd.getpwnam('jupyter').pw_uid
         # make sure each assignment past due has grader folders set up
         for a in self.assignments:
             # for any assignment past due
             if a.due_date < plm.now():
                 # create a user folder and jupyterhub account for each grader if needed
-                for i in range(self.config.num_graders):
+                print('Checking assignment ' + a.name + ' with grader list ' + str(self.config.graders[a.name]))
+                for i in range(len(self.config.graders[a.name])):
                     grader_name = a.name+'-grader-'+str(i) #TODO don't hardcode this here since it's used below too
                     print('Checking assignment ' + a.name + ' grader ' + grader_name)
+
                     # create the zfs volume and clone the instructor repo
+                    print('Checking if grader folder exists..')
                     if not self.zfs.user_folder_exists(grader_name):
                         print('Assignment ' + a.name + ' past due, no ' + grader_name + ' folder created yet. Creating')
                         self.zfs.create_user_folder(grader_name)
+
+                    # create the jupyterhub user
+                    print('Checking if jupyter user ' + grader_name + ' exists')
+                    if not self.jupyterhub.grader_exists(grader_name):
+                        print('Grader ' + grader_name + ' not created on the hub yet; assigning ' + self.config.graders[a.name][i])
+                        self.jupyterhub.assign_grader(grader_name, self.config.graders[a.name][i])
+                    else:
+                        print('User exists!')
+
                     # if not a valid repo with an nbgrader config file, clone it
                     repo_path = os.path.join(self.config.user_folder_root, grader_name, self.config.instructor_repo_name)
+                    print('Checking if ' + str(repo_path) + ' exists')
+                    if not os.path.exists(repo_path):
+                        os.mkdir(repo_path)
+                        os.chown(repo_path, jupyter_uid,jupyter_uid)
+                    else:
+                        print('Exists already.')
+
+                    print('Checking if ' + str(repo_path) + ' is a valid course git repository')
                     repo_valid = False
                     try:
                         tmprepo = git.Repo(repo_path)
@@ -320,54 +342,56 @@ class Course(object):
                     else:
                         repo_valid = True
                     if not repo_valid:
-                        print(repo_path + ' is not a valid course repo. Cleaning and cloning course repository from ' + self.config.instructor_repo_url)
+                        print(repo_path + ' is not a valid course repo. Cloning course repository from ' + self.config.instructor_repo_url)
                         if not self.dry_run:
-                            if os.path.exists(repo_path):
-                                if os.path.isdir(repo_path):
-                                    shutil.rmtree(repo_path)
-                                else:
-                                    os.remove(repo_path)
-                            os.mkdir(repo_path)
                             git.Repo.clone_from(self.config.instructor_repo_url, repo_path)
+                            for root, dirs, files in os.walk(repo_path):  
+                                for di in dirs:  
+                                  os.chown(os.path.join(root, di), jupyter_uid, jupyter_uid)
+                                for fi in files:
+                                  os.chown(os.path.join(root, fi), jupyter_uid, jupyter_uid)
                         else:
-                            print('[Dry Run: would have called mkdir('+repo_path+') and git clone ' + self.config.instructor_repo_url + ' into ' + repo_path)
+                            print('[Dry Run: would have removed any file/folder at ' + repo_path + ', called mkdir('+repo_path+') and git clone ' + self.config.instructor_repo_url + ' into ' + repo_path)
+                    else:
+                        print('Repo valid.')
                     # if the assignment hasn't been generated yet, generate it
                     generated_asgns = self.docker.run('nbgrader db assignment list', repo_path)
+                    print('Checking if assignment ' + a.name + ' has been generated for grader ' + grader_name)
                     if a.name not in generated_asgns:
                         print('Assignment not yet generated. Generating')
                         output = self.docker.run('nbgrader generate_assignment --force ' + a.name, repo_path)
-                        if 'ERROR' in output:
-                            raise NBError('Error generating assignment ' + a.name + ' in grader folder ' + grader_name + ' at repo path ' + repo_path, output)
+                        if 'ERROR' in output['log']:
+                            raise NBError('Error generating assignment ' + a.name + ' in grader folder ' + grader_name + ' at repo path ' + repo_path, output['log'])
+                    else:
+                        print('Assignment already generated')
                    
                     # if solution not generated yet, generate it
                     local_path = os.path.join('source', a.name, a.name + '.ipynb')
                     soln_name = a.name + '_solution.html' 
+                    print('Checking if solution generated...')
                     if not os.path.exists(os.path.join(repo_path, soln_name):
                         print('Solution not generated; generating')
                         output = self.docker.run('jupyter nbconvert ' + local_path + ' --output=' + soln_name + ' --output-dir=.', repo_path) 
-                        if 'ERROR' in output:
-                            raise NBError('Error generating solution for assignment ' + a.name + ' in grader folder ' + grader_name + ' at repo path ' + repo_path, output)
-                    
-                    # create the jupyterhub user
-                    if not self.jupyterhub.grader_exists(grader_name):
-                        print('Grader ' + grader_name + ' not created on the hub yet; assigning ' + self.config.graders[a.name][i])
-                        self.jupyterhub.assign_grader(grader_name, self.config.graders[a.name][i])
+                        if 'ERROR' in output['log']:
+                            raise NBError('Error generating solution for assignment ' + a.name + ' in grader folder ' + grader_name + ' at repo path ' + repo_path, output['log'])
+                    else:
+                        print('Solution already generated')
 
     def create_submissions(self):
         print('Creating submissions')
-        grader_index = random.randint(0, self.config.num_graders-1) #generates from a <= num <= b uniformly
         # create submissions for assignments
         for a in self.assignments:
             if a.due_date < plm.now(): #only process assignments that are past-due
+                grader_index = random.randint(0, len(self.config.graders[a.name])-1) #generates from a <= num <= b uniformly
                 for s in self.students:
                     print('Submission ' + str(a.name+'-'+s.canvas_id))
                     #if there isn't a submission for this assignment/student, create one and assign it to a grader
                     if a.name+'-'+s.canvas_id not in self.submissions:
                         print('Does not exist; creating, assigned to grader ' + str(a.name+'-grader-'+str(grader_index)))
-                        self.submissions[a.name+'-'+s.canvas_id] = Submission(a, s, a.name+'-grader-'+str(grader_index), self.config) #TODO don't hardcore the submission name key
+                        self.submissions[a.name+'-'+s.canvas_id] = Submission(a, s, a.name+'-grader-'+str(grader_index), self.config) #TODO don't hardcode the submission name key
                         #rotate the graders for the next subm
                         grader_index += 1
-                        grader_index = grader_index % self.config.num_graders
+                        grader_index = grader_index % len(self.config.graders[a.name])
 
     def collect_submissions(self):
         tz = self.course_info['time_zone']
@@ -546,6 +570,7 @@ class Course(object):
     def run_workflow(self): 
         self.apply_latereg_extensions()
 
+        #don't continue after this point unless grader creation is successful
         create_folder_error = False
         try:
             self.create_grader_folders()
