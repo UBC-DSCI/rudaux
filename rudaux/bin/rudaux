@@ -122,13 +122,13 @@ run_parser.add_argument(
   default=os.getcwd(),
   help="The directory containing the rudaux configuration file."
 )
-#run_parser.add_argument(
-#  '--dry-run',
-#  dest='dry_run',
-#  action='store_true',
-#  default=False,
-#  help="(DRY RUN CURRENTLY DOES NOT WORK FOR THIS FUNCTION) Don't take any actions that actually change state; print function usage instead"
-#)
+run_parser.add_argument(
+  '--dry-run',
+  dest='dry_run',
+  action='store_true',
+  default=False,
+  help="(DRY RUN CURRENTLY DOES NOT WORK FOR THIS FUNCTION) Don't take any actions that actually change state; print function usage instead"
+)
 
 
 
