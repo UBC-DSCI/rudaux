@@ -89,6 +89,9 @@ class Canvas(object):
                     },
                 json=json_data
             )
+            print(resp.reason)
+            print(resp.status_code)
+            print(resp.content)
             if resp.status_code < 200 or resp.status_code > 299:
                 print('Canvas Upload Error: ' + str(resp.reason))
                 raise CanvasUploadError(url, resp, typ)
@@ -158,8 +161,6 @@ class Canvas(object):
 
     def get_submissions(self, assignment_id):
         subms = self.get('assignments/'+assignment_id+'/submissions')
-        print('ASSIGNMENT ID ' + assignment_id)
-        print(subms)
         return [ {
                        'student_id' : str(subm['user_id']), 
                        'assignment_id' : assignment_id,
