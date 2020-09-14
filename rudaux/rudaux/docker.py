@@ -39,10 +39,10 @@ class Docker(object):
         results = {}
         running = {}
         print_every = 10
-        time_since_print = 0
         for key in self.jobs:
             results[key] = {}
             # sleep while we have reached max threads and all running
+            time_since_print = 0
             while len(running) >= self.n_threads and all([running[k].status in self.runsts for k in running]):
                 time.sleep(0.25)
                 time_since_print += 0.25
