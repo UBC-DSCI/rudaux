@@ -231,7 +231,7 @@ class Canvas(object):
         #check that it was posted properly
         #TODO make this less awful code
         canvas_grade = str(self.get('assignments/'+assignment_id+'/submissions/'+student_id)[0]['score'])
-        if abs(float(score) - float(canvas_grade)) < 0.01:
+        if abs(float(score) - float(canvas_grade)) > 0.01:
             raise GradeNotUploadedError(score, canvas_grade)
 
 # TODO add these in???
