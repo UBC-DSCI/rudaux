@@ -31,8 +31,9 @@ class OverrideRemoveError(Exception):
         self.override_id = override_id
 
 class GradeNotUploadedError(Exception):
-    def __init__(self):
-        pass
+    def __init__(self, uploaded_val, actual_val):
+        self.message = 'Grade on canvas not equal to the uploaded grade. Uploaded grade: ' + str(uploaded_val) + ' Canvas grade: ' + str(actual_val)
+    
 
 class Canvas(object):
     """
@@ -228,8 +229,9 @@ class Canvas(object):
     def put_grade(self, assignment_id, student_id, score):
         self.put('assignments/'+assignment_id+'/submissions/'+student_id, {'submission' : {'posted_grade' : score}})
         #check that it was posted properly
-        if score != str(self.get('assignments/'+assignment_id+'/submissions/'+student_id)[0]['score']):
-            raise GradeNotUploadedError()
+        canvas_grade = str(self.get('assignments/'+assignment_id+'/submissions/'+student_id)[0]['score'])
+        if score != canvas_grade:
+            raise GradeNotUploadedError(score, canvas_grade)
 
 # TODO add these in???
 #def get_grades(course, assignment): #???
