@@ -30,6 +30,10 @@ class OverrideRemoveError(Exception):
         self.overrides = overrides
         self.override_id = override_id
 
+class GradeNotUploadedError(Exception):
+    def __init__(self):
+        pass
+
 class Canvas(object):
     """
     Interface to the Canvas REST API
@@ -223,10 +227,9 @@ class Canvas(object):
 
     def put_grade(self, assignment_id, student_id, score):
         self.put('assignments/'+assignment_id+'/submissions/'+student_id, {'submission' : {'posted_grade' : score}})
-        
         #check that it was posted properly
-        #TODO
-        
+        if score != str(self.get('assignments/'+assignment_id+'/submissions/'+student_id)[0]['score']):
+            raise GradeNotUploadedError()
 
 # TODO add these in???
 #def get_grades(course, assignment): #???
