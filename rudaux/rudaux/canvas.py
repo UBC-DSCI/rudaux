@@ -229,8 +229,9 @@ class Canvas(object):
     def put_grade(self, assignment_id, student_id, score):
         self.put('assignments/'+assignment_id+'/submissions/'+student_id, {'submission' : {'posted_grade' : score}})
         #check that it was posted properly
+        #TODO make this less awful code
         canvas_grade = str(self.get('assignments/'+assignment_id+'/submissions/'+student_id)[0]['score'])
-        if score != canvas_grade:
+        if abs(float(score) - float(canvas_grade)) < 0.01:
             raise GradeNotUploadedError(score, canvas_grade)
 
 # TODO add these in???
