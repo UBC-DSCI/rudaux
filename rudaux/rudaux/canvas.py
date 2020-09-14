@@ -89,9 +89,6 @@ class Canvas(object):
                     },
                 json=json_data
             )
-            print(resp.reason)
-            print(resp.status_code)
-            print(resp.content)
             if resp.status_code < 200 or resp.status_code > 299:
                 print('Canvas Upload Error: ' + str(resp.reason))
                 raise CanvasUploadError(url, resp, typ)
@@ -225,7 +222,7 @@ class Canvas(object):
                 raise OverrideRemoveError(overs, override_id)    
 
     def put_grade(self, assignment_id, student_id, score):
-        self.put('assignments/'+assignment_id+'/submissions/'+student_id, {'posted_grade' : score})
+        self.put('assignments/'+assignment_id+'/submissions/'+student_id, {'submission' : {'posted_grade' : score}})
         
         #check that it was posted properly
         #TODO
