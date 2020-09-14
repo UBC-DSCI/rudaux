@@ -510,9 +510,10 @@ class Course(object):
                         print('Validating autograding for submission ' + a.name+'-'+s.canvas_id)
                         try:
                             subm.validate_autograde(autograde_results)
-                        except Exception as e: #TODO make this exception more specific and raise if unknown type
+                        except DockerError as e: 
                             print('Error when autograding')
-                            print(e)
+                            print(e.message)
+                            print(e.docker_output)
                             subm.error = e
                             continue
                         subm.status = SubmissionStatus.AUTOGRADED
@@ -563,9 +564,10 @@ class Course(object):
                         print('Validating feedback for submission ' + a.name+'-'+s.canvas_id)
                         try:
                             subm.validate_feedback(feedback_results)
-                        except Exception as e: #TODO make this exception more specific and raise if unknown type
+                        except DockerError as e:
                             print('Error when generating feedback')
-                            print(e)
+                            print(e.message)
+                            print(e.docker_output)
                             subm.error = e
                             continue
                         subm.status = SubmissionStatus.FEEDBACK_GENERATED
