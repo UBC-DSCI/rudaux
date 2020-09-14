@@ -147,12 +147,13 @@ class Submission:
 
         self.score = score
         self.max_score = max_score
+        pct = "{:.2f}".format(100*score/max_score)
     
         print('Student ' + self.s_id + ' assignment ' + self.a_name + ' score: ' + str(score) + (' [MISSING]' if self.status == SubmissionStatus.MISSING else ''))
         print('Assignment ' + self.a_name + ' max score: ' + str(max_score))
-        print('Pct Score: ' + str(100*score/max_score))
+        print('Pct Score: ' + pct)
         print('Posting to canvas...')
-        canvas.put_grade(self.a_id, self.s_id, str(100*score/max_score))
+        canvas.put_grade(self.a_id, self.s_id, pct)
 
     def compute_max_score(self):
       #for some incredibly annoying reason, nbgrader refuses to compute a max_score for anything (so we cannot easily convert scores to percentages)
