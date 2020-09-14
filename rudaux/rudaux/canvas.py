@@ -172,7 +172,7 @@ class Canvas(object):
                        'missing' : subm['missing'],
                        'entered_grade' : subm['entered_grade'],
                        'entered_score' : subm['entered_score']
-                } for s in subms ]
+                } for subm in subms ]
 
     def get_overrides(self, assignment_id):
         overs = self.get('assignments/'+assignment_id+'/overrides')
