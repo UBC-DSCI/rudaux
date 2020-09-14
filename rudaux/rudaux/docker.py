@@ -57,7 +57,7 @@ class Docker(object):
                 running.pop(k, None)
             # add a new container
             assert len(running) < self.n_threads
-            print('Running job ' + str(key))
+            print('Running ' + str(key))
             ctr, results[key] = self._run_container(self.jobs[key]['command'], self.jobs[key]['homedir'])
             if ctr:
                 running[key] = ctr
