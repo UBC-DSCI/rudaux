@@ -158,6 +158,8 @@ class Canvas(object):
 
     def get_submissions(self, assignment_id):
         subms = self.get('assignments/'+assignment_id+'/submissions')
+        print('ASSIGNMENT ID ' + assignment_id)
+        print(subms)
         return [ {
                        'student_id' : str(subm['user_id']), 
                        'assignment_id' : assignment_id,
