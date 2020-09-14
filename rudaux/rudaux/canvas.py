@@ -142,7 +142,6 @@ class Canvas(object):
 
     def get_assignments(self):
         asgns = self.get('assignments')
-        #TODO and filter for ignored list / 0 points / "does not count towards final grade"
         processed_asgns = [ {  
                    'canvas_id' : str(a['id']),
                    'name' : a['name'],
@@ -155,7 +154,7 @@ class Canvas(object):
                    'has_overrides' : a['has_overrides'],
                    'overrides' : [],
                    'published' : a['published']
-                 } for a in asgns if 'external_tool_tag_attributes' in a.keys() and self.jupyterhub_host_root in a['external_tool_tag_attributes']['url'] ]
+                 } for a in asgns if 'external_tool_tag_attributes' in a.keys() and self.jupyterhub_host_root in a['external_tool_tag_attributes']['url'] and a['omit_from_final_grade'] == False]
         for a in processed_asgns:
             if a['has_overrides']:
                 a['overrides'] = self.get_overrides(a['canvas_id'])
