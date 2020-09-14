@@ -35,6 +35,7 @@ class Docker(object):
         return result
 
     def run_all(self):
+        print('Docker running ' + str(len(self.jobs)) + ' jobs')
         results = {}
         running = {}
         for key in self.jobs:
@@ -45,14 +46,18 @@ class Docker(object):
                 for k in running:
                     running[k].reload()
             # clean out nonrunning containers
+            to_pop = []
             for k in running:
                 if running[k].status not in self.runsts:
                     results[k]['exit_status'] = running[k].status
                     results[k]['log'] = running[k].logs(stdout = True, stderr = True).decode('utf-8')
                     running[k].remove(force = True)
-                    running.pop(k, None)
+                    to_pop.append(k)
+            for k in to_pop:
+                running.pop(k, None)
             # add a new container
             assert len(running) < self.n_threads
+            print('Running job ' + str(key))
             ctr, results[key] = self._run_container(self.jobs[key]['command'], self.jobs[key]['homedir'])
             if ctr:
                 running[key] = ctr
