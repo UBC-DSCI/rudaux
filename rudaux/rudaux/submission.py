@@ -113,12 +113,12 @@ class Submission:
         return flag
 
     def submit_generate_feedback(self, docker): 
-        docker.submit('nbgrader generate_feedback --force --assignment=' + self.a_name + ' --student=' + self.student_prefix+self.s_id, self.grader_repo_path)
+        self.docker_job_id = docker.submit('nbgrader generate_feedback --force --assignment=' + self.a_name + ' --student=' + self.student_prefix+self.s_id, self.grader_repo_path)
     
     def validate_feedback(self, results): 
+        res = results[self.docker_job_id]
         if 'ERROR' in res['log']:
             raise DockerError('Error generating feedback for ' + self.a_name + ' for student ' + self.s_id + ' in grader folder ' + self.grader + ' at repo path ' + self.grader_repo_path + '. Exit status ' + res['exit_status'], res['log'])
-
 
     def return_feedback(self):
         if not os.path.exists(self.assignment_snap_path) and self.score == 0:

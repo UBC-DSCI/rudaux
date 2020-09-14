@@ -38,13 +38,19 @@ class Docker(object):
         print('Docker running ' + str(len(self.jobs)) + ' jobs')
         results = {}
         running = {}
+        print_every = 10
         for key in self.jobs:
             results[key] = {}
             # sleep while we have reached max threads and all running
+            time_since_print = 0
             while len(running) >= self.n_threads and all([running[k].status in self.runsts for k in running]):
                 time.sleep(0.25)
+                time_since_print += 0.25
                 for k in running:
                     running[k].reload()
+                if time_since_print >= print_every:
+                    print('Current running jobs: ' + str(list(running.keys())))
+                    time_since_print = 0
             # clean out nonrunning containers
             to_pop = []
             for k in running:
