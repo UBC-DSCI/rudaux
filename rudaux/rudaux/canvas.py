@@ -142,6 +142,7 @@ class Canvas(object):
 
     def get_assignments(self):
         asgns = self.get('assignments')
+        #TODO and filter for ignored list / 0 points / "does not count towards final grade"
         processed_asgns = [ {  
                    'canvas_id' : str(a['id']),
                    'name' : a['name'],
