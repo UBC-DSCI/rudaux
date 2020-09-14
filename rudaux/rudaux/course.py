@@ -7,7 +7,7 @@ from traitlets.config import Config
 from traitlets.config.loader import PyFileConfigLoader
 import editdistance
 from subprocess import CalledProcessError
-from .canvas import Canvas
+from .canvas import Canvas, GradeNotUploadedError
 from .jupyterhub import JupyterHub
 from .zfs import ZFS
 from .person import Person
@@ -584,9 +584,9 @@ class Course(object):
                         print('Uploading grade for submission ' + a.name+'-'+s.canvas_id)
                         try:
                             subm.upload_grade(self.canvas)
-                        except Exception as e: #TODO make this exception more specific and raise if unknown type
+                        except GradeNotUploadedError as e: 
                             print('Error when uploading grade')
-                            print(e)
+                            print(e.message)
                             subm.error = e
                             continue
                         subm.status = SubmissionStatus.GRADE_UPLOADED
