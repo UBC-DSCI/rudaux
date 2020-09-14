@@ -39,8 +39,9 @@ class Docker(object):
         results = {}
         running = {}
         print_every = 10
-        for key in self.jobs:
-            results[key] = {}
+        job_keys = [key for key in self.jobs]
+        while len(running) > 0 or len(job_keys) > 0:
+
             # sleep while we have reached max threads and all running
             time_since_print = 0
             while len(running) >= self.n_threads and all([running[k].status in self.runsts for k in running]):
@@ -51,6 +52,11 @@ class Docker(object):
                 if time_since_print >= print_every:
                     print('Current running jobs: ' + str(list(running.keys())))
                     time_since_print = 0
+
+            # refresh the status of all running containers (we may have not made it into the above loop)
+            for k in running:
+                running[k].reload()
+
             # clean out nonrunning containers
             to_pop = []
             for k in running:
@@ -61,12 +67,17 @@ class Docker(object):
                     to_pop.append(k)
             for k in to_pop:
                 running.pop(k, None)
-            # add a new container
-            assert len(running) < self.n_threads
-            print('Running ' + str(key))
-            ctr, results[key] = self._run_container(self.jobs[key]['command'], self.jobs[key]['homedir'])
-            if ctr:
-                running[key] = ctr
+
+            # add a new container if there are any remaining
+            if len(job_keys) > 0:
+                assert len(running) < self.n_threads
+                key = job_keys.pop()
+                print('Running ' + str(key))
+                results[key] = {}
+                ctr, results[key] = self._run_container(self.jobs[key]['command'], self.jobs[key]['homedir'])
+                if ctr:
+                    running[key] = ctr
+
         # clear the commands queue when done
         self.jobs = {} 
 
