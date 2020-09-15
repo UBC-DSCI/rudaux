@@ -19,6 +19,14 @@ class SubmissionStatus(IntEnum):
     FEEDBACK_RETURNED = 9
     MISSING = 10
 
+# TODO make this not try to keep track of state itself to make it more robust (bit slower, but not too much and worth it for error resiliency)
+# - convert status to bool flags
+# - implement check_* functions, * functions, and validate_* functions for each step in workflow (or just code checks/validation into each function -- probably better)
+# - implement a status() function to print out all bool flags
+# - implement a process() function that runs a subms workflow -- pass in a docker and a canvas
+#     - outputs a flag saying "run process again with results from docker"
+# - outer course keeps running process until no flags
+
 class Submission:
 
     def __init__(self, asgn, stu, grader, config):
