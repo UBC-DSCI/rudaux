@@ -519,6 +519,8 @@ class Course(object):
                         subm.status = SubmissionStatus.AUTOGRADED
                         subm.error = None
 
+                    #TODO -- NO FLAGGING AS GRADED UNTIL ALL MANUAL GRADING IS DONE?
+                    #TODO -- TAs get confused when they aren't done their job yet on the whole class and want to check things but the code moves on w/o them
                     if subm.status == SubmissionStatus.AUTOGRADED or subm.status == SubmissionStatus.NEEDS_MANUAL_GRADING:
                         print('Checking whether submission ' + a.name+'-'+s.canvas_id + ' needs manual grading')
                         if subm.needs_manual_grading():
