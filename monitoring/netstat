@@ -1,0 +1,3 @@
+# Record network connections every minute
+* * * * * root netstat -a | ts '[\%H:\%M:\%S]' >> "/extra/network/netstat_$(date +"\%Y_\%m_\%d").log"
+
