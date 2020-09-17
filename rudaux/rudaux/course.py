@@ -446,7 +446,7 @@ class Course(object):
                 n_total = len(prep_results)
                 n_outstanding = len([p for p in prep_results if prep_results[p] == SubmissionStatus.NOT_DUE])
                 if (n_total - n_outstanding)/n_total >= self.config.return_solution_threshold: 
-                    print('Threshold reached(' str((n_total - n_outstanding)/n_total) + '>=' + str(self.config.return_solution_threshold)+'); this assignment is returnable')
+                    print('Threshold reached(' + str((n_total - n_outstanding)/n_total) + '>=' + str(self.config.return_solution_threshold)+'); this assignment is returnable')
                     if plm.now() > plm.parse(self.config.earliest_solution_return_date, tz=self.course_info['time_zone']):
                         retsoln_results = self.process(Submission.return_solution, submissions, submissions, None)
                     else:
