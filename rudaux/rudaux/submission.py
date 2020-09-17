@@ -305,7 +305,7 @@ class Submission:
     def compute_max_score(self):
       #for some incredibly annoying reason, nbgrader refuses to compute a max_score for anything (so we cannot easily convert scores to percentages)
       #let's compute the max_score from the notebook manually then....
-      release_nb_path = os.path.join(self.grader_repo_path, 'release', self.a_name, self.a_name+'.ipynb')
+      release_nb_path = os.path.join(self.grader_repo_path, 'release', self.asgn.name, self.asgn.name+'.ipynb')
       f = open(release_nb_path, 'r')
       parsed_json = json.load(f)
       f.close()
@@ -321,14 +321,10 @@ class Submission:
     def finalize_failed_submission(self, canvas):
         if not self.grade_uploaded:
             print('Uploading 0 for missing submissions')
-            try:
-                self.upload_grade(canvas, failed=True)
-            except GradeNotUploadedError as e: #TODO more specific
-                print('Error when uploading grade')
-                print(e.message)
-                self.error = e
-                return SubmissionStatus.ERROR
-            self.grade_uploaded = True
+            ret = self.upload_grade(canvas, failed=True)
+            if ret == SubmissionStatus.GRADE_UPLOADED:
+                self.grade_uploaded = True
+            return ret
         if not self.grade_posted:
             print('Grade not posted yet. Waiting for instructor.')
             return SubmissionStatus.NEEDS_POST
