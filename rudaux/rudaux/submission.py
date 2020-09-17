@@ -258,6 +258,7 @@ class Submission:
     def upload_grade(self, canvas, failed = False):
 
         if self.grade_uploaded:
+            print('Grade already uploaded. Returning')
             return SubmissionStatus.GRADE_UPLOADED
 
         print('Uploading grade for submission ' + self.asgn.name+':'+self.stu.canvas_id)
@@ -288,7 +289,7 @@ class Submission:
         self.max_score = max_score
         pct = "{:.2f}".format(100*score/max_score)
     
-        print('Student ' + self.stu.canvas_id + ' assignment ' + self.asgn.name + ' score: ' + str(score) + (' [MISSING]' if missing else ''))
+        print('Student ' + self.stu.canvas_id + ' assignment ' + self.asgn.name + ' score: ' + str(score) + (' [HARDFAIL]' if failed else ''))
         print('Assignment ' + self.asgn.name + ' max score: ' + str(max_score))
         print('Pct Score: ' + pct)
         print('Posting to canvas...')
@@ -319,19 +320,12 @@ class Submission:
       return pts
 
     def finalize_failed_submission(self, canvas):
-        if not self.grade_uploaded:
-            print('Uploading 0 for missing submissions')
-            ret = self.upload_grade(canvas, failed=True)
-            if ret == SubmissionStatus.GRADE_UPLOADED:
-                self.grade_uploaded = True
-            return ret
-        if not self.grade_posted:
-            print('Grade not posted yet. Waiting for instructor.')
-            return SubmissionStatus.NEEDS_POST
-        else:
-            print('Missing assignment grade posted. This submission is done.')
-            return SubmissionStatus.DONE
-
+        print('Uploading 0 for missing submissions')
+        ret = self.upload_grade(canvas, failed=True)
+        if ret == SubmissionStatus.GRADE_UPLOADED:
+            self.grade_uploaded = True
+        return ret
+        
     ######################################################
     ###        Functions to generate feedback           ##
     ######################################################
