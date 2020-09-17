@@ -443,13 +443,12 @@ class Course(object):
 
                 # check if we can return the solutions to the students yet, and if so return
                 print('Checking whether solutions can be returned')
-                print('DISABLED FOR NOW')
-                #n_total = len(prep_results)
-                #n_outstanding = len([p for p in prep_results if prep_results[p] == SubmissionStatus.NOT_DUE])
-                #if (n_total - n_outstanding)/n_total >= self.config.return_solution_threshold:
-                #    print('Threshold reached; this assignment is now returnable')
-                #    retsoln_results = self.process(Submission.return_solution, submissions, submissions, None)
-                #    #TODO error handling
+                n_total = len(prep_results)
+                n_outstanding = len([p for p in prep_results if prep_results[p] == SubmissionStatus.NOT_DUE])
+                if (n_total - n_outstanding)/n_total >= self.config.return_solution_threshold and plm.now() > self.config.earliest_solution_return_date:
+                    print('Threshold reached and earliest solution return date passed; this assignment is now returnable')
+                    retsoln_results = self.process(Submission.return_solution, submissions, submissions, None)
+                    #TODO error handling
 
                 #any missing assignments get a 0
                 print('Assigning 0 to all missing submissions')
