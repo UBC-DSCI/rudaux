@@ -457,7 +457,7 @@ class Course(object):
                                                prep_results, SubmissionStatus.MISSING)
 
                 print('Submitting autograding tasks')
-                ag_results = self.process(lambda subm : Submission.submit_autograding(subm, self.docker, self.canvas), submissions, 
+                ag_results = self.process(lambda subm : Submission.submit_autograding(subm, self.docker), submissions, 
 						prep_results, SubmissionStatus.PREPARED)
                 
                 print('Running autograding tasks')
