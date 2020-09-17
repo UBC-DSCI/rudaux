@@ -452,6 +452,9 @@ class Course(object):
                     else:
                         print('Earliest return date (' +self.config.earliest_solution_return_date + ') not passed yet. Skipping')
                     #TODO error handling
+                else:
+                    print('Threshold not reached (' + str((n_total - n_outstanding)/n_total) + '<' + str(self.config.return_solution_threshold)+'); this assignment is not yet returnable')
+ 
 
                 #any missing assignments get a 0
                 print('Assigning 0 to all missing submissions')
