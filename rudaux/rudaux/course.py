@@ -310,7 +310,7 @@ class Course(object):
         print('Checking assignment ' + a.name + ' with grader list ' + str(self.config.graders[a.name]))
         for i in range(len(self.config.graders[a.name])):
             grader_name = a.grader_basename() + str(i)
-            print('Checking assignment ' + a.name + ' grader ' + self.config.graders[a.name] + '(' +grader_name + ')')
+            print('Checking assignment ' + a.name + ' grader ' + self.config.graders[a.name][i] + '(' +grader_name + ')')
 
             # create the zfs volume and clone the instructor repo
             print('Checking if grader folder exists..')
