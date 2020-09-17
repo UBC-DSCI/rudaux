@@ -50,15 +50,9 @@ class Submission:
         self.grade_posted = grade_posted
         self.autograde_docker_job_id = None
         self.genfdbk_docker_job_id = None
-
-        #remove?
-        self.status = SubmissionStatus.ASSIGNED
-        self.error = None
         self.score = None
         self.max_score = None
-        self.solution_returned = False
-        self.solution_return_error = None
-        self.submission_path = None
+        self.error = None
 
     def get_grader(self):
         graders = [username.strip('/') for username in os.listdir(self.grader_folder_root) if self.asgn.name in username]
