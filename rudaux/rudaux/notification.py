@@ -59,9 +59,10 @@ class SendMail(Notification):
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE)
         out, err = proc.communicate(input=msg.encode('utf-8'))
-        print(f"ret: {proc.returncode}")
-        print("stdout:" + str(out))
-        print("stderr:" + str(err))
+        #TODO handle errors
+        #print(f"ret: {proc.returncode}")
+        #print("stdout:" + str(out))
+        #print("stderr:" + str(err))
 
     def connect(self):
         pass
