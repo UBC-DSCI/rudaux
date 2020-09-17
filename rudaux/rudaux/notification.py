@@ -1,4 +1,5 @@
 import smtplib
+import time
 
 class NotifyError(Exception):
     def __init__(self, message):
@@ -56,6 +57,7 @@ class SMTP(object):
         for recip in self.notifications:
             if len(self.notifications[recip]) > 0:
                 self.notify(recip, '\r\n\r\n-------------------\r\n\r\n'.join(self.notifications[recip]))
+                time.sleep(5)
             self.notifications[recip] = []
 
     #TODO deal with smtplib exceptions
