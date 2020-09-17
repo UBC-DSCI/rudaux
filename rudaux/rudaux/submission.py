@@ -92,7 +92,7 @@ class Submission:
         print('Submission ready for collection (due+1hr). Due date: ' + self.due_date.in_timezone(tz).format(fmt) + ' Time now: ' + plm.now().in_timezone(tz).format(fmt))
 
         #create the collected assignment path
-        self.collected_assignment_path = os.path.join(self.grader_repo_path, self.grader_local_collection_folder)
+        self.collected_assignment_path = os.path.join(self.grader_repo_path, self.grader_local_collection_folder, self.asgn.name + '.ipynb')
 
         #try to collect the assignment if not already collected
         print('Collecting submission...')
