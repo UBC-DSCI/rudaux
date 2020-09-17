@@ -52,7 +52,7 @@ class SendMail(Notification):
 
     def notify(self, recipient, message):
         # -i flag: do NOT treat bare dot as EOF
-        cmd = ['/usr/sbin/sendmail', f'-f {self.from_addr}', self.contact_info[recipient]['address']]
+        cmd = ['/usr/sbin/sendmail', f'-f {self.address}', self.contact_info[recipient]['address']]
         msg = self.message_template.format(self.contact_info[recipient]['address'], self.contact_info[recipient]['name'], message)
         proc = subprocess.Popen(cmd, shell=False,
                                 stdin=subprocess.PIPE,
