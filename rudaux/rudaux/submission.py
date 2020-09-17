@@ -267,7 +267,7 @@ class Submission:
         else:
             try:
                 gb = Gradebook('sqlite:///'+self.grader_repo_path +'/gradebook.db')
-                subm = gb.find_submission(self.a_name, self.student_prefix+self.s_id)
+                subm = gb.find_submission(self.asgn.name, self.student_prefix+self.stu.canvas_id)
                 score = subm.score
             except Exception as e:
                 print('Error when accessing grade from gradebook db')
@@ -320,7 +320,7 @@ class Submission:
       return pts
 
     def finalize_failed_submission(self, canvas):
-        print('Uploading 0 for missing submissions')
+        print('Uploading 0 for missing submission ' + self.asgn.name+':'+self.stu.canvas_id)
         ret = self.upload_grade(canvas, failed=True)
         if ret == SubmissionStatus.GRADE_UPLOADED:
             self.grade_uploaded = True
