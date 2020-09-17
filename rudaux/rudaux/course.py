@@ -390,7 +390,7 @@ class Course(object):
                 results[sid] = func(submissions[sid]) 
         return results
 
-    def run_grading_workflow(self): 
+    def grading_workflow(self): 
         
         for asgn in self.assignments:
             #only do stuff for assignments past their basic due date

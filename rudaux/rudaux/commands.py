@@ -24,9 +24,7 @@ def run(args):
     # if course setup fails, do ???
     # do a non-blocking update: 
     # if update fails (e.g. canvas is down), just take snapshots based on previous course obj. Snapshots are cheap and we may as well be conservative
-    course.run_workflow()
-
-    course.send_notifications()
+    course.grading_workflow()
 
 # TODO implement a send notification command
 # and have smtp.submit save notifications to disk
@@ -47,10 +45,6 @@ def print_list(args):
 def apply_latereg_extensions(args):
     course = rudaux.Course(args.directory, dry_run = args.dry_run)
     course.apply_latereg_extensions()
-    course.send_notifications()
-
-def status(args):
-    pass
 
 #Ideas for other commands:
 #status #return a report of status; subcommands:

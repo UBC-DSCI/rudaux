@@ -5,7 +5,6 @@ class Assignment:
         self.__dict__.update(canvas_dict)
         self.snapshot_taken = False
         self.override_snapshots_taken = []
-        self.grader_folder_root = config.user_folder_root
         self.grader_workloads = {}
 
     def __repr__(self):
