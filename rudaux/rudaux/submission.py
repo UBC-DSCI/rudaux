@@ -127,7 +127,7 @@ class Submission:
     def assign(self):
         # if the grader workload dict hasn't been created in the assignment yet, create it
         if len(self.asgn.grader_workloads) == 0:
-            graders = [username.strip('/') for username in os.listdir(self.grader_folder_root) if self.asgn.name in username]
+            graders = [username.strip('/') for username in os.listdir(self.grader_folder_root) if self.asgn.grader_basename() in username]
             for grd in graders:
                 self.asgn.grader_workloads[grd] = 0
         # if unknown grader
