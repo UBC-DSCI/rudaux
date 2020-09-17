@@ -442,12 +442,13 @@ class Course(object):
 
                 # check if we can return the solutions to the students yet, and if so return
                 print('Checking whether solutions can be returned')
-                n_total = len(prep_results)
-                n_outstanding = len([p for p in prep_results if prep_results[p] == SubmissionStatus.NOT_DUE])
-                if (n_total - n_outstanding)/n_total >= self.config.return_solution_threshold:
-                    print('Threshold reached; this assignment is now returnable')
-                    retsoln_results = self.process(Submission.return_solution, submissions, submissions, None)
-                    #TODO error handling
+                print('DISABLED FOR NOW')
+                #n_total = len(prep_results)
+                #n_outstanding = len([p for p in prep_results if prep_results[p] == SubmissionStatus.NOT_DUE])
+                #if (n_total - n_outstanding)/n_total >= self.config.return_solution_threshold:
+                #    print('Threshold reached; this assignment is now returnable')
+                #    retsoln_results = self.process(Submission.return_solution, submissions, submissions, None)
+                #    #TODO error handling
 
                 #any missing assignments get a 0
                 print('Assigning 0 to all missing submissions')
@@ -518,8 +519,9 @@ class Course(object):
                 print('Checking if all grades have been posted...')
                 if all([subm.grade_posted for subm in submissions]):
                     print('All grades posted. Returning feedback')
-                    retfdbk_results = self.process(Submission.return_feedback, submissions, 
-                                                fbc_results, SubmissionStatus.FEEDBACK_GENERATED)
+                    print('DISABLED FOR NOW')
+                    #retfdbk_results = self.process(Submission.return_feedback, submissions, 
+                    #                            fbc_results, SubmissionStatus.FEEDBACK_GENERATED)
                 elif all([subm.grade_uploaded for subm in submissions]):
                     self.smtp.submit(self.config.instructor_user, 'Action Required: Post grades for assignment ' + asgn.name)
                   
