@@ -522,9 +522,8 @@ class Course(object):
                 print('Checking if all grades have been posted...')
                 if all([submissions[subm].grade_posted for subm in submissions]):
                     print('All grades posted. Returning feedback')
-                    print('DISABLED FOR NOW')
-                    #retfdbk_results = self.process(Submission.return_feedback, submissions, 
-                    #                            fbc_results, SubmissionStatus.FEEDBACK_GENERATED)
+                    retfdbk_results = self.process(Submission.return_feedback, submissions, 
+                                                             fbc_results, SubmissionStatus.FEEDBACK_GENERATED)
                 elif all([submissions[subm].grade_uploaded for subm in submissions]):
                     print('Not all grades posted, but all uploaded. Pinging instructor to post.')
                     self.smtp.submit(self.config.instructor_user, 'Action Required: Post grades for assignment ' + asgn.name)
