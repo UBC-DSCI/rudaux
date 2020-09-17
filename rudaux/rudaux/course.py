@@ -439,7 +439,7 @@ class Course(object):
 
                 #make sure all submissions are prepared
                 print('Preparing submissions')
-                prep_results = self.process(Submission.prepare, submissions, submissions, None)
+                prep_results = self.process(lambda subm : Submission.prepare(subm, self.course_info['time_zone']), submissions, submissions, None)
 
                 # check if we can return the solutions to the students yet, and if so return
                 print('Checking whether solutions can be returned')

@@ -32,7 +32,7 @@ class MultipleGraderError(Exception):
 
 class Submission:
 
-    def __init__(self, asgn, stu, grade_uploaded, grade_posted, config, tz):
+    def __init__(self, asgn, stu, grade_uploaded, grade_posted, config):
         self.asgn = asgn
         self.stu = stu
         self.due_date, override = asgn.get_due_date(stu)
@@ -46,7 +46,6 @@ class Submission:
         self.grader_local_feedback_folder = os.path.join('feedback', self.student_prefix + self.stu.canvas_id, self.asgn.name)
         self.grader = self.get_grader()
         self.grader_repo_path = None
-        self.tz = tz
         self.grade_uploaded = grade_uploaded
         self.grade_posted = grade_posted
         self.autograde_docker_job_id = None
@@ -71,7 +70,7 @@ class Submission:
     ###    Funcs to prepare the submission for grading  ##
     ######################################################
 
-    def prepare(self):
+    def prepare(self, tz):
         fmt = 'ddd YYYY-MM-DD HH:mm:ss'
         print('Preparing submission ' + self.asgn.name+':'+self.stu.canvas_id)
 
