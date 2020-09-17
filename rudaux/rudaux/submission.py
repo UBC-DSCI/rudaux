@@ -144,7 +144,7 @@ class Submission:
             #create the submission folder in the grader account and set permissions
             jupyter_uid = pwd.getpwnam('jupyter').pw_uid
             fldr = os.path.join(self.grader_folder_root, min_grader, self.grader_local_collection_folder)
-            os.makedirs(submission_folder, exist_ok=True)
+            os.makedirs(fldr, exist_ok=True)
 
             #chown everything inside the grader folder root to jupyter/jupyter, moving backwards through the path hierarchy until we reach the grader root folder
             while not os.path.samefile(fldr, os.path.join(self.grader_folder_root, min_grader)):
