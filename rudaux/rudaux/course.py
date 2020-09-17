@@ -95,11 +95,11 @@ class Course(object):
         self.docker = Docker(self.config, self.dry_run)
 
         #=======================================================#
-        #      Create the interface to SMTP                     #
+        #      Create the interface to SendMail                 #
         #=======================================================#
 
-        print('Creating SMTP interface...')
-        self.smtp = SMTP(self.config, self.dry_run)
+        print('Creating Notification interface...')
+        self.notifier = self.config.notification_type(self.config, self.dry_run)
         
         #=======================================================#
         #      Load the saved state                             #
@@ -423,7 +423,7 @@ class Course(object):
                       Message: {error_message}
                       Trace: {error_traceback}
                       """)
-                    self.smtp.submit(self.config.instructor_user, 'Action Required: grader folder creation failed for ' + asgn.name+':\r\n' + error_message + '\r\n' + error_traceback)
+                    self.notifier.submit(self.config.instructor_user, 'Action Required: grader folder creation failed for ' + asgn.name+':\r\n' + error_message + '\r\n' + error_traceback)
                     continue
 
                 print('Getting uploaded/posted submissions on canvas')
@@ -476,7 +476,7 @@ class Course(object):
                           'uploading':  [sid +':\r\n' + str(submissions[sid].error) for sid in miss_results if miss_results[sid] == SubmissionStatus.ERROR]}
                 if any([len(v) > 0 for k, v in errors.items()]):
                     print('Errors detected. Notifying instructor and stopping processing this assignment.') 
-                    self.smtp.submit(self.config.instructor_user, 'Errors detected in ' + asgn.name + ' processing. Action required.'+
+                    self.notifier.submit(self.config.instructor_user, 'Errors detected in ' + asgn.name + ' processing. Action required.'+
         								     '\r\n PREPARATION ERRORS:\r\n'+
                                                                              '\r\n'.join(errors['preparing'])+
         								     '\r\n AUTOGRADING ERRORS:\r\n'+
@@ -493,7 +493,7 @@ class Course(object):
                     if len(grading_tasks) > 0:
                         print('Grader ' + grader_ta + ' has grading task for ' + asgn.name +'. Pinging if today is an email day.')
                         if plm.now().in_timezone(self.course_info['time_zone']).format('dddd') in self.config.email_days:
-                            self.smtp.submit(grader_ta, 'You have a manual grading tasks to do for assignment ' + asgn.name +'! \r\n Each entry below is an assignment that you have to grade, and is listed in the format [grader user account] -- [assignment name] -- [student id]. \r\n To grade the assignments, please sign in to the course JupyterHub with the [grader user account] username and the same password as your personal user account.\r\n' +
+                            self.notifier.submit(grader_ta, 'You have a manual grading tasks to do for assignment ' + asgn.name +'! \r\n Each entry below is an assignment that you have to grade, and is listed in the format [grader user account] -- [assignment name] -- [student id]. \r\n To grade the assignments, please sign in to the course JupyterHub with the [grader user account] username and the same password as your personal user account.\r\n' +
                                                      '\r\n'.join(grading_tasks))
                         not_done_grading = True
 
@@ -529,7 +529,7 @@ class Course(object):
                 elif any([submissions[subm].grade_uploaded and not submissions[subm].grade_posted  for subm in submissions]):
                     print('There are unposted grades. Pinging instructor to post if today is an email day.')
                     if plm.now().in_timezone(self.course_info['time_zone']).format('dddd') in self.config.email_days:
-                        self.smtp.submit(self.config.instructor_user, 'Action Required: Post grades for assignment ' + asgn.name)
+                        self.notifier.submit(self.config.instructor_user, 'Action Required: Post grades for assignment ' + asgn.name)
                 else:
                     print('No unposted / uploaded grades, but not all grades posted yet. Waiting.')
                   
@@ -541,9 +541,9 @@ class Course(object):
         return
  
     def send_notifications(self):
-        self.smtp.connect()
-        self.smtp.notify_all()
-        self.smtp.close()
+        self.notifier.connect()
+        self.notifier.notify_all()
+        self.notifier.close()
 
     def search_students(self, name = None, canvas_id = None, sis_id = None, max_return = 5):
         #get exact matches for IDs
