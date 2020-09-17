@@ -435,7 +435,7 @@ class Course(object):
                 print('Creating submission objects')
                 submissions = {}
                 for stu in self.students:
-                    submissions[stu.canvas_id] = Submission(asgn, stu, uploaded_grades[stu.canvas_id], posted_grades[stu.canvas_id], self.config, self.course_info['time_zone'])
+                    submissions[stu.canvas_id] = Submission(asgn, stu, uploaded_grades[stu.canvas_id], posted_grades[stu.canvas_id], self.config)
 
                 #make sure all submissions are prepared
                 print('Preparing submissions')
