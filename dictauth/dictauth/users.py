@@ -59,6 +59,7 @@ def get_users(args):
 def list_users(args):
     print(get_users(args))
 
+#TODO prevent special chars in name
 def add_user(args):
     username = args.username
     salt = args.salt

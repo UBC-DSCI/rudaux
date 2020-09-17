@@ -214,6 +214,7 @@ class Course(object):
             print('[Dry Run: submissions not saved]')
         return
 
+    #TODO rather than save a list of taken snapshots and update it, detect which snapshots were already taken from zfs list
     def take_snapshots(self):
         print('Taking snapshots')
         for a in self.assignments:
@@ -300,407 +301,232 @@ class Course(object):
         print('Done.')
         return 
 
-    def create_grader_folders(self):
+    def create_grader_folders(self, a):
         print('Creating grader folders/accounts for assignments')
+        #TODO don't hardcode 'jupyter' here
         jupyter_uid = pwd.getpwnam('jupyter').pw_uid
-        # make sure each assignment past due has grader folders set up
-        for a in self.assignments:
-            # for any assignment past due
-            if a.due_at < plm.now():
-                # create a user folder and jupyterhub account for each grader if needed
-                print('Checking assignment ' + a.name + ' with grader list ' + str(self.config.graders[a.name]))
-                for i in range(len(self.config.graders[a.name])):
-                    grader_name = ''.join(ch for ch in a.name if ch.isalnum())+'-grader-'+str(i)
-                    print('Checking assignment ' + a.name + ' grader ' + grader_name)
+        # create a user folder and jupyterhub account for each grader if needed
+        print('Checking assignment ' + a.name + ' with grader list ' + str(self.config.graders[a.name]))
+        for i in range(len(self.config.graders[a.name])):
+            grader_name = a.grader_basename() + str(i)
+            print('Checking assignment ' + a.name + ' grader ' + grader_name)
 
-                    # create the zfs volume and clone the instructor repo
-                    print('Checking if grader folder exists..')
-                    if not self.zfs.user_folder_exists(grader_name):
-                        print('Assignment ' + a.name + ' past due, no ' + grader_name + ' folder created yet. Creating')
-                        self.zfs.create_user_folder(grader_name)
+            # create the zfs volume and clone the instructor repo
+            print('Checking if grader folder exists..')
+            if not self.zfs.user_folder_exists(grader_name):
+                print('Assignment ' + a.name + ' past due, no ' + grader_name + ' folder created yet. Creating')
+                self.zfs.create_user_folder(grader_name)
 
-                    # create the jupyterhub user
-                    print('Checking if jupyter user ' + grader_name + ' exists')
-                    if not self.jupyterhub.grader_exists(grader_name):
-                        print('Grader ' + grader_name + ' not created on the hub yet; assigning ' + self.config.graders[a.name][i])
-                        self.jupyterhub.assign_grader(grader_name, self.config.graders[a.name][i])   
-                    else:
-                        print('User exists!')
+            # create the jupyterhub user
+            print('Checking if jupyter user ' + grader_name + ' exists')
+            if not self.jupyterhub.grader_exists(grader_name):
+                print('Grader ' + grader_name + ' not created on the hub yet; assigning ' + self.config.graders[a.name][i])
+                self.jupyterhub.assign_grader(grader_name, self.config.graders[a.name][i])   
+            else:
+                print('User exists!')
 
-                    # if not a valid repo with an nbgrader config file, clone it
-                    repo_path = os.path.join(self.config.user_folder_root, grader_name)
-                    #TODO if there's an error cloning the repo or an unknown error when doing the initial test repo create
-                    # email instructor and print a message to tell the user to create a deploy key
-                    print('Checking if ' + str(repo_path) + ' is a valid course git repository')
-                    repo_valid = False
-                    #allow no such path or invalid repo errors; everything else should raise
-                    try:
-                        tmprepo = git.Repo(repo_path)
-                    except git.exc.InvalidGitRepositoryError as e:
-                        pass
-                    except git.exc.NoSuchPathError as e:
-                        pass
-                    else:
-                        repo_valid = True
-                    if not repo_valid:
-                        print(repo_path + ' is not a valid course repo. Cloning course repository from ' + self.config.instructor_repo_url)
-                        if not self.dry_run:
-                            git.Repo.clone_from(self.config.instructor_repo_url, repo_path)
-                            for root, dirs, files in os.walk(repo_path):  
-                                for di in dirs:  
-                                  os.chown(os.path.join(root, di), jupyter_uid, jupyter_uid)
-                                for fi in files:
-                                  os.chown(os.path.join(root, fi), jupyter_uid, jupyter_uid)
-                        else:
-                            print('[Dry Run: would have removed any file/folder at ' + repo_path + ', called mkdir('+repo_path+') and git clone ' + self.config.instructor_repo_url + ' into ' + repo_path)
-                    else:
-                        print('Repo valid.')
+            # if not a valid repo with an nbgrader config file, clone it
+            repo_path = os.path.join(self.config.user_folder_root, grader_name)
+            #TODO if there's an error cloning the repo or an unknown error when doing the initial test repo create
+            # email instructor and print a message to tell the user to create a deploy key
+            print('Checking if ' + str(repo_path) + ' is a valid course git repository')
+            repo_valid = False
+            #allow no such path or invalid repo errors; everything else should raise
+            try:
+                tmprepo = git.Repo(repo_path)
+            except git.exc.InvalidGitRepositoryError as e:
+                pass
+            except git.exc.NoSuchPathError as e:
+                pass
+            else:
+                repo_valid = True
+            if not repo_valid:
+                print(repo_path + ' is not a valid course repo. Cloning course repository from ' + self.config.instructor_repo_url)
+                if not self.dry_run:
+                    git.Repo.clone_from(self.config.instructor_repo_url, repo_path)
+                    for root, dirs, files in os.walk(repo_path):  
+                        for di in dirs:  
+                          os.chown(os.path.join(root, di), jupyter_uid, jupyter_uid)
+                        for fi in files:
+                          os.chown(os.path.join(root, fi), jupyter_uid, jupyter_uid)
+                else:
+                    print('[Dry Run: would have removed any file/folder at ' + repo_path + ', called mkdir('+repo_path+') and git clone ' + self.config.instructor_repo_url + ' into ' + repo_path)
+            else:
+                print('Repo valid.')
 
-                    # if the assignment hasn't been generated yet, generate it
-                    generated_asgns = self.docker.run('nbgrader db assignment list', repo_path)
-                    print('Checking if assignment ' + a.name + ' has been generated for grader ' + grader_name)
-                    if a.name not in generated_asgns['log']:
-                        print('Assignment not yet generated. Generating')
-                        output = self.docker.run('nbgrader generate_assignment --force ' + a.name, repo_path)
-                        print(output['log'])
-                        if 'ERROR' in output['log']:
-                            raise DockerError('Error generating assignment ' + a.name + ' in grader folder ' + grader_name + ' at repo path ' + repo_path, output['log'])
-                    else:
-                        print('Assignment already generated')
-                   
-                    # if solution not generated yet, generate it
-                    local_path = os.path.join('source', a.name, a.name + '.ipynb')
-                    soln_name = a.name + '_solution.html' 
-                    print('Checking if solution generated...')
-                    if not os.path.exists(os.path.join(repo_path, soln_name)):
-                        print('Solution not generated; generating')
-                        output = self.docker.run('jupyter nbconvert ' + local_path + ' --output=' + soln_name + ' --output-dir=.', repo_path) 
-                        print(output['log'])
-                        if 'ERROR' in output['log']:
-                            raise DockerError('Error generating solution for assignment ' + a.name + ' in grader folder ' + grader_name + ' at repo path ' + repo_path, output['log'])
-                    else:
-                        print('Solution already generated')
+            # if the assignment hasn't been generated yet, generate it
+            generated_asgns = self.docker.run('nbgrader db assignment list', repo_path)
+            print('Checking if assignment ' + a.name + ' has been generated for grader ' + grader_name)
+            if a.name not in generated_asgns['log']:
+                print('Assignment not yet generated. Generating')
+                output = self.docker.run('nbgrader generate_assignment --force ' + a.name, repo_path)
+                print(output['log'])
+                if 'ERROR' in output['log']:
+                    raise DockerError('Error generating assignment ' + a.name + ' in grader folder ' + grader_name + ' at repo path ' + repo_path, output['log'])
+            else:
+                print('Assignment already generated')
+           
+            # if solution not generated yet, generate it
+            local_path = os.path.join('source', a.name, a.name + '.ipynb')
+            soln_name = a.name + '_solution.html' 
+            print('Checking if solution generated...')
+            if not os.path.exists(os.path.join(repo_path, soln_name)):
+                print('Solution not generated; generating')
+                output = self.docker.run('jupyter nbconvert ' + local_path + ' --output=' + soln_name + ' --output-dir=.', repo_path) 
+                print(output['log'])
+                if 'ERROR' in output['log']:
+                    raise DockerError('Error generating solution for assignment ' + a.name + ' in grader folder ' + grader_name + ' at repo path ' + repo_path, output['log'])
+            else:
+                print('Solution already generated')
 
-    def create_submissions(self):
-        print('Creating submissions')
-        # create submissions for assignments
-        for a in self.assignments:
-            if a.due_at < plm.now(): #only process assignments that are past-due
-                grader_index = random.randint(0, len(self.config.graders[a.name])-1) #generates from a <= num <= b uniformly
-                for s in self.students:
-                    print('Submission ' + str(a.name+'-'+s.canvas_id))
-                    #if there isn't a submission for this assignment/student, create one and assign it to a grader
-                    if a.name+'-'+s.canvas_id not in self.submissions:
-                        print('Does not exist; creating, assigned to grader ' + str(a.name+'-grader-'+str(grader_index)))
-                        grader_name = ''.join(ch for ch in a.name if ch.isalnum())+'-grader-'+str(grader_index)
-                        self.submissions[a.name+'-'+s.canvas_id] = Submission(a, s, grader_name, self.config) #TODO don't hardcode the submission name key
-                        #rotate the graders for the next subm
-                        grader_index += 1
-                        grader_index = grader_index % len(self.config.graders[a.name])
-                    else:
-                        print('Submission exists.')
+    def process(self, func, submissions, to_process, valid_flags):
 
-    def collect_submissions(self):
-        tz = self.course_info['time_zone']
-        fmt = 'ddd YYYY-MM-DD HH:mm:ss'
-        print('Collecting/cleaning submissions')
-        for a in self.assignments:
-            if a.due_at < plm.now(): #only process assignments that are past-due
-                for s in self.students:
-                    print('Submission ' + str(a.name+'-'+s.canvas_id))
-                    subm = self.submissions[a.name+'-'+s.canvas_id]
-                    # if the status is not yet collected, update due date from canvas 
-                    if subm.status < SubmissionStatus.COLLECTED:
-                        print('Submission not yet collected; updating due date. Cur date: ' + subm.due_date.in_timezone(tz).format(fmt))
-                        subm.update_due(a, s)
-                        print('Date updated to: ' + subm.due_date.in_timezone(tz).format(fmt))
+        if (valid_flags is not None) and (not isinstance(valid_flags, list)):
+            valid_flags = [valid_flags]
 
-                    #if due date is past, collect and clean
-                    if subm.due_date < plm.now():
-                        # collect the assignment
-                        if subm.status == SubmissionStatus.COLLECTED - 1:
-                            print('Submission is past due. Collecting...')
-                            try:
-                                subm.collect()
-                            except Exception as e: #TODO make this exception more specific and raise if unknown type
-                                print('Error when collecting')
-                                print(e)
-                                if "No such file" in str(e):
-                                    print("Student did not submit on time. Marking MISSING")
-                                    subm.status = SubmissionStatus.MISSING
-                                else:
-                                    subm.error = e
-                                continue
-                            #success; update status and move on
-                            subm.status = SubmissionStatus.COLLECTED
-                            subm.error = None
-                        # clean the assignment
-                        if subm.status == SubmissionStatus.CLEANED - 1:
-                            print('Submission is collected. Cleaning...')
-                            try:
-                                subm.clean()
-                            except Exception as e: #TODO make this exception more specific and raise if unknown type
-                                print('Error when cleaning')
-                                print(e)
-                                subm.error = e
-                                continue
-                            #success; move on. Ensure 
-                            subm.status = SubmissionStatus.CLEANED
-                            subm.error = None
-                    else:
-                        print('Submission not due yet.')
-  
-    def get_returnable(self):
-        returnable = [] 
-        print('Checking which assignments are returnable')
-        for a in self.assignments:
-            if a.due_at < plm.now(): #only process assignments that are past-due
-                subms = [self.submissions[subm] for subm in self.submissions if self.submissions[subm].a_name == a.name]
-                n_total = len(subms)
-                n_collected = len([subm for subm in subms if subm.status >= SubmissionStatus.COLLECTED])
-                print('Assignment ' + a.name + ' collected fraction: ' + str(n_collected/n_total) + ', threshold: ' + str(self.config.return_solution_threshold))
-                if n_collected/n_total >= self.config.return_solution_threshold:
-                    print('Threshold reached; this assignment is now returnable')
-                    returnable.append(a.name)
-        return returnable
+        results = {}
+        for sid in to_process:
+            if valid_flags is None or to_process[sid] in valid_flags:
+                results[sid] = func(submissions[sid]) 
+        return results
 
-    def return_solutions(self, returnable):
-        print('Returning solutions')
-        # return soln if at least X% of class has been successfully collected
-        for a in self.assignments:
-            if a.name in returnable:
-                print('Assignment ' + a.name + ' is returnable.')
-                for s in self.students:
-                    subm = self.submissions[a.name+'-'+s.canvas_id]
-                    if not subm.solution_returned and subm.status >= SubmissionStatus.COLLECTED:
-                        print('Student ' + s.canvas_id + ' assignment has been collected but not yet returned soln. Returning')
-                        try:
-                            subm.return_solution()
-                        except Exception as e: #TODO make this exception more specific and raise if unknown type
-                            print('Error when returning solution')
-                            print(e)
-                            subm.solution_return_error = e
-                            continue
-                        subm.solution_returned = True
-                        subm.solution_return_error = None
+    def run_grading_workflow(self): 
+        
+        for asgn in self.assignments:
+            #only do stuff for assignments past their basic due date
+            if asgn.due_at < plm.now():
+                #create grader zfs home folders  / jupyterhub accounts
+                #don't continue after this point unless grader creation is successful
+                print('Working on assignment ' + asgn.name)
+                print('Creating grader folders...')
+                create_folder_error = False
+                try:
+                    self.create_grader_folders(asgn)
+                except DockerError as e:
+                    error_message = e.message +'\nDocker output:\n' +e.docker_output
+                    error_traceback = traceback.format_exc()
+                    create_folder_error = True
+                except git.exc.GitCommandError as e:
+                    error_message = str(e)
+                    error_traceback = traceback.format_exc()
+                    create_folder_error = True
+                except Exception as e:    
+                    error_message = str(e)
+                    error_traceback = traceback.format_exc()
+                    create_folder_error = True
 
-    def autograde_submissions(self):
-        # schedule autograding
-        print('Submitting autograding jobs')
-        for a in self.assignments:
-            if a.due_at < plm.now(): #only process assignments that are past-due
-                for s in self.students:
-                    subm = self.submissions[a.name+'-'+s.canvas_id]
-                    if subm.status == SubmissionStatus.AUTOGRADED-1:
-                        print('Scheduling autograding for submission ' + a.name+'-'+s.canvas_id)
-                        subm.submit_autograde(self.docker)
-                
-        #run all autograding jobs in parallel
-        print('Running all autograding jobs in docker')
-        autograde_results = self.docker.run_all()
+                if create_folder_error:
+                    print(f"""
+                      Error encountered while creating grader folders for {asgn.name}. Email sent to instructor. Skipping this assignment for now.
+                      Message: {error_message}
+                      Trace: {error_traceback}
+                      """)
+                    self.smtp.submit(self.config.instructor_user, 'Action Required: grader folder creation failed for ' + asgn.name+':\r\n' + error_message + '\r\n' + error_traceback)
+                    continue
 
-        #check autograding results
-        print('Validating autograde results')
-        graders_to_notify = {} #TODO separate the notification out into its own functionality... or use the notification.submit here
-        for a in self.assignments:
-            if a.due_at < plm.now(): #only process assignments that are past-due
-                for s in self.students:
-                    subm = self.submissions[a.name+'-'+s.canvas_id]
-                    if subm.status == SubmissionStatus.AUTOGRADED-1:
-                        print('Validating autograding for submission ' + a.name+'-'+s.canvas_id)
-                        try:
-                            subm.validate_autograde(autograde_results)
-                        except DockerError as e: 
-                            print('Error when autograding')
-                            print(e.message)
-                            print(e.docker_output)
-                            subm.error = e
-                            continue
-                        subm.status = SubmissionStatus.AUTOGRADED
-                        subm.error = None
-
-                    #TODO -- NO FLAGGING AS GRADED UNTIL ALL MANUAL GRADING IS DONE?
-                    #TODO -- TAs get confused when they aren't done their job yet on the whole class and want to check things but the code moves on w/o them
-                    if subm.status == SubmissionStatus.AUTOGRADED or subm.status == SubmissionStatus.NEEDS_MANUAL_GRADING:
-                        print('Checking whether submission ' + a.name+'-'+s.canvas_id + ' needs manual grading')
-                        if subm.needs_manual_grading():
-                            print('Needs manual grading. Notifying grader.')
-                            subm.status = SubmissionStatus.NEEDS_MANUAL_GRADING
-                            grader_ta = self.config.graders[a.name][int(subm.grader.split('-')[-1])]
-                            if grader_ta not in graders_to_notify:
-                                graders_to_notify[grader_ta] = []
-                            graders_to_notify[grader_ta].append(subm.grader + ' -- ' + subm.a_name + ' -- student ' + subm.s_id)
-                        else:
-                            print('Doesnt need manual grading. Setting to GRADED')
-                            subm.status = SubmissionStatus.GRADED
-
-        #notify graders of remaining manual tasks
-        print('Notifying graders that have manual grading tasks')
-        self.smtp.connect()
-        for grader in graders_to_notify:
-            self.smtp.notify(grader, 'You have manual grading tasks to do! \r\n Each entry below is an assignment that you have to grade, and is listed in the format [grader user account] -- [assignment name] -- [student id]. \r\n To grade the assignments, please sign in to the course JupyterHub with the [grader user account] username and the same password as your personal user account.')
-        self.smtp.close()
-
-    def generate_feedback(self):
-        print('Submitting feedback generation jobs')
-        # schedule feedback generation 
-        for a in self.assignments:
-            if a.due_at < plm.now(): #only process assignments that are past-due
-                for s in self.students:
-                    subm = self.submissions[a.name+'-'+s.canvas_id]
-                    if subm.status == SubmissionStatus.FEEDBACK_GENERATED - 1:
-                        print('Scheduling feedback generation for submission ' + a.name+'-'+s.canvas_id)
-                        subm.submit_generate_feedback(self.docker)
-
-        #run all autograding jobs in parallel
-        print('Running all feedback generation jobs in docker')
-        feedback_results = self.docker.run_all()
-
-        # check feedback results and upload grades
-        print('Validating feedback generation')
-        for a in self.assignments:
-            if a.due_at < plm.now(): #only process assignments that are past-due
-                for s in self.students:
-                    subm = self.submissions[a.name+'-'+s.canvas_id]
-                    if subm.status == SubmissionStatus.FEEDBACK_GENERATED - 1:
-                        print('Validating feedback for submission ' + a.name+'-'+s.canvas_id)
-                        try:
-                            subm.validate_feedback(feedback_results)
-                        except DockerError as e:
-                            print('Error when generating feedback')
-                            print(e.message)
-                            print(e.docker_output)
-                            subm.error = e
-                            continue
-                        subm.status = SubmissionStatus.FEEDBACK_GENERATED
-                        subm.error = None 
-
-    def upload_grades(self):
-        print('Uploading grades')
-        # upload grades
-        for a in self.assignments:
-            if a.due_at < plm.now(): #only process assignments that are past-due
-                for s in self.students:
-                    subm = self.submissions[a.name+'-'+s.canvas_id]
-                    if subm.status == SubmissionStatus.GRADE_UPLOADED - 1 or subm.status == SubmissionStatus.MISSING:
-                        print('Uploading grade for submission ' + a.name+'-'+s.canvas_id)
-                        try:
-                            subm.upload_grade(self.canvas)
-                        except GradeNotUploadedError as e: 
-                            print('Error when uploading grade')
-                            print(e.message)
-                            subm.error = e
-                            continue
-                        subm.status = SubmissionStatus.GRADE_UPLOADED
-                        subm.error = None
-
-    def check_posted(self):
-        needs_posting = []
-        print('Checking which assignments have unposted grades')
-        # check whether each grade has been posted
-        for a in self.assignments:
-            if a.due_at < plm.now(): #only process assignments that are past-due
-                all_posted = True
+                print('Getting uploaded/posted submissions on canvas')
                 canvas_subms = self.canvas.get_submissions(a.canvas_id)
-                posted_ats = {subm['student_id'] : subm['posted_at'] for subm in canvas_subms}
-                for s in self.students:
-                    subm = self.submissions[a.name+'-'+s.canvas_id]
-                    if subm.status == SubmissionStatus.GRADE_POSTED - 1:
-                        print('Checking grade posting for submission ' + a.name+'-'+s.canvas_id)
-                        try:
-                            is_posted = (posted_ats[s.canvas_id] is not None)
-                        except Exception as e: #TODO make this exception more specific and raise if unknown type
-                            print('Error when checking if grade is posted')
-                            print(e)
-                            subm.error = e
-                            all_posted = False
-                            continue
-                        if is_posted:
-                            subm.status = SubmissionStatus.GRADE_POSTED
-                        else:
-                            all_posted = False
-                        subm.error = None
-                if not all_posted:
-                    needs_posting.append(a.name) 
-        print('Assignments that need posting: ' + ', '.join(needs_posting))
-        return needs_posting
+                posted_grades = {subm['student_id'] : subm['posted_at'] is not None for subm in canvas_subms} 
+                uploaded_grades = {subm['student_id'] : subm['score'] is not None for subm in canvas_subms}
 
-    def return_feedback(self, returnable):
-        print('Returning feedback')
-        # check which grades have been posted, and if the relevant assignment is in the return_solns list
-        # if both satisfied, return feedback
-        for a in self.assignments:
-            if a.name in returnable:
-                for s in self.students:
-                    subm = self.submissions[a.name+'-'+s.canvas_id]
-                    if subm.status == SubmissionStatus.FEEDBACK_RETURNED - 1 and subm.is_grade_posted(self.canvas):
-                        print('Returning feedback for submission ' + a.name+'-'+s.canvas_id)
-                        try:
-                            subm.return_feedback()
-                        except Exception as e: #TODO make this exception more specific and raise if unknown type
-                             print('Error when returning feedback')
-                             print(e)
-                             subm.error = e
-                             continue
-                        subm.status = SubmissionStatus.FEEDBACK_RETURNED
-                        subm.error = None
+                #create the set of submission objects for any unfinished assignments 
+                print('Creating submission objects')
+                submissions = {}
+                for stu in self.students:
+                    submissions[stu.canvas_id] = Submission(asgn, stu, uploaded_grades[stu.canvas_id], posted_grades[stu.canvas_id], self.config, self.course_info['time_zone'])
 
-    def run_workflow(self): 
-        self.apply_latereg_extensions()
+                #make sure all submissions are prepared
+                print('Preparing submissions')
+                prep_results = self.process(Submission.prepare, submissions, submissions, None)
 
-        #don't continue after this point unless grader creation is successful
-        create_folder_error = False
-        try:
-            self.create_grader_folders()
-        except DockerError as e:
-            error_message = e.message +'\nDocker output:\n' +e.docker_output
-            error_traceback = traceback.format_exc()
-            create_folder_error = True
-        except git.exc.GitCommandError as e:
-            error_message = str(e)
-            error_traceback = traceback.format_exc()
-            create_folder_error = True
-        except Exception as e:    
-            error_message = str(e)
-            error_traceback = traceback.format_exc()
-            create_folder_error = True
+                # check if we can return the solutions to the students yet, and if so return
+                print('Checking whether solutions can be returned')
+                n_total = len(prep_results)
+                n_outstanding = len([p for p in prep_results if prep_results[p] == SubmissionStatus.NOT_DUE])
+                if (n_total - n_outstanding)/n_total >= self.config.return_solution_threshold:
+                    print('Threshold reached; this assignment is now returnable')
+                    retsoln_results = self.process(Submission.return_solution, submissions, submissions, None)
+                    #TODO error handling
 
-        if create_folder_error:
-            self.smtp.connect()
-            self.smtp.notify(self.config.instructor_user, 'Action Required: grader folder creation failed\r\n' + error_message + '\r\n' + error_traceback)
-            self.smtp.close()   
-            sys.exit(
-              f"""
-              Error encountered while creating grader folders. Email sent to instructor.
-              Message: {error_message}
-              Trace: {error_traceback}
-              """
-            )
+                #any missing assignments get a 0
+                print('Assigning 0 to all missing submissions')
+                miss_results = self.process(lambda subm: Submission.finalize_failed_submission(subm, self.canvas), submissions,
+                                               prep_results, SubmissionStatus.MISSING)
 
-        self.create_submissions()
+                print('Submitting autograding tasks')
+                ag_results = self.process(lambda subm : Submission.submit_autograde(subm, self.docker, self.canvas), submissions, 
+						prep_results, SubmissionStatus.PREPARED)
+                
+                print('Running autograding tasks')
+                docker_results = self.docker.run_all()
+                
+                print('Checking grading status')
+                gr_results = self.process(lambda subm : Submission.check_grading(subm, self.canvas, docker_results), submissions, 
+						ag_results, [SubmissionStatus.NEEDS_AUTOGRADE, SubmissionStatus.AUTOGRADED])
 
-        self.collect_submissions()
+                print('Checking if any errors occurred and submitting error/failure notifications for instructors')
+                errors = {'preparing': [sid +':\r\n' + str(submissions[sid].error) for sid in prep_results if prep_results[sid] == SubmissionStatus.ERROR],
+                          'autograding': [sid +':\r\n' + str(submissions[sid].error) for sid in ag_results if ag_results[sid] == SubmissionStatus.AUTOGRADE_FAILED_PREVIOUSLY] + 
+                                         [sid +':\r\n' + str(submissions[sid].error) for sid in gr_results if gr_results[sid] == SubmissionStatus.ERROR or gr_results[sid] == SubmissionStatus.AUTOGRADE_FAILED],
+                          'uploading':  [sid +':\r\n' + str(submissions[sid].error) for sid in miss_results if miss_results[sid] == SubmissionStatus.ERROR]}
+                if any([len(v) > 0 for k, v in errors.items()]):
+                    print('Errors detected. Notifying instructor and stopping processing this assignment.') 
+                    self.smtp.submit(self.config.instructor_user, 'Errors detected in ' + asgn.name + ' processing. Action required.'+
+        								     '\r\n PREPARATION ERRORS:\r\n'+
+                                                                             '\r\n'.join(errors['preparing'])+
+        								     '\r\n AUTOGRADING ERRORS:\r\n'+
+                                                                             '\r\n'.join(errors['autograding'])+
+        								     '\r\n UPLOADING ERRORS:\r\n'+
+                                                                             '\r\n'.join(errors['uploading']))
+                    continue
 
-        returnable = self.get_returnable()
+                print('Checking if any manual grading needs to happen and submitting notifications for TAs')
+                not_done_grading = False
+                for grader_ta in self.config.graders[asgn.name]:
+                    #grader_ta = self.config.graders[asgn.name][int(submissions[res].grader.split('-')[-1])]
+                    grading_tasks = [submissions[sid].grader + ' -- ' + asgn.name + ' -- ' + submissions[sid].stu.canvas_id for sid in gr_results if gr_results[sid] == SubmissionStatus.NEEDS_MANUAL_GRADE and grader_ta == self.config.graders[asgn.name][int(submissions[sid].grader.split('-')[-1])]]
+                    if len(grading_tasks) > 0:
+                        self.smtp.submit(grader_ta, 'You have a manual grading tasks to do for assignment ' + asgn.name +'! \r\n Each entry below is an assignment that you have to grade, and is listed in the format [grader user account] -- [assignment name] -- [student id]. \r\n To grade the assignments, please sign in to the course JupyterHub with the [grader user account] username and the same password as your personal user account.\r\n' +
+                                                     '\r\n'.join(grading_tasks))
+                        not_done_grading = True
 
-        #self.return_solutions(returnable)
+                if not_done_grading:
+                    print('Not done grading this assignment. Waiting until grading is complete before moving on')
+                    continue
 
-        self.autograde_submissions()
+                print('Grading complete.')
 
-        self.generate_feedback()
+                print('Uploading grades')
+                ul_results = self.process(lambda subm : Submission.upload_grade(subm, self.canvas), submissions, 
+						gr_results, SubmissionStatus.DONE_GRADING)
 
-        self.upload_grades()
- 
-        needs_posting = self.check_posted()
+                print('Submitting feedback generation tasks')
+                fb_results = self.process(lambda subm : Submission.submit_genfeedback(subm, self.docker), submissions, 
+						ul_results, SubmissionStatus.GRADE_UPLOADED)
 
-        if len(needs_posting) > 0:
-            self.smtp.connect()
-            self.smtp.notify(self.config.instructor_user, 'Action Required: Post grades for assignments:\r\n' + '\r\n'.join(needs_posting))
-            self.smtp.close()   
+                print('Running feedback generation tasks')
+                docker_results = self.docker.run_all()
 
-        #self.return_feedback()
+                print('Checking feedback gen status')
+                fbc_results = self.process(lambda subm : Submission.check_feedback(subm, docker_results), submissions, 
+						fb_results, SubmissionStatus.NEEDS_FEEDBACK)
 
-        self.save_submissions()
+                #TODO error handling for above stuff
+               
+                #if all grades are posted, return feedback
+                print('Checking if all grades have been posted...')
+                if all([subm.grade_posted for subm in submissions]):
+                    print('All grades posted. Returning feedback')
+                    retfdbk_results = self.process(Submission.return_feedback, submissions, 
+                                                fbc_results, SubmissionStatus.FEEDBACK_GENERATED)
+                elif all([subm.grade_uploaded for subm in submissions]):
+                    self.smtp.submit(self.config.instructor_user, 'Action Required: Post grades for assignment ' + asgn.name)
+                  
+                #if asgn past due end
+            # loop over assignments end
+        # func base indentation
+        self.send_notifications()
+        return
  
     def send_notifications(self):
         self.smtp.connect()

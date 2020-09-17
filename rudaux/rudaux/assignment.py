@@ -1,9 +1,12 @@
 class Assignment:
 
+    #TODO -- this has state now, so we need to make sure not overwritten by synchronize
     def __init__(self, canvas_dict):
         self.__dict__.update(canvas_dict)
         self.snapshot_taken = False
         self.override_snapshots_taken = []
+        self.grader_folder_root = config.user_folder_root
+        self.grader_workloads = {}
 
     def __repr__(self):
         return self.name + '(' + self.canvas_id + '): ' + ('jupyterhub' if self.is_jupyterhub_assignment else 'canvas') + ' assignment'
@@ -13,9 +16,14 @@ class Assignment:
         return ['Name', 'Canvas ID', 'Due', 'Unlock', 'Lock']
 
     def table_items(self):
+        #TODO pass in tz for non america/vancouver timezones
         return [self.name, self.canvas_id, self.due_at.in_timezone('America/Vancouver').format('ddd YYYY-MM-DD HH:mm:ss') if self.due_at else 'N/A',
                                            self.unlock_at.in_timezone('America/Vancouver').format('ddd YYYY-MM-DD HH:mm:ss') if self.unlock_at else 'N/A', 
                                            self.lock_at.in_timezone('America/Vancouver').format('ddd YYYY-MM-DD HH:mm:ss') if self.lock_at else 'N/A']
+
+    #need this function to remove special characters (e.g. underscores) from jupyter user names on instructor server
+    def grader_basename(self):
+        return ''.join(ch for ch in self.name if ch.isalnum())+'-grader-'
 
     def get_due_date(self, s):
         basic_date = self.due_at
