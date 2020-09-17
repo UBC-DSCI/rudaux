@@ -149,7 +149,7 @@ class Submission:
             #chown everything inside the grader folder root to jupyter/jupyter, moving backwards through the path hierarchy until we reach the grader root folder
             while not os.path.samefile(fldr, os.path.join(self.grader_folder_root, min_grader)):
                 os.chown(fldr, jupyter_uid, jupyter_uid)
-                fldr = os.dirname(fldr)
+                fldr = os.path.dirname(fldr)
 
         #increment the known grader workload by 1
         self.asgn.grader_workloads[self.grader] += 1
