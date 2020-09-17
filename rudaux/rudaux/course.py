@@ -491,7 +491,8 @@ class Course(object):
                     #grader_ta = self.config.graders[asgn.name][int(submissions[res].grader.split('-')[-1])]
                     grading_tasks = [submissions[sid].grader + ' -- ' + asgn.name + ' -- ' + submissions[sid].stu.canvas_id for sid in gr_results if gr_results[sid] == SubmissionStatus.NEEDS_MANUAL_GRADE and grader_ta == self.config.graders[asgn.name][int(submissions[sid].grader.split('-')[-1])]]
                     if len(grading_tasks) > 0:
-                        self.smtp.submit(grader_ta, 'You have a manual grading tasks to do for assignment ' + asgn.name +'! \r\n Each entry below is an assignment that you have to grade, and is listed in the format [grader user account] -- [assignment name] -- [student id]. \r\n To grade the assignments, please sign in to the course JupyterHub with the [grader user account] username and the same password as your personal user account.\r\n' +
+                        if plm.now().in_timezone(self.course_info['time_zone']).format('dddd') in self.config.email_days:
+                            self.smtp.submit(grader_ta, 'You have a manual grading tasks to do for assignment ' + asgn.name +'! \r\n Each entry below is an assignment that you have to grade, and is listed in the format [grader user account] -- [assignment name] -- [student id]. \r\n To grade the assignments, please sign in to the course JupyterHub with the [grader user account] username and the same password as your personal user account.\r\n' +
                                                      '\r\n'.join(grading_tasks))
                         not_done_grading = True
 
