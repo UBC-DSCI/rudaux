@@ -292,11 +292,12 @@ class Course(object):
             else:
                 print('Assignment missing either a due date (' + str(a.due_at) + ') or unlock date (' + str(a.unlock_at) + '). Not checking.')
 
-        if need_synchronize:
-            print('Overrides changed. Deleting out-of-date cache and forcing canvas synchronize...')
-            if os.path.exists(self.canvas_cache_filename):
-                os.remove(self.canvas_cache_filename)
-            self.synchronize_canvas(allow_cache = False)
+        #TODO create a "needs_synch" flag instead of doing it now; lazy synch
+        #if need_synchronize:
+        #    print('Overrides changed. Deleting out-of-date cache and forcing canvas synchronize...')
+        #    if os.path.exists(self.canvas_cache_filename):
+        #        os.remove(self.canvas_cache_filename)
+        #    self.synchronize_canvas(allow_cache = False)
 
         print('Done.')
         return 
