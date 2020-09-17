@@ -20,11 +20,12 @@ class SubmissionStatus(IntEnum):
     NEEDS_MANUAL_GRADE = 8
     DONE_GRADING = 9
     GRADE_UPLOADED = 10
-    FEEDBACK_GENERATED = 11
-    FEEDBACK_FAILED_PREVIOUSLY = 12
-    FEEDBACK_FAILED = 13
-    NEEDS_POST = 14
-    DONE = 15
+    NEEDS_FEEDBACK = 11
+    FEEDBACK_GENERATED = 12
+    FEEDBACK_FAILED_PREVIOUSLY = 13
+    FEEDBACK_FAILED = 14
+    NEEDS_POST = 15
+    DONE = 16
 
 class MultipleGraderError(Exception):
     def __init__(self, message):
