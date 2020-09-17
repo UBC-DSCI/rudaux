@@ -523,7 +523,7 @@ class Course(object):
                     print('DISABLED FOR NOW')
                     #retfdbk_results = self.process(Submission.return_feedback, submissions, 
                     #                            fbc_results, SubmissionStatus.FEEDBACK_GENERATED)
-                elif all([subm.grade_uploaded for subm in submissions]):
+                elif all([submissions[subm].grade_uploaded for subm in submissions]):
                     self.smtp.submit(self.config.instructor_user, 'Action Required: Post grades for assignment ' + asgn.name)
                   
                 #if asgn past due end
