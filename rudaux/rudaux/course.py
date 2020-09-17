@@ -518,7 +518,7 @@ class Course(object):
                
                 #if all grades are posted, return feedback
                 print('Checking if all grades have been posted...')
-                if all([subm.grade_posted for subm in submissions]):
+                if all([submissions[subm].grade_posted for subm in submissions]):
                     print('All grades posted. Returning feedback')
                     print('DISABLED FOR NOW')
                     #retfdbk_results = self.process(Submission.return_feedback, submissions, 
