@@ -1,2 +1,4 @@
-# update the registration list every day
+# update the registration list / late extensions every day
 40 23 * * * root cd /home/stty2u; /usr/local/bin/rudaux extend_lateregs 2>&1 | ts '[\%F-\%H:\%M:\%S]' >> rudaux.log
+# run the autograding workflow after that
+50 23 * * * root cd /home/stty2u; /usr/local/bin/rudaux run 2>&1 | ts '[\%F-\%H:\%M:\%S]' >> rudaux.log
