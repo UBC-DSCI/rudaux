@@ -310,13 +310,14 @@ class Course(object):
         print('Checking assignment ' + a.name + ' with grader list ' + str(self.config.graders[a.name]))
         for i in range(len(self.config.graders[a.name])):
             grader_name = a.grader_basename() + str(i)
-            print('Checking assignment ' + a.name + ' grader ' + grader_name)
+            print('Checking assignment ' + a.name + ' grader ' + self.config.graders[a.name] + '(' +grader_name + ')')
 
             # create the zfs volume and clone the instructor repo
             print('Checking if grader folder exists..')
             if not self.zfs.user_folder_exists(grader_name):
                 print('Assignment ' + a.name + ' past due, no ' + grader_name + ' folder created yet. Creating')
                 self.zfs.create_user_folder(grader_name)
+            print('Grading folder exists')
 
             # create the jupyterhub user
             print('Checking if jupyter user ' + grader_name + ' exists')
@@ -426,7 +427,7 @@ class Course(object):
                     continue
 
                 print('Getting uploaded/posted submissions on canvas')
-                canvas_subms = self.canvas.get_submissions(a.canvas_id)
+                canvas_subms = self.canvas.get_submissions(asgn.canvas_id)
                 posted_grades = {subm['student_id'] : subm['posted_at'] is not None for subm in canvas_subms} 
                 uploaded_grades = {subm['student_id'] : subm['score'] is not None for subm in canvas_subms}
 
