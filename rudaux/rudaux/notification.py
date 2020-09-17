@@ -58,7 +58,7 @@ class SendMail(Notification):
                                 stdin=subprocess.PIPE,
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE)
-        out, err = proc.communicate(input=msg)
+        out, err = proc.communicate(input=msg.encode('utf-8'))
         print(f"ret: {proc.returncode}")
         print("stdout:" + str(out))
         print("stderr:" + str(err))
