@@ -492,7 +492,7 @@ class Course(object):
                     grading_tasks = [submissions[sid].grader + ' -- ' + asgn.name + ' -- ' + submissions[sid].stu.canvas_id for sid in gr_results if gr_results[sid] == SubmissionStatus.NEEDS_MANUAL_GRADE and grader_ta == self.config.graders[asgn.name][int(submissions[sid].grader.split('-')[-1])]]
                     if len(grading_tasks) > 0:
                         print('Grader ' + grader_ta + ' has grading task for ' + asgn.name +'. Pinging if today is an email day.')
-                        if plm.now().in_timezone(self.course_info['time_zone']).format('dddd') in self.config.email_days:
+                        if plm.now().in_timezone(self.course_info['time_zone']).format('dddd') in self.config.notify_days:
                             self.notifier.submit(grader_ta, 'You have a manual grading tasks to do for assignment ' + asgn.name +'! \r\n Each entry below is an assignment that you have to grade, and is listed in the format [grader user account] -- [assignment name] -- [student id]. \r\n To grade the assignments, please sign in to the course JupyterHub with the [grader user account] username and the same password as your personal user account.\r\n' +
                                                      '\r\n'.join(grading_tasks))
                         not_done_grading = True
@@ -528,7 +528,7 @@ class Course(object):
                                                              fbc_results, SubmissionStatus.FEEDBACK_GENERATED)
                 elif any([submissions[subm].grade_uploaded and not submissions[subm].grade_posted  for subm in submissions]):
                     print('There are unposted grades. Pinging instructor to post if today is an email day.')
-                    if plm.now().in_timezone(self.course_info['time_zone']).format('dddd') in self.config.email_days:
+                    if plm.now().in_timezone(self.course_info['time_zone']).format('dddd') in self.config.notify_days:
                         self.notifier.submit(self.config.instructor_user, 'Action Required: Post grades for assignment ' + asgn.name)
                 else:
                     print('No unposted / uploaded grades, but not all grades posted yet. Waiting.')
