@@ -524,11 +524,11 @@ class Course(object):
                     print('All grades posted. Returning feedback')
                     retfdbk_results = self.process(Submission.return_feedback, submissions, 
                                                              fbc_results, SubmissionStatus.FEEDBACK_GENERATED)
-                elif all([submissions[subm].grade_uploaded for subm in submissions]):
-                    print('Not all grades posted, but all uploaded. Pinging instructor to post.')
+                elif any([submissions[subm].grade_uploaded and not submissions[subm].grade_posted  for subm in submissions]):
+                    print('There are unposted grades. Pinging instructor to post.')
                     self.smtp.submit(self.config.instructor_user, 'Action Required: Post grades for assignment ' + asgn.name)
                 else:
-                    print('Not all grades posted, not all grades uploaded. Waiting.')
+                    print('No unposted / uploaded grades, but not all grades posted yet. Waiting.')
                   
                 #if asgn past due end
             # loop over assignments end
