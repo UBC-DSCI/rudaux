@@ -302,6 +302,8 @@ class Course(object):
         print('Done.')
         return 
 
+
+    #TODO what happens if rudaux config doesn't have this one's name?
     def create_grader_folders(self, a):
         print('Creating grader folders/accounts for assignments')
         #TODO don't hardcode 'jupyter' here
