@@ -376,11 +376,11 @@ class Submission:
     ######################################################
             
     def validate_docker_result(self, job_id, results, check_path):
-        res = results[self.autograde_docker_job_id]
+        res = results[job_id]
         if 'ERROR' in res['log']:
-            raise DockerError('Error autograding assignment ' + self.asgn.name + ' for student ' + self.stu.canvas_id + ' in grader folder ' + self.grader +'. Exit status ' + res['exit_status'], res['log'])
-        if not os.path.exists(self.autograded_assignment_path):
-            raise DockerError('Error autograding assignment ' + self.asgn.name + ' for student ' + self.stu.canvas_id + ' in grader folder ' + self.grader +'. Docker did not generate autograded assignment at ' + self.autograded_assignment_path, res['log'])
+            raise DockerError('Docker error processing assignment ' + self.asgn.name + ' for student ' + self.stu.canvas_id + ' in grader folder ' + self.grader +'. Exit status ' + res['exit_status'], res['log'])
+        if not os.path.exists(check_path):
+            raise DockerError('Docker error processing assignment ' + self.asgn.name + ' for student ' + self.stu.canvas_id + ' in grader folder ' + self.grader +'. Docker did not generate expected file at ' + check_path, res['log'])
 
     def return_feedback(self):
         print('Returning feedback for submission ' + self.asgn.name+':'+self.stu.canvas_id)
