@@ -498,7 +498,7 @@ class Course(object):
                     if len(grading_tasks) > 0:
                         print('Grader ' + grader_ta + ' has grading task for ' + asgn.name +'. Pinging if today is an email day.')
                         if plm.now().in_timezone(self.course_info['time_zone']).format('dddd') in self.config.notify_days:
-                            self.notifier.submit(grader_ta, 'You have a manual grading tasks to do for assignment ' + asgn.name +'! \r\n Each entry below is an assignment that you have to grade, and is listed in the format [grader user account] -- [assignment name] -- [student id]. \r\n To grade the assignments, please sign in to the course JupyterHub with the [grader user account] username and the same password as your personal user account.\r\n' +
+                            self.notifier.submit(grader_ta, 'You have a manual grading tasks to do for assignment ' + asgn.name +'! \r\n'+('Note: There are still ' + str(n_outstanding) + ' student submissions not due yet due to extensions/late registrations/etc; your task list may be incomplete and more tasks may show up over time.' if n_outstanding > 0 else 'All submissions have been collected, so no additional submissions will be added.') +  '\r\nEach entry below is an assignment that you have to grade, and is listed in the format [grader user account] -- [assignment name] -- [student id]. \r\n To grade the assignments, please sign in to the course JupyterHub with the [grader user account] username and the same password as your personal user account.\r\n'+ 
                                                      '\r\n'.join(grading_tasks))
                         not_done_grading = True
 
