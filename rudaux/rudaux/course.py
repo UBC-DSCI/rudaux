@@ -492,7 +492,7 @@ class Course(object):
 
                 print('Checking if any manual grading needs to happen and submitting notifications for TAs')
                 not_done_grading = False
-                for grader_ta in self.config.graders[asgn.name]:
+                for grader_ta in list(set(self.config.graders[asgn.name])): #use list(set(...)) in case same account is assigned to multiple grader accounts for some reason
                     #grader_ta = self.config.graders[asgn.name][int(submissions[res].grader.split('-')[-1])]
                     grading_tasks = [submissions[sid].grader + ' -- ' + asgn.name + ' -- ' + submissions[sid].stu.canvas_id for sid in gr_results if gr_results[sid] == SubmissionStatus.NEEDS_MANUAL_GRADE and grader_ta == self.config.graders[asgn.name][int(submissions[sid].grader.split('-')[-1])]]
                     if len(grading_tasks) > 0:
