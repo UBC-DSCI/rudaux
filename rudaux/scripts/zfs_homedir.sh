@@ -46,7 +46,7 @@ main() {
         echo "Homedir already exists, not recreating"
     else
         echo "Creating Homedir: ${homedir}"
-        zfs create ${ZFSOPTS} ${homefs}
+        /usr/sbin/zfs create ${ZFSOPTS} ${homefs}
         chown -R ${owner}:${owner} ${homedir}
     fi
 }
