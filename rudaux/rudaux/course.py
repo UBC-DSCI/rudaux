@@ -450,7 +450,7 @@ class Course(object):
                 if (n_total - n_outstanding)/n_total >= self.config.return_solution_threshold: 
                     print('Threshold reached(' + str((n_total - n_outstanding)/n_total) + '>=' + str(self.config.return_solution_threshold)+'); this assignment is returnable')
                     if plm.now() > plm.parse(self.config.earliest_solution_return_date, tz=self.course_info['time_zone']):
-                        retsoln_results = self.process(Submission.return_solution, submissions, submissions, None)
+                        retsoln_results = self.process(Submission.return_solution, submissions, prep_results, [SubmissionStatus.MISSING, SubmissionStatus.PREPARED])
                     else:
                         print('Earliest return date (' +self.config.earliest_solution_return_date + ') not passed yet. Skipping')
                     #TODO error handling
