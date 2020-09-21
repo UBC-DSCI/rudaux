@@ -523,7 +523,19 @@ class Course(object):
                 fbc_results = self.process(lambda subm : Submission.check_feedback(subm, docker_results), submissions, 
 						fb_results, SubmissionStatus.NEEDS_FEEDBACK)
 
-                #TODO error handling for above stuff
+                print('Checking if any errors occurred and submitting error/failure notifications for instructors')
+                errors = {'uploading':  [sid +':\r\n' + str(submissions[sid].error) for sid in ul_results if ul_results[sid] == SubmissionStatus.ERROR],
+                          'feedback': [sid +':\r\n' + str(submissions[sid].error) for sid in fb_results if fb_results[sid] == SubmissionStatus.FEEDBACK_FAILED_PREVIOUSLY] + 
+                                         [sid +':\r\n' + str(submissions[sid].error) for sid in fbc_results if fbc_results[sid] == SubmissionStatus.ERROR or fbc_results[sid] == SubmissionStatus.FEEDBACK_FAILED]
+                          }
+                if any([len(v) > 0 for k, v in errors.items()]):
+                    print('Errors detected. Notifying instructor and stopping processing this assignment.') 
+                    self.notifier.submit(self.config.instructor_user, 'Errors detected in ' + asgn.name + ' processing. Action required.'+
+        								     '\r\n GRADE UPLOAD ERRORS:\r\n'+
+                                                                             '\r\n'.join(errors['uploading'])+
+        								     '\r\n FEEDBACK ERRORS:\r\n'+
+                                                                             '\r\n'.join(errors['feedback']))
+                    continue
                
                 #if all grades are posted, return feedback
                 print('Checking if all grades have been posted...')
