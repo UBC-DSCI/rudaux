@@ -476,7 +476,7 @@ class Course(object):
 
                 print('Checking if any errors occurred and submitting error/failure notifications for instructors')
                 errors = {'preparing': [sid +':\r\n' + str(submissions[sid].error) for sid in prep_results if prep_results[sid] == SubmissionStatus.ERROR],
-                          'autograding': [sid +':\r\n' + str(submissions[sid].error) for sid in ag_results if ag_results[sid] == SubmissionStatus.AUTOGRADE_FAILED_PREVIOUSLY] + 
+                          'autograding': [sid +':\r\n' + 'autograding failed previously' for sid in ag_results if ag_results[sid] == SubmissionStatus.AUTOGRADE_FAILED_PREVIOUSLY] + 
                                          [sid +':\r\n' + str(submissions[sid].error) for sid in gr_results if gr_results[sid] == SubmissionStatus.ERROR or gr_results[sid] == SubmissionStatus.AUTOGRADE_FAILED],
                           'uploading':  [sid +':\r\n' + str(submissions[sid].error) for sid in miss_results if miss_results[sid] == SubmissionStatus.ERROR]}
                 if any([len(v) > 0 for k, v in errors.items()]):
@@ -525,7 +525,7 @@ class Course(object):
 
                 print('Checking if any errors occurred and submitting error/failure notifications for instructors')
                 errors = {'uploading':  [sid +':\r\n' + str(submissions[sid].error) for sid in ul_results if ul_results[sid] == SubmissionStatus.ERROR],
-                          'feedback': [sid +':\r\n' + str(submissions[sid].error) for sid in fb_results if fb_results[sid] == SubmissionStatus.FEEDBACK_FAILED_PREVIOUSLY] + 
+                          'feedback': [sid +':\r\n' + 'feedback generation failed previously' for sid in fb_results if fb_results[sid] == SubmissionStatus.FEEDBACK_FAILED_PREVIOUSLY] + 
                                          [sid +':\r\n' + str(submissions[sid].error) for sid in fbc_results if fbc_results[sid] == SubmissionStatus.ERROR or fbc_results[sid] == SubmissionStatus.FEEDBACK_FAILED]
                           }
                 if any([len(v) > 0 for k, v in errors.items()]):
