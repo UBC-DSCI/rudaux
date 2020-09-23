@@ -439,6 +439,9 @@ class Course(object):
                 for stu in self.students:
                     submissions[stu.canvas_id] = Submission(asgn, stu, uploaded_grades[stu.canvas_id], posted_grades[stu.canvas_id], self.config)
 
+                #TODO REMOVE THIS; ONLY HERE FOR DEBUGGING GRADER DETECTION
+                continue
+
                 #make sure all submissions are prepared
                 print('Preparing submissions')
                 prep_results = self.process(lambda subm : Submission.prepare(subm, self.course_info['time_zone']), submissions, submissions, None)

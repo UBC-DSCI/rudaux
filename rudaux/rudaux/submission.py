@@ -56,15 +56,21 @@ class Submission:
         self.error = None
 
     def get_grader(self):
+        print('Calling get_grader')
         graders = [username.strip('/') for username in os.listdir(self.grader_folder_root) if self.asgn.name in username]
+        print('graders ' + str(graders))
         grader = None
         for grd in graders:
             #check if this grader already has this submission
             fldr = os.path.join(self.grader_folder_root, grd, self.grader_local_collection_folder)
+            print('grd: ' + str(grd) + ' fldr: ' + str(fldr))
             if os.path.exists(fldr) and grader is None:
+                print('found grader')
                 grader = grd
             elif os.path.exists(fldr):
+                print('found duplicate grader')
                 raise MultipleGraderError('Submission ' + self.asgn.name + ' -- ' + self.stu.canvas_id + ' -- has multiple graders: ' + str(grader) + ' and ' + str(grd))
+        print('returning grader ' + str(grader))
         return grader
 
     ######################################################
