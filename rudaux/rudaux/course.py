@@ -443,14 +443,14 @@ class Course(object):
                     try:
                         submissions[stu.canvas_id] = Submission(asgn, stu, uploaded_grades[stu.canvas_id], posted_grades[stu.canvas_id], self.config)
                     except MultipleGraderError as e:
-                        print('Multiple grader error in creating submission for {asgn.name} : {stu.canvas_id}')
+                        print(f'Multiple grader error in creating submission for {asgn.name} : {stu.canvas_id}')
                         print(e.message)
                         submissions.pop(stu.canvas_id, None)
-                        errors.append('Multiple grader error in creating submission for {asgn.name} : {stu.canvas_id}\r\n'+e.message+'\r\n')
+                        errors.append(f'Multiple grader error in creating submission for {asgn.name} : {stu.canvas_id}\r\n'+e.message+'\r\n')
                     except Exception as e:
-                        print('Error creating submission for {asgn.name} : {stu.canvas_id}')
+                        print(f'Error creating submission for {asgn.name} : {stu.canvas_id}')
                         submissions.pop(stu.canvas_id, None)
-                        errors.append('Error creating submission for {asgn.name} : {stu.canvas_id}\r\n'+e.message+'\r\n')
+                        errors.append(f'Error creating submission for {asgn.name} : {stu.canvas_id}\r\n'+e.message+'\r\n')
 
                 if len(errors) > 0:
                     print('Errors creating submissions detected. Notifying instructor and stopping processing this assignment.') 
