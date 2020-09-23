@@ -13,7 +13,7 @@ from .zfs import ZFS
 from .person import Person
 from .assignment import Assignment
 from .docker import Docker, DockerError
-from .submission import Submission, SubmissionStatus
+from .submission import Submission, SubmissionStatus, MultipleGraderError
 from .notification import SMTP
 import git
 import shutil
@@ -184,6 +184,8 @@ class Course(object):
             self.snapshots = []
         return
 
+
+    #TODO remove load/save submissions? unused I think
     def load_submissions(self):
         print('Loading the list of submissions...')
         if os.path.exists(self.submissions_filename):
@@ -436,11 +438,27 @@ class Course(object):
                 #create the set of submission objects for any unfinished assignments 
                 print('Creating submission objects')
                 submissions = {}
+                errors = []
                 for stu in self.students:
-                    submissions[stu.canvas_id] = Submission(asgn, stu, uploaded_grades[stu.canvas_id], posted_grades[stu.canvas_id], self.config)
+                    try:
+                        submissions[stu.canvas_id] = Submission(asgn, stu, uploaded_grades[stu.canvas_id], posted_grades[stu.canvas_id], self.config)
+                    except MultipleGraderError as e:
+                        print('Multiple grader error in creating submission for {asgn.name} : {stu.canvas_id}')
+                        print(e.message)
+                        submissions.pop(stu.canvas_id, None)
+                        errors.append('Multiple grader error in creating submission for {asgn.name} : {stu.canvas_id}\r\n'+e.message+'\r\n')
+                    except Exception as e:
+                        print('Error creating submission for {asgn.name} : {stu.canvas_id}')
+                        submissions.pop(stu.canvas_id, None)
+                        errors.append('Error creating submission for {asgn.name} : {stu.canvas_id}\r\n'+e.message+'\r\n')
 
-                #TODO REMOVE THIS; ONLY HERE FOR DEBUGGING GRADER DETECTION
-                continue
+                if len(errors) > 0:
+                    print('Errors creating submissions detected. Notifying instructor and stopping processing this assignment.') 
+                    self.notifier.submit(self.config.instructor_user, 'Errors detected in ' + asgn.name + ' processing. Action required.'+
+        								     '\r\n SUBMISSION CREATION ERRORS:\r\n'+
+                                                                             '\r\n'.join(errors))
+                    continue
+                        
 
                 #make sure all submissions are prepared
                 print('Preparing submissions')
