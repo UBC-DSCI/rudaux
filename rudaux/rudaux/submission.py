@@ -57,7 +57,7 @@ class Submission:
 
     def get_grader(self):
         print('Calling get_grader')
-        graders = [username.strip('/') for username in os.listdir(self.grader_folder_root) if self.asgn.name in username]
+        graders = [username.strip('/') for username in os.listdir(self.grader_folder_root) if self.asgn.grader_basename() in username]
         print('graders ' + str(graders))
         grader = None
         for grd in graders:
