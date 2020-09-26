@@ -145,6 +145,11 @@ class Course(object):
             assignment_dicts = self.canvas.get_assignments()
             self.assignments = [Assignment(ad) for ad in assignment_dicts]
             print('Done.')
+
+            print('Obtaining/processing group information from Canvas...')
+            group_dicts = self.canvas.get_groups()
+            self.groups = [Group(gr) for gr in group_dicts]
+            print('Done.')
         except Exception as e:
             print('Exception encountered during synchronization')
             print(e)
@@ -162,6 +167,7 @@ class Course(object):
                     self.instructors = canvas_cache['instructors']
                     self.tas = canvas_cache['tas']
                     self.assignments = canvas_cache['assignments']
+                    self.groups = canvas_cache['groups']
         else:
             print('Saving canvas cache file...')
             with open(self.canvas_cache_filename, 'wb') as f:
@@ -171,6 +177,7 @@ class Course(object):
                          'instructors' : self.instructors,
                          'tas' : self.tas,
                          'assignments' : self.assignments,
+                         'groups' : self.groups,
                          }, f)
         return
     

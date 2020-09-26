@@ -32,7 +32,7 @@ def run(args):
 
 def print_list(args):
     course = rudaux.Course(args.directory)
-    printouts = {'students' : 'Students', 'assignments' : 'Assignments', 'instructors' : 'Instructors', 'tas' : 'Teaching Assistants'}
+    printouts = {'students' : 'Students', 'groups' : 'Groups', 'instructors' : 'Instructors', 'tas' : 'Teaching Assistants', 'assignments' : 'Assignments'}
     none_selected = not any([vars(args)[po] for po in printouts])
     for po in printouts:
         if vars(args)[po] or none_selected:
