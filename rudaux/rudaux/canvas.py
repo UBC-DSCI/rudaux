@@ -140,6 +140,15 @@ class Canvas(object):
     def get_tas(self):
         return self._get_people_by_type('TaEnrollment')
 
+    def get_groups(self):
+        grps = self.get('groups')
+        return [{
+                 'name' : g['name'],
+                 'canvas_id' : str(g['id']),
+                 'members' : [str(m['user_id']) for m in self.get('groups/'+str(g['id'])+'/memberships')]
+                } for g in grps]
+
+
     def get_assignments(self):
         asgns = self.get('assignments')
         processed_asgns = [ {  
