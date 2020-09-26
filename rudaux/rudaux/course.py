@@ -11,6 +11,7 @@ from .canvas import Canvas, GradeNotUploadedError
 from .jupyterhub import JupyterHub
 from .zfs import ZFS
 from .person import Person
+from .group import Group
 from .assignment import Assignment
 from .docker import Docker, DockerError
 from .submission import Submission, SubmissionStatus, MultipleGraderError
