@@ -41,6 +41,7 @@ class Canvas(object):
     """
 
     def __init__(self, config, dry_run):
+        self.group_url = urllib.parse.urljoin(config.canvas_domain, 'api/v1/groups/')
         self.base_url = urllib.parse.urljoin(config.canvas_domain, 'api/v1/courses/'+config.canvas_id+'/')
         self.token = config.canvas_token
         self.jupyterhub_host_root = config.jupyterhub_host_root
@@ -51,8 +52,11 @@ class Canvas(object):
     #so when you call get again it breaks things
     #disabling the cache for now. In the future should call cache_clear() when certain get functions are called.
     #also sometimes we need to force no cache when synchronizing (after various updates)
-    def get(self, path_suffix):
-        url = urllib.parse.urljoin(self.base_url, path_suffix)
+    def get(self, path_suffix, use_group_base=False):
+        if use_group_base:
+            url = urllib.parse.urljoin(self.group_url, path_suffix)
+        else:
+            url = urllib.parse.urljoin(self.base_url, path_suffix)
         resp = None
         resp_items = []
         #see https://community.canvaslms.com/t5/Question-Forum/Why-is-the-Assignment-due-at-value-that-of-the-last-override/m-p/209593
@@ -145,7 +149,7 @@ class Canvas(object):
         return [{
                  'name' : g['name'],
                  'canvas_id' : str(g['id']),
-                 'members' : [str(m['user_id']) for m in self.get('groups/'+str(g['id'])+'/memberships')]
+                 'members' : [str(m['user_id']) for m in self.get(str(g['id'])+'/memberships', use_group_base=True)]
                 } for g in grps]
 
 
