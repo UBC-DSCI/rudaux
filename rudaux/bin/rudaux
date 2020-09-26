@@ -87,6 +87,14 @@ list_parser.add_argument(
   default=False,
   help='Print teaching assistants'
 )
+list_parser.add_argument(
+  '--groups',
+  '-g',
+  dest='groups',
+  action='store_true',
+  default=False,
+  help='Print groups'
+)
 
 #---------------------------------------------
 #           Extensions for Late Registrants
