@@ -37,9 +37,12 @@ def print_list(args):
     for po in printouts:
         if vars(args)[po] or none_selected:
             title = printouts[po]
-            tbl = [type(course.__dict__[po][0]).table_headings()]
-            for obj in course.__dict__[po]:
-                tbl.append(obj.table_items())
+            if len(course.__dict__[po]) > 0:
+                tbl = [type(course.__dict__[po][0]).table_headings()]
+                for obj in course.__dict__[po]:
+                    tbl.append(obj.table_items())
+            else:
+                tbl = []
             print(ttbl.AsciiTable(tbl, title).table)
 
 def apply_latereg_extensions(args):
