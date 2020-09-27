@@ -42,7 +42,7 @@ class Submission:
         self.student_folder_root = config.student_folder_root
         self.student_local_assignment_folder = config.student_local_assignment_folder
         self.student_prefix = 'student_'
-        self.snapped_assignment_path = os.path.join(self.student_folder_root, self.stu.canvas_id, '.zfs', 'snapshot', self.snap_name, self.student_repo_name, self.assignment_subdirectory, self.asgn.name, self.asgn.name+'.ipynb')
+        self.snapped_assignment_path = os.path.join(self.student_folder_root, self.stu.canvas_id, '.zfs', 'snapshot', self.snap_name, self.student_local_assignment_folder, self.asgn.name, self.asgn.name+'.ipynb')
         self.grader_local_collection_folder = os.path.join('submitted', self.student_prefix + self.stu.canvas_id, self.asgn.name)
         self.grader_local_autograded_folder = os.path.join('autograded', self.student_prefix + self.stu.canvas_id, self.asgn.name)
         self.grader_local_feedback_folder = os.path.join('feedback', self.student_prefix + self.stu.canvas_id, self.asgn.name)
