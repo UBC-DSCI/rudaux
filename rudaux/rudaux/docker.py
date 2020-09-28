@@ -70,7 +70,7 @@ class Docker(object):
                 running.pop(k, None)
 
             # add a new container if there are any remaining
-            #time.sleep(0.25) #sleep for a 1/4 second for stability when starting containers...?
+            time.sleep(0.25) #sleep for a 1/4 second for stability when starting containers...?
             if len(job_keys) > 0:
                 assert len(running) < self.n_threads
                 key = job_keys.pop()
