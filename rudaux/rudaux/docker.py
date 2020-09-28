@@ -104,33 +104,36 @@ class Docker(object):
                     result['exit_status'] = 'dry_run'
                     result['log'] = 'dry_run'
             except docker.errors.APIError as e:
-                print('Docker APIError exception encountered when starting docker container')
-                print('Command: ' + command)
-                print('Homedir: ' + homedir)
+                if n_tries == 0:
+                    print('Docker APIError exception encountered when starting docker container')
+                    print('Command: ' + command)
+                    print('Homedir: ' + homedir)
                 result['exit_status'] = 'never_started'
                 result['log'] = 'ERROR: Docker APIError, ' + str(e)
                 ctr = None
-                time.sleep(1.)
+                time.sleep(10.)
                 if n_tries > 0:
-                    print('Attempting again; ' + str(n_tries) + ' attempts remaining.')
+                    print('Failed to start container. Attempting again; ' + str(n_tries) + ' attempts remaining.')
             except docker.errors.ImageNotFound as e:
-                print('Docker ImageNotFound exception encountered when starting docker container')
-                print('Command: ' + command)
-                print('Homedir: ' + homedir)
+                if n_tries == 0:
+                    print('Docker ImageNotFound exception encountered when starting docker container')
+                    print('Command: ' + command)
+                    print('Homedir: ' + homedir)
                 result['exit_status'] = 'never_started'
                 result['log'] = 'ERROR: Docker ImageNotFound, ' + str(e)
                 ctr = None
-                time.sleep(1.)
+                time.sleep(10.)
                 if n_tries > 0:
-                    print('Attempting again; ' + str(n_tries) + ' attempts remaining.')
+                    print('Failed to start container. Attempting again; ' + str(n_tries) + ' attempts remaining.')
             except Exception as e:
-                print('Unknown exception encountered when starting docker container')
-                print('Command: ' + command)
-                print('Homedir: ' + homedir)
+                if n_tries == 0:
+                    print('Unknown exception encountered when starting docker container')
+                    print('Command: ' + command)
+                    print('Homedir: ' + homedir)
                 result['exit_status'] = 'never_started'
                 result['log'] = 'ERROR: Unknown exception, ' + str(e) 
                 ctr = None
-                time.sleep(1.)
+                time.sleep(10.)
                 if n_tries > 0:
-                    print('Attempting again; ' + str(n_tries) + ' attempts remaining.')
+                    print('Failed to start container. Attempting again; ' + str(n_tries) + ' attempts remaining.')
         return ctr, result
