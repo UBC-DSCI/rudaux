@@ -72,7 +72,7 @@ class Docker(object):
             if len(job_keys) > 0:
                 assert len(running) < self.n_threads
                 key = job_keys.pop()
-                print('Running ' + str(key))
+                print('Running ' + str(key) +': ' + self.jobs[key]['command'] + ' in ' + self.jobs[key]['homedir'])
                 results[key] = {}
                 ctr, results[key] = self._run_container(self.jobs[key]['command'], self.jobs[key]['homedir'])
                 if ctr:

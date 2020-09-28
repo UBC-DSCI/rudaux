@@ -237,10 +237,16 @@ class Submission:
             
         # check if the submission needs manual grading
         print('Checking whether submission ' + self.asgn.name+':'+self.stu.canvas_id + ' needs manual grading')
-        if self.needs_manual_grading():
-            print('Still needs manual grading.') 
-            return SubmissionStatus.NEEDS_MANUAL_GRADE
-
+        try:
+            if self.needs_manual_grading():
+                print('Still needs manual grading.') 
+                return SubmissionStatus.NEEDS_MANUAL_GRADE
+        except Exception as e:
+            print('Error when checking whether subm needs manual grading')
+            print(e)
+            self.error =e
+            return SubmissionStatus.ERROR
+            
         print('Done grading for ' + self.asgn.name+':'+self.stu.canvas_id )
         return SubmissionStatus.DONE_GRADING
 
