@@ -32,8 +32,8 @@ class Docker(object):
                 ctr.reload()
             result['exit_status'] = ctr.status
             result['log'] = ctr.logs(stdout = True, stderr = True).decode('utf-8')
-            print('CTR REMOVE STATUS: ' + str(ctr.status))
-            ctr.remove(force = True)
+            #ctr.remove(force = True)
+            ctr.remove()
         return result
 
     def run_all(self):
@@ -65,8 +65,8 @@ class Docker(object):
                 if running[k].status not in self.runsts:
                     results[k]['exit_status'] = running[k].status
                     results[k]['log'] = running[k].logs(stdout = True, stderr = True).decode('utf-8')
-                    print('CTR REMOVE STATUS: ' + str(running[k].status))
-                    running[k].remove(force = True)
+                    #running[k].remove(force = True)
+                    running[k].remove()
                     to_pop.append(k)
             for k in to_pop:
                 running.pop(k, None)
