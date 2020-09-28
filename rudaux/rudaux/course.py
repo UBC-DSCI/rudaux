@@ -505,6 +505,7 @@ class Course(object):
 
                 print('Checking if any errors occurred and submitting error/failure notifications for instructors')
                 errors = {'preparing': [sid +':\r\n' + str(submissions[sid].error) for sid in prep_results if prep_results[sid] == SubmissionStatus.ERROR],
+                          'returningsolns': [sid +':\r\n' + str(submissions[sid].error) for sid in retsoln_results if retsoln_results[sid] == SubmissionStatus.ERROR],
                           'autograding': [sid +':\r\n' + 'autograding failed previously' for sid in ag_results if ag_results[sid] == SubmissionStatus.AUTOGRADE_FAILED_PREVIOUSLY] + 
                                          [sid +':\r\n' + str(submissions[sid].error) for sid in gr_results if gr_results[sid] == SubmissionStatus.ERROR or gr_results[sid] == SubmissionStatus.AUTOGRADE_FAILED],
                           'uploading':  [sid +':\r\n' + str(submissions[sid].error) for sid in miss_results if miss_results[sid] == SubmissionStatus.ERROR]}
@@ -513,6 +514,8 @@ class Course(object):
                     self.notifier.submit(self.config.instructor_user, 'Errors detected in ' + asgn.name + ' processing. Action required.'+
         								     '\r\n PREPARATION ERRORS:\r\n'+
                                                                              '\r\n'.join(errors['preparing'])+
+                                                                             '\r\n RETURN_SOLN ERRORS:\r\n'+
+                                                                             '\r\n'.join(errors['returningsolns'])+
         								     '\r\n AUTOGRADING ERRORS:\r\n'+
                                                                              '\r\n'.join(errors['autograding'])+
         								     '\r\n UPLOADING ERRORS:\r\n'+
