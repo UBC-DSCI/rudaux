@@ -51,7 +51,7 @@ class Submission:
         self.grade_uploaded = grade_uploaded
         self.grade_posted = grade_posted
         self.autograde_docker_job_id = None
-        self.genfdbk_docker_job_id = None
+        self.feedback_docker_job_id = None
         self.score = None
         self.max_score = None
         self.error = None
