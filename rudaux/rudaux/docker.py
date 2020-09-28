@@ -13,6 +13,7 @@ class Docker(object):
         self.image = config.grading_image
         self.dry_run = dry_run
         self.n_threads = config.num_docker_threads
+        self.mem_per_thread = config.docker_memory
         self.jobs = {}
         self.job_id = 0
         self.runsts = ['running', 'created']
@@ -69,7 +70,7 @@ class Docker(object):
                 running.pop(k, None)
 
             # add a new container if there are any remaining
-            time.sleep(0.25) #sleep for a 1/4 second for stability when starting containers...?
+            #time.sleep(0.25) #sleep for a 1/4 second for stability when starting containers...?
             if len(job_keys) > 0:
                 assert len(running) < self.n_threads
                 key = job_keys.pop()
@@ -95,7 +96,7 @@ class Docker(object):
                                                       remove = False,
                                                       stderr = True,
                                                       stdout = True,
-                                                      mem_limit = '2g',
+                                                      mem_limit = self.mem_per_thread,
                                                       volumes = {homedir : {'bind': '/home/jupyter', 'mode': 'rw'}} if homedir else {}
                                                       )
             else:

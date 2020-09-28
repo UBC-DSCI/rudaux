@@ -15,6 +15,7 @@ c.instructor_repo_url = 'git@github.com:your-account/your-repo.git' #the git url
 c.return_solution_threshold = 0.93 #the fraction of students whose assignments must be collected before you return solutions
 c.student_folder_root = '/tank-student/home/dsci100' #the NFS mount point on the instructor jupyterhub server for /tank/home/dsci100 from student server
 c.num_docker_threads = 4 #the number of CPU threads to use when grading, generating feedback, etc
+c.docker_memory = '1g' #the amount of memory for each grading thread
 c.earliest_solution_return_date = '2020-10-02 01:00:00' #the earliest date in the course to return any solutions for anything
 
 c.notify_days = ['Monday', 'Thursday'] #days of the week to send grading reminder emails to graders (emails are sent to instructor for any errors any day)
