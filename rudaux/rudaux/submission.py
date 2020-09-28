@@ -406,8 +406,8 @@ class Submission:
 
     def return_solution(self):
         print('Returning solution for submission ' + self.asgn.name+':'+self.stu.canvas_id)
-        soln_path_grader = os.path.join(self.grader_repo_path, self.asgn.name + '.html')
-        soln_path_student = os.path.join(self.student_folder_root, self.stu.canvas_id, self.asgn.name + '_soln.html')
+        soln_path_grader = os.path.join(self.grader_repo_path, self.asgn.name + '_solution.html')
+        soln_path_student = os.path.join(self.student_folder_root, self.stu.canvas_id, self.asgn.name + '_solution.html')
         if not os.path.exists(soln_path_student):
             try:
                 shutil.copy(soln_path_grader, soln_path_student) 
