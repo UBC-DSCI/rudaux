@@ -65,7 +65,7 @@ class Docker(object):
                 if running[k].status not in self.runsts:
                     results[k]['exit_status'] = running[k].status
                     results[k]['log'] = running[k].logs(stdout = True, stderr = True).decode('utf-8')
-                    print('CTR REMOVE STATUS: ' + str(ctr.status))
+                    print('CTR REMOVE STATUS: ' + str(running[k].status))
                     running[k].remove(force = True)
                     to_pop.append(k)
             for k in to_pop:
