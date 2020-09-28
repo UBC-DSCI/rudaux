@@ -480,7 +480,7 @@ class Course(object):
                 if (n_total - n_outstanding)/n_total >= self.config.return_solution_threshold: 
                     print('Threshold reached(' + str((n_total - n_outstanding)/n_total) + '>=' + str(self.config.return_solution_threshold)+'); this assignment is returnable')
                     if plm.now() > plm.parse(self.config.earliest_solution_return_date, tz=self.course_info['time_zone']):
-                        retsoln_results = self.process(Submission.return_solution, submissions, {key : val for key, val in prep_results if posted_grades[key]}, [SubmissionStatus.MISSING, SubmissionStatus.PREPARED])
+                        retsoln_results = self.process(Submission.return_solution, submissions, {key : val for (key, val) in prep_results if posted_grades[key]}, [SubmissionStatus.MISSING, SubmissionStatus.PREPARED])
                     else:
                         print('Earliest return date (' +self.config.earliest_solution_return_date + ') not passed yet. Skipping')
                 else:
@@ -576,7 +576,7 @@ class Course(object):
                 if (n_total - n_outstanding)/n_total >= self.config.return_solution_threshold: 
                     print('Threshold reached(' + str((n_total - n_outstanding)/n_total) + '>=' + str(self.config.return_solution_threshold)+'); this assignment is returnable')
                     if plm.now() > plm.parse(self.config.earliest_solution_return_date, tz=self.course_info['time_zone']):
-                        retfdbk_results = self.process(Submission.return_feedback, submissions, {key : val for key, val in fbc_results if posted_grades[key]}, SubmissionStatus.FEEDBACK_GENERATED)
+                        retfdbk_results = self.process(Submission.return_feedback, submissions, {key : val for (key, val) in fbc_results if posted_grades[key]}, SubmissionStatus.FEEDBACK_GENERATED)
                     else:
                         print('Earliest return date (' +self.config.earliest_solution_return_date + ') not passed yet. Skipping')
                     
