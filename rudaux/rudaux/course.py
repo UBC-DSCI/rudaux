@@ -476,13 +476,13 @@ class Course(object):
                 print('Checking whether solutions can be returned')
                 n_total = len(prep_results)
                 n_outstanding = len([p for p in prep_results if prep_results[p] == SubmissionStatus.NOT_DUE])
+                retsoln_results = {}
                 if (n_total - n_outstanding)/n_total >= self.config.return_solution_threshold: 
                     print('Threshold reached(' + str((n_total - n_outstanding)/n_total) + '>=' + str(self.config.return_solution_threshold)+'); this assignment is returnable')
                     if plm.now() > plm.parse(self.config.earliest_solution_return_date, tz=self.course_info['time_zone']):
                         retsoln_results = self.process(Submission.return_solution, submissions, prep_results, [SubmissionStatus.MISSING, SubmissionStatus.PREPARED])
                     else:
                         print('Earliest return date (' +self.config.earliest_solution_return_date + ') not passed yet. Skipping')
-                    #TODO error handling
                 else:
                     print('Threshold not reached (' + str((n_total - n_outstanding)/n_total) + '<' + str(self.config.return_solution_threshold)+'); this assignment is not yet returnable')
  
@@ -568,13 +568,33 @@ class Course(object):
         								     '\r\n FEEDBACK ERRORS:\r\n'+
                                                                              '\r\n'.join(errors['feedback']))
                     continue
+
+                print('Checking whether feedback can be returned')
+                n_total = len(prep_results)
+                n_outstanding = len([p for p in prep_results if prep_results[p] == SubmissionStatus.NOT_DUE])
+                retfdbk_results = {}
+                if (n_total - n_outstanding)/n_total >= self.config.return_solution_threshold: 
+                    print('Threshold reached(' + str((n_total - n_outstanding)/n_total) + '>=' + str(self.config.return_solution_threshold)+'); this assignment is returnable')
+                    if plm.now() > plm.parse(self.config.earliest_solution_return_date, tz=self.course_info['time_zone']):
+                        retfdbk_results = self.process(Submission.return_feedback, submissions, fbc_results, SubmissionStatus.FEEDBACK_GENERATED)
+                    else:
+                        print('Earliest return date (' +self.config.earliest_solution_return_date + ') not passed yet. Skipping')
+                    
+                else:
+                    print('Threshold not reached (' + str((n_total - n_outstanding)/n_total) + '<' + str(self.config.return_solution_threshold)+'); this assignment is not yet returnable')
+
+                errors = {'retfeedback':  [sid +':\r\n' + str(submissions[sid].error) for sid in retfdbk_results if retfdbk_results[sid] == SubmissionStatus.ERROR]}
+                if any([len(v) > 0 for k, v in errors.items()]):
+                    print('Errors detected. Notifying instructor and stopping processing this assignment.') 
+                    self.notifier.submit(self.config.instructor_user, 'Errors detected in ' + asgn.name + ' processing. Action required.'+
+        								     '\r\n FEEDBACK RETURN ERRORS:\r\n'+
+                                                                             '\r\n'.join(errors['retfeedback']))
+                    continue 
                
-                #if all grades are posted, return feedback
+                #check if all grades are posted
                 print('Checking if all grades have been posted...')
                 if all([submissions[subm].grade_posted for subm in submissions]):
-                    print('All grades posted. Returning feedback')
-                    retfdbk_results = self.process(Submission.return_feedback, submissions, 
-                                                             fbc_results, SubmissionStatus.FEEDBACK_GENERATED)
+                    print('All grades posted.')
                 elif any([submissions[subm].grade_uploaded and not submissions[subm].grade_posted  for subm in submissions]):
                     print('There are unposted grades. Pinging instructor to post if today is an email day.')
                     if plm.now().in_timezone(self.course_info['time_zone']).format('dddd') in self.config.notify_days:
