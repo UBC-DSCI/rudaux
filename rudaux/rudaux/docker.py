@@ -38,7 +38,7 @@ class Docker(object):
         print('Docker running ' + str(len(self.jobs)) + ' jobs')
         results = {}
         running = {}
-        print_every = 10
+        print_every = 30
         job_keys = [key for key in self.jobs]
         while len(running) > 0 or len(job_keys) > 0:
 
@@ -50,7 +50,7 @@ class Docker(object):
                 for k in running:
                     running[k].reload()
                 if time_since_print >= print_every:
-                    print('Current running jobs: ' + str(list(running.keys())))
+                    print('Jobs still running: ' + str(list(running.keys())))
                     time_since_print = 0
 
             # refresh the status of all running containers (we may have not made it into the above loop)
@@ -106,21 +106,21 @@ class Docker(object):
             print('Command: ' + command)
             print('Homedir: ' + homedir)
             result['exit_status'] = 'never_started'
-            result['log'] = str(e)
+            result['log'] = 'ERROR: Docker APIError, ' + str(e)
             ctr = None
         except docker.errors.ImageNotFound as e:
             print('Docker ImageNotFound exception encountered when starting docker container')
             print('Command: ' + command)
             print('Homedir: ' + homedir)
             result['exit_status'] = 'never_started'
-            result['log'] = str(e)
+            result['log'] = 'ERROR: Docker ImageNotFound, ' + str(e)
             ctr = None
         except Exception as e:
             print('Unknown exception encountered when starting docker container')
             print('Command: ' + command)
             print('Homedir: ' + homedir)
             result['exit_status'] = 'never_started'
-            result['log'] = str(e) 
+            result['log'] = 'ERROR: Unknown exception, ' + str(e) 
             ctr = None
         return ctr, result
 
