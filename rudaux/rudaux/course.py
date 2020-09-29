@@ -224,6 +224,9 @@ class Course(object):
             print('[Dry Run: submissions not saved]')
         return
 
+    #TODO throughout: there is a lot of checking for a.due_at and a.unlock_at -- make sure to have an "else" and print some msg if check fails
+    #TODO alternatively, when we synch canvas, only keep assignments with a due&unlock date, and report others as invalid and remove
+
     #TODO rather than save a list of taken snapshots and update it, detect which snapshots were already taken from zfs list
     def take_snapshots(self):
         print('Taking snapshots')
