@@ -272,8 +272,9 @@ class Course(object):
         fmt = 'ddd YYYY-MM-DD HH:mm:ss'
         print('Applying late registration extensions')
         for a in self.assignments:
+            print('Checking ' + str(a.name))
+            print('Due: ' + str(a.due_at.in_timezone(tz).format(fmt) if a.due_at is not None else a.due_at) + ' Unlock: ' + str(a.unlock_at.in_timezone(tz).format(fmt) if a.unlock_at is not None else a.unlock_at))
             if (a.due_at is not None) and (a.unlock_at is not None): #if the assignment has both a due date and unlock date set
-                print('Checking ' + str(a.name))
                 for s in self.students:
                     regdate = s.reg_updated if (s.reg_updated is not None) else s.reg_created
                     if s.status == 'active' and regdate > a.unlock_at:
