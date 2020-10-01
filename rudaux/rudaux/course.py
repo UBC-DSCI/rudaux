@@ -26,7 +26,7 @@ class Course(object):
     Course object for managing a Canvas/JupyterHub/nbgrader course.
     """
 
-    def __init__(self, course_dir, dry_run = False, allow_canvas_cache = False):
+    def __init__(self, course_dir, allow_canvas_cache = False):
         """
         Initialize a course from a config file. 
         :param course_dir: The directory your course. If none, defaults to current working directory. 
@@ -37,7 +37,6 @@ class Course(object):
         """
 
         self.course_dir = course_dir
-        self.dry_run = dry_run
 
         #=======================================#
         #              Load Config              #
@@ -70,7 +69,7 @@ class Course(object):
         #===================================================================================================#
 
         print('Creating Canvas interface...')
-        self.canvas = Canvas(self.config, self.dry_run)
+        self.canvas = Canvas(self.config)
         self.canvas_cache_filename = os.path.join(self.course_dir, self.config.name + '_canvas_cache.pk')
         self.synchronize_canvas(allow_canvas_cache)
         
@@ -79,28 +78,28 @@ class Course(object):
         #=======================================================#
 
         print('Creating JupyterHub interface...')
-        self.jupyterhub = JupyterHub(self.config, self.dry_run)
+        self.jupyterhub = JupyterHub(self.config)
 
         #=======================================================#
         #      Create the interface to ZFS                      #
         #=======================================================#
 
         print('Creating ZFS interface...')
-        self.zfs = ZFS(self.config, self.dry_run)
+        self.zfs = ZFS(self.config)
 
         #=======================================================#
         #      Create the interface to Docker                   #
         #=======================================================#
 
         print('Creating Docker interface...')
-        self.docker = Docker(self.config, self.dry_run)
+        self.docker = Docker(self.config)
 
         #=======================================================#
         #      Create the interface to SendMail                 #
         #=======================================================#
 
         print('Creating Notification interface...')
-        self.notifier = self.config.notification_type(self.config, self.dry_run)
+        self.notifier = self.config.notification_type(self.config)
         
         #=======================================================#
         #      Load the saved state                             #
@@ -206,22 +205,16 @@ class Course(object):
 
     def save_snapshots(self):
         print('Saving the taken snapshots list...')
-        if not self.dry_run:
-            with open(self.snapshots_filename, 'wb') as f:
-                pk.dump(self.snapshots, f)
-            print('Done.')
-        else:
-            print('[Dry Run: snapshot list not saved]')
+        with open(self.snapshots_filename, 'wb') as f:
+            pk.dump(self.snapshots, f)
+        print('Done.')
         return
 
     def save_submissions(self):
         print('Saving the submissions list...')
-        if not self.dry_run:
-            with open(self.submissions_filename, 'wb') as f:
-                pk.dump(self.submissions, f)
-            print('Done.')
-        else:
-            print('[Dry Run: submissions not saved]')
+        with open(self.submissions_filename, 'wb') as f:
+            pk.dump(self.submissions, f)
+        print('Done.')
         return
 
     #TODO throughout: there is a lot of checking for a.due_at and a.unlock_at -- make sure to have an "else" and print some msg if check fails
@@ -241,10 +234,7 @@ class Course(object):
                     print(e.output.decode('utf-8'))
                     print('Not updating the taken snapshots list')
                 else:
-                    if not self.dry_run:
-                        self.snapshots.append(a.name)
-                    else:
-                        print('[Dry Run: snapshot name not added to taken list; would have added ' + a.name + ']')
+                    self.snapshots.append(a.name)
             for over in a.overrides:
                 snapname = a.name + '-override-' + over['id'] #TODO don't hard code this pattern here since we need it in submission too
                 if (over['due_at'] is not None) and over['due_at'] < plm.now() and not (snapname in self.snapshots):
@@ -262,10 +252,8 @@ class Course(object):
                         else:
                             print('Student hasnt created their folder; this counts as a missing submission. Updating taken snapshots list.')
 
-                    if not self.dry_run and add_to_taken_list:
+                    if add_to_taken_list:
                         self.snapshots.append(snapname)
-                    elif self.dry_run:
-                        print('[Dry Run: snapshot name not added to taken list; would have added ' + snapname + ']')
         print('Done.')
         self.save_snapshots() 
 
@@ -360,15 +348,12 @@ class Course(object):
                 repo_valid = True
             if not repo_valid:
                 print(repo_path + ' is not a valid course repo. Cloning course repository from ' + self.config.instructor_repo_url)
-                if not self.dry_run:
-                    git.Repo.clone_from(self.config.instructor_repo_url, repo_path)
-                    for root, dirs, files in os.walk(repo_path):  
-                        for di in dirs:  
-                          os.chown(os.path.join(root, di), jupyter_uid, jupyter_uid)
-                        for fi in files:
-                          os.chown(os.path.join(root, fi), jupyter_uid, jupyter_uid)
-                else:
-                    print('[Dry Run: would have removed any file/folder at ' + repo_path + ', called mkdir('+repo_path+') and git clone ' + self.config.instructor_repo_url + ' into ' + repo_path)
+                git.Repo.clone_from(self.config.instructor_repo_url, repo_path)
+                for root, dirs, files in os.walk(repo_path):  
+                    for di in dirs:  
+                      os.chown(os.path.join(root, di), jupyter_uid, jupyter_uid)
+                    for fi in files:
+                      os.chown(os.path.join(root, fi), jupyter_uid, jupyter_uid)
             else:
                 print('Repo valid.')
 

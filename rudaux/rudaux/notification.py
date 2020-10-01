@@ -7,8 +7,7 @@ class NotifyError(Exception):
         self.message = message
 
 class Notification(object):
-    def __init__(self, config, dry_run):
-        self.dry_run = dry_run
+    def __init__(self, config):
         self.notifications = {}
 
     def submit(self, recipient, message):
@@ -34,8 +33,8 @@ class Notification(object):
 
 
 class SendMail(Notification):
-    def __init__(self, config, dry_run):
-        super().__init__(config, dry_run)
+    def __init__(self, config):
+        super().__init__(config)
         self.address = config.sendmail.address
         self.contact_info = config.sendmail.contact_info
         self.message_template = '\r\n'.join(['From: '+self.address,
@@ -71,8 +70,8 @@ class SendMail(Notification):
         pass
 
 class SMTP(Notification):
-    def __init__(self, config, dry_run):
-        super().__init__(config, dry_run)
+    def __init__(self, config):
+        super().__init__(config)
         self.hostname = config.smtp.hostname
         self.username = config.smtp.username
         self.passwd = config.smtp.passwd

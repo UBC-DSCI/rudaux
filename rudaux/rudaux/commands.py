@@ -8,7 +8,7 @@ import terminaltables as ttbl
 # actually doing anything. The only cost is that it has to run this code every minute, which is probably too much. Most assignments are due
 # on the hour / half hour at most, so every 15 should almost always be fine.
 def snapshot(args):
-    course = rudaux.Course(args.directory, dry_run = args.dry_run)
+    course = rudaux.Course(args.directory)
     # if course setup fails, do ???
     # do a non-blocking update: 
     # if update fails (e.g. canvas is down), just take snapshots based on previous course obj. Snapshots are cheap and we may as well be conservative
@@ -20,7 +20,7 @@ def snapshot(args):
     
 
 def run(args):
-    course = rudaux.Course(args.directory, dry_run = args.dry_run)
+    course = rudaux.Course(args.directory)
     # if course setup fails, do ???
     # do a non-blocking update: 
     # if update fails (e.g. canvas is down), just take snapshots based on previous course obj. Snapshots are cheap and we may as well be conservative
@@ -46,7 +46,7 @@ def print_list(args):
             print(ttbl.AsciiTable(tbl, title).table)
 
 def apply_latereg_extensions(args):
-    course = rudaux.Course(args.directory, dry_run = args.dry_run)
+    course = rudaux.Course(args.directory)
     course.apply_latereg_extensions()
 
 #Ideas for other commands:

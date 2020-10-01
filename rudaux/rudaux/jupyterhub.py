@@ -7,31 +7,24 @@ class JupyterHub(object):
     Interface to Jupyterhub 
     """
 
-    def __init__(self, config, dry_run):
+    def __init__(self, config):
         self.jupyterhub_config_dir = config.jupyterhub_config_dir
-        self.dry_run = dry_run
    
     def assign_grader(self, grader_name, ta_username):
         #just add authentication using dictauth
         Args = namedtuple('Args', 'username directory copy_creds salt digest')
         args = Args(username = grader_name, directory = self.jupyterhub_config_dir, copy_creds = ta_username, salt = None, digest = None)
-        if not self.dry_run:
-            add_user(args)
-            self.stop()
-            self.start()
-        else:
-            print('[Dry run: would have called add_user with args ' + str(args) + ' and then restarted hub]')
+        add_user(args)
+        self.stop()
+        self.start()
 
     def unassign_grader(self, grader_name):
         #just remove authentication using dictauth
         Args = namedtuple('Args', 'username directory')
         args = Args(username = grader_name, directory = self.jupyterhub_config_dir)
-        if not self.dry_run:
-            remove_user(args)
-            self.stop()
-            self.start()
-        else:
-            print('[Dry run: would have called remove_user with args ' + str(args) + ' and then restarted hub]')
+        remove_user(args)
+        self.stop()
+        self.start()
 
     def grader_exists(self, grader_name):
         Args = namedtuple('Args', 'directory')

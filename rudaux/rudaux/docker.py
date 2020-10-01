@@ -8,10 +8,9 @@ class DockerError(Exception):
 
 class Docker(object):
 
-    def __init__(self, config, dry_run):
+    def __init__(self, config):
         self.client = docker.from_env()
         self.image = config.grading_image
-        self.dry_run = dry_run
         self.n_threads = config.num_docker_threads
         self.mem_per_thread = config.docker_memory
         self.jobs = {}
@@ -90,19 +89,14 @@ class Docker(object):
         while ctr is None and n_tries > 0:
             n_tries -= 1
             try:
-                if not self.dry_run:
-                    ctr = self.client.containers.run(self.image, command,
-                                                          detach = True,
-                                                          remove = False,
-                                                          stderr = True,
-                                                          stdout = True,
-                                                          mem_limit = self.mem_per_thread,
-                                                          volumes = {homedir : {'bind': '/home/jupyter', 'mode': 'rw'}} if homedir else {}
-                                                          )
-                else:
-                    print('[Dry Run: would have started docker container with command: ' + command + ']')
-                    result['exit_status'] = 'dry_run'
-                    result['log'] = 'dry_run'
+                ctr = self.client.containers.run(self.image, command,
+                                                      detach = True,
+                                                      remove = False,
+                                                      stderr = True,
+                                                      stdout = True,
+                                                      mem_limit = self.mem_per_thread,
+                                                      volumes = {homedir : {'bind': '/home/jupyter', 'mode': 'rw'}} if homedir else {}
+                                                      )
             except docker.errors.APIError as e:
                 if n_tries == 0:
                     print('Docker APIError exception encountered when starting docker container')
