@@ -49,3 +49,16 @@ The official documentation is hosted on Read the Docs: <https://rudaux.readthedo
 
 ### Credits
 This package was created with Cookiecutter and the UBC-MDS/cookiecutter-ubc-mds project template, modified from the [pyOpenSci/cookiecutter-pyopensci](https://github.com/pyOpenSci/cookiecutter-pyopensci) project template and the [audreyr/cookiecutter-pypackage](https://github.com/audreyr/cookiecutter-pypackage).
+
+### Modifications to remember when writing docs
+- Nginx remove `client_max_body_size` constraint for saving notebooks
+- timeout extension in LTAuth for slow logins
+- websockets fix for login issues
+- restart VM for DockerAPIError create containers
+- NFS setup
+```
+yum install nfs-utils
+systemctl start nfs-server
+zfs set sharenfs='rw=@IP.ADDRESS.FOR.INSTRUCTOR.HUB/32,crossmnt,no_root_squash' tank/home
+firewall-cmd --permanent --add-rich-rule='rule family=ipv4 source address=IP.ADDRESS.FOR.INSTRUCTOR.HUB/32 port port=2049 protocol=tcp accept'
+```
