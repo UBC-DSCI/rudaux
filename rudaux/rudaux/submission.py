@@ -392,29 +392,37 @@ class Submission:
     def return_feedback(self):
         print('Returning feedback for submission ' + self.asgn.name+':'+self.stu.canvas_id)
         fdbk_path_grader = os.path.join(self.feedback_path, self.asgn.name + '.html')
-        fdbk_path_student = os.path.join(self.student_folder_root, self.stu.canvas_id, self.asgn.name + '_feedback.html')
+        fdbk_folder_student = os.path.join(self.student_folder_root, self.stu.canvas_id)
+        fdbk_path_student = os.path.join(fdbk_folder_student, self.asgn.name + '_feedback.html')
         if not os.path.exists(fdbk_path_student):
-            try:
-                shutil.copy(fdbk_path_grader, fdbk_path_student) 
-                jupyter_uid = pwd.getpwnam('jupyter').pw_uid
-                os.chown(fdbk_path_student, jupyter_uid, jupyter_uid)
-            except Exception as e:
-                print('Error occured when returning feedback.')
-                print(e)
-                self.error = e
-                return SubmissionStatus.ERROR
+            if os.path.exists(fdbk_folder_student):
+                try:
+                    shutil.copy(fdbk_path_grader, fdbk_path_student) 
+                    jupyter_uid = pwd.getpwnam('jupyter').pw_uid
+                    os.chown(fdbk_path_student, jupyter_uid, jupyter_uid)
+                except Exception as e:
+                    print('Error occured when returning feedback.')
+                    print(e)
+                    self.error = e
+                    return SubmissionStatus.ERROR
+            else:
+                print('Warning: student folder ' + str(fdbk_folder_student) + ' doesnt exist. Skipping feedback return.')
 
     def return_solution(self):
         print('Returning solution for submission ' + self.asgn.name+':'+self.stu.canvas_id)
         soln_path_grader = os.path.join(self.grader_repo_path, self.asgn.name + '_solution.html')
-        soln_path_student = os.path.join(self.student_folder_root, self.stu.canvas_id, self.asgn.name + '_solution.html')
+        soln_folder_student = os.path.join(self.student_folder_root, self.stu.canvas_id)
+        soln_path_student = os.path.join(soln_folder_student, self.asgn.name + '_solution.html')
         if not os.path.exists(soln_path_student):
-            try:
-                shutil.copy(soln_path_grader, soln_path_student) 
-                jupyter_uid = pwd.getpwnam('jupyter').pw_uid
-                os.chown(soln_path_student, jupyter_uid, jupyter_uid)
-            except Exception as e:
-                print('Error occurred when returning soln.')
-                print(e)
-                self.error = e
-                return SubmissionStatus.ERROR
+            if os.path.exists(soln_folder_student):
+                try:
+                    shutil.copy(soln_path_grader, soln_path_student) 
+                    jupyter_uid = pwd.getpwnam('jupyter').pw_uid
+                    os.chown(soln_path_student, jupyter_uid, jupyter_uid)
+                except Exception as e:
+                    print('Error occurred when returning soln.')
+                    print(e)
+                    self.error = e
+                    return SubmissionStatus.ERROR
+            else:
+                print('Warning: student folder ' + str(soln_folder_student) + ' doesnt exist. Skipping solution return.')
