@@ -9,7 +9,7 @@ class Person:
 
     @classmethod
     def table_headings(cls):
-        return ['Name', 'Canvas ID', 'SIS ID', 'RegCreated', 'RegUpdated']
+        return ['Name', 'Canvas ID', 'SIS ID', 'RegCreated', 'RegUpdated', 'Status']
 
     def table_items(self):
-        return [self.name, self.canvas_id, self.sis_id, self.reg_created.in_timezone('America/Vancouver').format('ddd YYYY-MM-DD HH:mm:ss'), self.reg_updated.in_timezone('America/Vancouver').format('ddd YYYY-MM-DD HH:mm:ss')]
+        return [self.name, self.canvas_id, self.sis_id, self.reg_created.in_timezone('America/Vancouver').format('ddd YYYY-MM-DD HH:mm:ss'), self.reg_updated.in_timezone('America/Vancouver').format('ddd YYYY-MM-DD HH:mm:ss'), self.status]
