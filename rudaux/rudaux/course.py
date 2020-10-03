@@ -517,14 +517,14 @@ class Course(object):
                           'uploading':  [sid +':\r\n' + str(submissions[sid].error) for sid in miss_results if miss_results[sid] == SubmissionStatus.ERROR]}
                 if any([len(v) > 0 for k, v in errors.items()]):
                     print('Errors detected. Notifying instructor and stopping processing this assignment.') 
-                    err_msg = 'Errors detected in ' + asgn.name + ' processing. Action required.'+
-        								     '\r\n PREPARATION ERRORS:\r\n'+
-                                                                             '\r\n'.join(errors['preparing'])+
-                                                                             '\r\n RETURN_SOLN ERRORS:\r\n'+
-                                                                             '\r\n'.join(errors['returningsolns'])+
-        								     '\r\n AUTOGRADING ERRORS:\r\n'+
-                                                                             '\r\n'.join(errors['autograding'])+
-        								     '\r\n UPLOADING ERRORS:\r\n'+
+                    err_msg = 'Errors detected in ' + asgn.name + ' processing. Action required.' + \
+        								     '\r\n PREPARATION ERRORS:\r\n' + \
+                                                                             '\r\n'.join(errors['preparing']) + \
+                                                                             '\r\n RETURN_SOLN ERRORS:\r\n' + \
+                                                                             '\r\n'.join(errors['returningsolns']) + \
+        								     '\r\n AUTOGRADING ERRORS:\r\n' + \
+                                                                             '\r\n'.join(errors['autograding']) + \
+        								     '\r\n UPLOADING ERRORS:\r\n' + \
                                                                              '\r\n'.join(errors['uploading'])
                     print(err_msg)
                     self.notifier.submit(self.config.instructor_user, err_msg)
@@ -570,10 +570,10 @@ class Course(object):
                           }
                 if any([len(v) > 0 for k, v in errors.items()]):
                     print('Errors detected. Notifying instructor and stopping processing this assignment.') 
-                    err_msg = 'Errors detected in ' + asgn.name + ' processing. Action required.'+
-        								     '\r\n GRADE UPLOAD ERRORS:\r\n'+
-                                                                             '\r\n'.join(errors['uploading'])+
-        								     '\r\n FEEDBACK ERRORS:\r\n'+
+                    err_msg = 'Errors detected in ' + asgn.name + ' processing. Action required.' + \
+        								     '\r\n GRADE UPLOAD ERRORS:\r\n' + \
+                                                                             '\r\n'.join(errors['uploading']) + \
+        								     '\r\n FEEDBACK ERRORS:\r\n' + \
                                                                              '\r\n'.join(errors['feedback'])
                     print(err_msg)
                     self.notifier.submit(self.config.instructor_user, err_msg)
@@ -596,8 +596,8 @@ class Course(object):
                 errors = {'retfeedback':  [sid +':\r\n' + str(submissions[sid].error) for sid in retfdbk_results if retfdbk_results[sid] == SubmissionStatus.ERROR]}
                 if any([len(v) > 0 for k, v in errors.items()]):
                     print('Errors detected. Notifying instructor and stopping processing this assignment.') 
-                    err_msg = 'Errors detected in ' + asgn.name + ' processing. Action required.'+
-        								     '\r\n FEEDBACK RETURN ERRORS:\r\n'+
+                    err_msg = 'Errors detected in ' + asgn.name + ' processing. Action required.' + \
+        								     '\r\n FEEDBACK RETURN ERRORS:\r\n' + \
                                                                              '\r\n'.join(errors['retfeedback'])
                     print(err_msg)
                     self.notifier.submit(self.config.instructor_user, err_msg)
