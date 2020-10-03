@@ -466,8 +466,8 @@ class Course(object):
 
                 if len(errors) > 0:
                     print('Errors creating submissions detected. Notifying instructor and stopping processing this assignment.') 
-                    err_msg = 'Errors detected in ' + asgn.name + ' processing. Action required.'+
-        								     '\r\n SUBMISSION CREATION ERRORS:\r\n'+
+                    err_msg = 'Errors detected in ' + asgn.name + ' processing. Action required.' + \
+        								     '\r\n SUBMISSION CREATION ERRORS:\r\n' + \
                                                                              '\r\n'.join(errors)
                     print(err_msg)
                     self.notifier.submit(self.config.instructor_user, err_msg)
