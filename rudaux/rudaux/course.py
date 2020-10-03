@@ -466,9 +466,11 @@ class Course(object):
 
                 if len(errors) > 0:
                     print('Errors creating submissions detected. Notifying instructor and stopping processing this assignment.') 
-                    self.notifier.submit(self.config.instructor_user, 'Errors detected in ' + asgn.name + ' processing. Action required.'+
+                    err_msg = 'Errors detected in ' + asgn.name + ' processing. Action required.'+
         								     '\r\n SUBMISSION CREATION ERRORS:\r\n'+
-                                                                             '\r\n'.join(errors))
+                                                                             '\r\n'.join(errors)
+                    print(err_msg)
+                    self.notifier.submit(self.config.instructor_user, err_msg)
                     continue
                         
 
@@ -515,7 +517,7 @@ class Course(object):
                           'uploading':  [sid +':\r\n' + str(submissions[sid].error) for sid in miss_results if miss_results[sid] == SubmissionStatus.ERROR]}
                 if any([len(v) > 0 for k, v in errors.items()]):
                     print('Errors detected. Notifying instructor and stopping processing this assignment.') 
-                    self.notifier.submit(self.config.instructor_user, 'Errors detected in ' + asgn.name + ' processing. Action required.'+
+                    err_msg = 'Errors detected in ' + asgn.name + ' processing. Action required.'+
         								     '\r\n PREPARATION ERRORS:\r\n'+
                                                                              '\r\n'.join(errors['preparing'])+
                                                                              '\r\n RETURN_SOLN ERRORS:\r\n'+
@@ -523,7 +525,9 @@ class Course(object):
         								     '\r\n AUTOGRADING ERRORS:\r\n'+
                                                                              '\r\n'.join(errors['autograding'])+
         								     '\r\n UPLOADING ERRORS:\r\n'+
-                                                                             '\r\n'.join(errors['uploading']))
+                                                                             '\r\n'.join(errors['uploading'])
+                    print(err_msg)
+                    self.notifier.submit(self.config.instructor_user, err_msg)
                     continue
 
                 print('Checking if any manual grading needs to happen and submitting notifications for TAs')
@@ -566,11 +570,13 @@ class Course(object):
                           }
                 if any([len(v) > 0 for k, v in errors.items()]):
                     print('Errors detected. Notifying instructor and stopping processing this assignment.') 
-                    self.notifier.submit(self.config.instructor_user, 'Errors detected in ' + asgn.name + ' processing. Action required.'+
+                    err_msg = 'Errors detected in ' + asgn.name + ' processing. Action required.'+
         								     '\r\n GRADE UPLOAD ERRORS:\r\n'+
                                                                              '\r\n'.join(errors['uploading'])+
         								     '\r\n FEEDBACK ERRORS:\r\n'+
-                                                                             '\r\n'.join(errors['feedback']))
+                                                                             '\r\n'.join(errors['feedback'])
+                    print(err_msg)
+                    self.notifier.submit(self.config.instructor_user, err_msg)
                     continue
 
                 print('Checking whether feedback can be returned')
@@ -590,9 +596,11 @@ class Course(object):
                 errors = {'retfeedback':  [sid +':\r\n' + str(submissions[sid].error) for sid in retfdbk_results if retfdbk_results[sid] == SubmissionStatus.ERROR]}
                 if any([len(v) > 0 for k, v in errors.items()]):
                     print('Errors detected. Notifying instructor and stopping processing this assignment.') 
-                    self.notifier.submit(self.config.instructor_user, 'Errors detected in ' + asgn.name + ' processing. Action required.'+
+                    err_msg = 'Errors detected in ' + asgn.name + ' processing. Action required.'+
         								     '\r\n FEEDBACK RETURN ERRORS:\r\n'+
-                                                                             '\r\n'.join(errors['retfeedback']))
+                                                                             '\r\n'.join(errors['retfeedback'])
+                    print(err_msg)
+                    self.notifier.submit(self.config.instructor_user, err_msg)
                     continue 
                
                 #check if all grades are posted
