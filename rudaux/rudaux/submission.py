@@ -212,6 +212,14 @@ class Submission:
             print('Assignment previously autograded & validated.')
             return SubmissionStatus.AUTOGRADED
         else:
+            print('Removing old autograding result from DB if it exists')
+            try:
+                gb = Gradebook('sqlite:///'+self.grader_repo_path +'/gradebook.db')
+                gb.remove_submission(self.asgn.name, self.student_prefix+self.stu.canvas_id)
+            except MissingEntry as e:
+                pass
+            finally:
+                gb.close()
             print('Submitting job to docker pool for autograding')
             self.autograde_docker_job_id = docker.submit('nbgrader autograde --force --assignment=' + self.asgn.name + ' --student='+self.student_prefix+self.stu.canvas_id, self.grader_repo_path)
             return SubmissionStatus.NEEDS_AUTOGRADE
