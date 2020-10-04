@@ -213,7 +213,7 @@ class Submission:
             return SubmissionStatus.AUTOGRADED
         else:
             print('Submitting job to docker pool for autograding')
-            self.autograde_docker_job_id = docker.submit('nbgrader autograde --assignment=' + self.asgn.name + ' --student='+self.student_prefix+self.stu.canvas_id, self.grader_repo_path)
+            self.autograde_docker_job_id = docker.submit('nbgrader autograde --force --assignment=' + self.asgn.name + ' --student='+self.student_prefix+self.stu.canvas_id, self.grader_repo_path)
             return SubmissionStatus.NEEDS_AUTOGRADE
 
     def check_grading(self, canvas, docker_results):
