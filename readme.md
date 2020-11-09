@@ -4,7 +4,7 @@
 
 [![Documentation Status](https://readthedocs.org/projects/rudaux/badge/?version=latest)](https://rudaux.readthedocs.io/en/latest/?badge=latest)
 
-This packages provides automation for managing a course that uses JupyterHub & nbgrader along wwith a learning management system (e.g., Canvas, EdX).
+This packages provides automation for managing a course that uses JupyterHub & nbgrader along with a learning management system (e.g., Canvas, EdX).
 
 Rudaux helps you programmatically administer a course by integrating:
 
