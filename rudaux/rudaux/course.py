@@ -232,21 +232,21 @@ class Course(object):
         print('Taking snapshots')
         for a in self.assignments:
             if (a.due_at is not None) and a.due_at < plm.now() and a.name not in self.snapshots:
-                print('Assignment ' + a.name + ' is past due and no snapshot exists yet. Taking a snapshot [' + a.name + ']')
+                print('Assignment ' + a.name + ' is past due and no snapshot exists yet. Taking a snapshot [' + self.config.course_slug + a.name + ']')
                 try:
-                    self.zfs.snapshot_all(a.name)
+                    self.zfs.snapshot_all(self.config.course_slug + a.name)
                 except CalledProcessError as e:
-                    print('Error creating snapshot ' + a.name)
+                    print('Error creating snapshot ' + self.config.course_slug + a.name)
                     print('Return code ' + str(e.returncode))
                     print(e.output.decode('utf-8'))
                     print('Not updating the taken snapshots list')
                 else:
                     if not self.dry_run:
-                        self.snapshots.append(a.name)
+                        self.snapshots.append(self.config.course_slug + a.name)
                     else:
-                        print('[Dry Run: snapshot name not added to taken list; would have added ' + a.name + ']')
+                        print('[Dry Run: snapshot name not added to taken list; would have added ' + self.config.course_slug + a.name + ']')
             for over in a.overrides:
-                snapname = a.name + '-override-' + over['id'] #TODO don't hard code this pattern here since we need it in submission too
+                snapname = self.config.course_slug + a.name + '-override-' + over['id'] #TODO don't hard code this pattern here since we need it in submission too
                 if (over['due_at'] is not None) and over['due_at'] < plm.now() and not (snapname in self.snapshots):
                     print('Assignment ' + a.name + ' has override ' + over['id'] + ' for student ' + over['student_ids'][0] + ' and no snapshot exists yet. Taking a snapshot [' + snapname + ']')
                     add_to_taken_list = True
