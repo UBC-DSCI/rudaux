@@ -37,7 +37,7 @@ class Submission:
         self.asgn = asgn
         self.stu = stu
         self.due_date, override = asgn.get_due_date(stu)
-        self.snap_name = asgn.name if (override is None) else (asgn.name + '-override-' + override['id'])
+        self.snap_name = (config.course_slug + asgn.name) if (override is None) else (config.course_slug + asgn.name + '-override-' + override['id'])
         self.grader_folder_root = config.user_folder_root
         self.student_folder_root = config.student_folder_root
         self.student_local_assignment_folder = config.student_local_assignment_folder
