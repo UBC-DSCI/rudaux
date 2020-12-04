@@ -6,6 +6,7 @@ class Assignment:
         self.snapshot_taken = False
         self.override_snapshots_taken = []
         self.grader_workloads = {}
+        self.course_slug = config.course_slug
 
     def __repr__(self):
         return self.name + '(' + self.canvas_id + '): ' + ('jupyterhub' if self.is_jupyterhub_assignment else 'canvas') + ' assignment'
@@ -22,7 +23,7 @@ class Assignment:
 
     #need this function to remove special characters (e.g. underscores) from jupyter user names on instructor server
     def grader_basename(self):
-        return ''.join(ch for ch in self.name if ch.isalnum())+'-grader-'
+        return ''.join(ch for ch in self.name if ch.isalnum())+ '-' + self.course_slug + '-grader-'
 
     def get_due_date(self, s):
         basic_date = self.due_at
