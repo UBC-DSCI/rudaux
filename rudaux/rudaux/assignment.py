@@ -23,7 +23,7 @@ class Assignment:
 
     #need this function to remove special characters (e.g. underscores) from jupyter user names on instructor server
     def grader_basename(self):
-        return ''.join(ch for ch in self.name if ch.isalnum())+ '-' + self.course_slug + '-grader-'
+        return self.course_slug + ''.join(ch for ch in self.name if ch.isalnum())+ '-grader-'
 
     def get_due_date(self, s):
         basic_date = self.due_at
