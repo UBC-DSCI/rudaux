@@ -1,3 +1,6 @@
+from traitlets.config.configurable import Configurable
+from traitlets import Int, Float, Unicode, Bool
+
 class Assignment:
 
     #TODO -- this has state now, so we need to make sure not overwritten by synchronize
