@@ -144,7 +144,7 @@ class Course(object):
 
             print('Obtaining/processing assignment information from Canvas...')
             assignment_dicts = self.canvas.get_assignments()
-            self.assignments = [Assignment(ad) for ad in assignment_dicts]
+            self.assignments = [Assignment(ad, self.config) for ad in assignment_dicts]
             print('Done.')
 
             print('Obtaining/processing group information from Canvas...')
