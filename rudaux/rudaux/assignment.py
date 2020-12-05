@@ -4,7 +4,7 @@ from traitlets import Int, Float, Unicode, Bool
 class Assignment:
 
     #TODO -- this has state now, so we need to make sure not overwritten by synchronize
-    def __init__(self, canvas_dict):
+    def __init__(self, canvas_dict, config):
         self.__dict__.update(canvas_dict)
         self.snapshot_taken = False
         self.override_snapshots_taken = []
