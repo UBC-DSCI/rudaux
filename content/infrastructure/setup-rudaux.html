@@ -5,7 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Inventory list</title>
+    <title>Setup ruduax</title>
     
   <link rel="stylesheet" href="../../_static/css/index.73d71520a4ca3b99cfee5594769eaaae.css">
 
@@ -56,8 +56,6 @@
     <link rel="shortcut icon" href="../../_static/rudaux_jupiter.jpg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="Set up AWS cloud architecture" href="setup-aws-cloud-architecture.html" />
-    <link rel="prev" title="Welcome to Rudaux!" href="../preface.html" />
 
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="docsearch:language" content="en" />
@@ -90,9 +88,9 @@
   Infrastructure
  </span>
 </p>
-<ul class="current nav sidenav_l1">
- <li class="toctree-l1 current active">
-  <a class="current reference internal" href="#">
+<ul class="nav sidenav_l1">
+ <li class="toctree-l1">
+  <a class="reference internal" href="inventory-list.html">
    Inventory list
   </a>
  </li>
@@ -200,9 +198,9 @@
         <!-- ipynb file if we had a myst markdown file -->
         
         <!-- Download raw file -->
-        <a class="dropdown-buttons" href="../../_sources/content/infrastructure/inventory-list.md"><button type="button"
+        <a class="dropdown-buttons" href="../../_sources/content/infrastructure/setup-rudaux.ipynb"><button type="button"
                 class="btn btn-secondary topbarbtn" title="Download source file" data-toggle="tooltip"
-                data-placement="left">.md</button></a>
+                data-placement="left">.ipynb</button></a>
         <!-- Download PDF via print -->
         <button type="button" id="download-print" class="btn btn-secondary topbarbtn" title="Print to PDF"
             onClick="window.print()" data-toggle="tooltip" data-placement="left">.pdf</button>
@@ -220,7 +218,7 @@
                 data-toggle="tooltip" data-placement="left" title="Source repository"><i
                     class="fab fa-github"></i>repository</button></a>
         <a class="issues-button"
-            href="https://github.com/UBC-DSCI/rudaux/issues/new?title=Issue%20on%20page%20%2Fcontent/infrastructure/inventory-list.html&body=Your%20issue%20content%20here."><button
+            href="https://github.com/UBC-DSCI/rudaux/issues/new?title=Issue%20on%20page%20%2Fcontent/infrastructure/setup-rudaux.html&body=Your%20issue%20content%20here."><button
                 type="button" class="btn btn-secondary topbarbtn" data-toggle="tooltip" data-placement="left"
                 title="Open an issue"><i class="fas fa-lightbulb"></i>open issue</button></a>
         
@@ -236,6 +234,23 @@
 
         <!-- Launch buttons -->
 
+<div class="dropdown-buttons-trigger">
+    <button id="dropdown-buttons-trigger" class="btn btn-secondary topbarbtn"
+        aria-label="Launch interactive content"><i class="fas fa-rocket"></i></button>
+    <div class="dropdown-buttons">
+        
+        <a class="binder-button" href="https://mybinder.org/v2/gh/UBC-DSCI/rudaux/master?urlpath=tree/content/infrastructure/setup-rudaux.ipynb"><button type="button"
+                class="btn btn-secondary topbarbtn" title="Launch Binder" data-toggle="tooltip"
+                data-placement="left"><img class="binder-button-logo"
+                    src="../../_static/images/logo_binder.svg"
+                    alt="Interact on binder">Binder</button></a>
+        
+        
+        
+        
+    </div>
+</div>
+
     </div>
 
     <!-- Table of contents -->
@@ -247,23 +262,25 @@
         <nav id="bd-toc-nav">
             <ul class="nav section-nav flex-column">
  <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#canvas-course-shell">
-   Canvas course shell
+  <a class="reference internal nav-link" href="#setup-ruduax-on-the-student-server">
+   Setup
+   <code class="docutils literal notranslate">
+    <span class="pre">
+     ruduax
+    </span>
+   </code>
+   on the student server
   </a>
  </li>
  <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#two-amazon-web-services-aws-ec2-instances">
-   Two Amazon Web Services (AWS) EC2 instances
-  </a>
- </li>
- <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#a-laptop-or-desktop-computer">
-   A laptop or desktop computer
-  </a>
- </li>
- <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#two-domain-names-that-are-compatible-with-let-s-encrypt">
-   Two domain names that are compatible with Let’s Encrypt
+  <a class="reference internal nav-link" href="#setup-ruduax-on-the-grading-server">
+   Setup
+   <code class="docutils literal notranslate">
+    <span class="pre">
+     ruduax
+    </span>
+   </code>
+   on the grading server
   </a>
  </li>
 </ul>
@@ -277,30 +294,49 @@
         
               <div>
                 
-  <div class="section" id="inventory-list">
-<h1>Inventory list<a class="headerlink" href="#inventory-list" title="Permalink to this headline">¶</a></h1>
-<p>To run a course using <a class="reference external" href="https://github.com/UBC-DSCI/rudaux"><code class="docutils literal notranslate"><span class="pre">rudaux</span></code></a> you will need the following:</p>
+  <div class="section" id="setup-ruduax">
+<h1>Setup <code class="docutils literal notranslate"><span class="pre">ruduax</span></code><a class="headerlink" href="#setup-ruduax" title="Permalink to this headline">¶</a></h1>
+<p>The Python package <code class="docutils literal notranslate"><span class="pre">rudaux</span></code> manages the assignment collection, auto- and manual grading, as well as posting grades, solutions and feedback. <code class="docutils literal notranslate"><span class="pre">rudaux</span></code> needs to be installed and configured on both the student and grading servers.</p>
+<div class="section" id="setup-ruduax-on-the-student-server">
+<h2>Setup <code class="docutils literal notranslate"><span class="pre">ruduax</span></code> on the student server<a class="headerlink" href="#setup-ruduax-on-the-student-server" title="Permalink to this headline">¶</a></h2>
 <ol class="simple">
-<li><p>A Canvas course shell</p></li>
-<li><p>Two Amazon Web Services (AWS) EC2 instances</p></li>
-<li><p>A laptop or desktop computer</p></li>
-<li><p>Two domain names that are compatible with Let’s Encrypt</p></li>
+<li><p>In the home folder of your student server, clone the <a class="reference external" href="https://github.com/UBC-DSCI/rudaux"><code class="docutils literal notranslate"><span class="pre">rudaux</span></code></a> repo</p></li>
+<li><p>Open the <code class="docutils literal notranslate"><span class="pre">rudaux</span></code> package folder <code class="docutils literal notranslate"><span class="pre">rudaux/rudaux</span></code>, and do <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">pip3</span> <span class="pre">install</span> <span class="pre">.</span> <span class="pre">--upgrade</span></code></p></li>
+<li><p>Fill out the template rudaux config in <code class="docutils literal notranslate"><span class="pre">rudaux/tests/rudaux_template_config.py</span></code> and put that in your home folder and rename it <code class="docutils literal notranslate"><span class="pre">rudaux/tests/rudaux_config.py</span></code></p></li>
+<li><p>In the home folder run <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">rudaux</span> <span class="pre">list</span></code>  – this should successfully show you the list of students, tas, instructors, and Jupyterhub assignments</p></li>
+<li><p>Copy the cron job script <code class="docutils literal notranslate"><span class="pre">rudaux/rudaux/cron/rudaux_snapshot</span></code> into <code class="docutils literal notranslate"><span class="pre">/etc/cron.d/rudaux_snapshot</span></code>
+open it and make sure to replace the <code class="docutils literal notranslate"><span class="pre">/path/to/your/etc/</span></code> is your home folder, e.g. <code class="docutils literal notranslate"><span class="pre">/home/stty2u/</span></code>.</p></li>
 </ol>
-<div class="section" id="canvas-course-shell">
-<h2>Canvas course shell<a class="headerlink" href="#canvas-course-shell" title="Permalink to this headline">¶</a></h2>
-<p>The Canvas course shell will be used as the course learning management system that students access their assignments and view their assignment and course grades. At UBC, we use the Canvas course shells distributed by the University. If you do not have Canvas course shells provided by your University you can create a Canvas course shell using a free instance of Canvas accessible here: <a class="reference external" href="https://canvas.instructure.com/">https://canvas.instructure.com/</a>.</p>
 </div>
-<div class="section" id="two-amazon-web-services-aws-ec2-instances">
-<h2>Two Amazon Web Services (AWS) EC2 instances<a class="headerlink" href="#two-amazon-web-services-aws-ec2-instances" title="Permalink to this headline">¶</a></h2>
-<p>The two Amazon Web Services (AWS) EC2 instances will be used to host and serve two JupyterHubs. One will be the JupyterHub that the students use to complete their homework. This student JupyterHub will use Canvas as the authentication. The second will be the JupyterHub that the course teaching team uses for auto- and manual grading. This grading JupyterHub will use Shibboleth for authentication. At UBC we use the teaching team’s campus-wide login (CWL) as the username and password for this. The two JupyterHubs are “connected” by an Amazon Elastic File System (EFS) so that the grading JupyterHub can access the students work for grading purposes (i.e., students do not have to do anything to submit their assignments, other than saving their files on the student JupyterHub).</p>
+<div class="section" id="setup-ruduax-on-the-grading-server">
+<h2>Setup <code class="docutils literal notranslate"><span class="pre">ruduax</span></code> on the grading server<a class="headerlink" href="#setup-ruduax-on-the-grading-server" title="Permalink to this headline">¶</a></h2>
+<ol>
+<li><p>In the home folder of your grading server, clone the <a class="reference external" href="https://github.com/UBC-DSCI/rudaux"><code class="docutils literal notranslate"><span class="pre">rudaux</span></code></a> repo</p></li>
+<li><p>Open the <code class="docutils literal notranslate"><span class="pre">rudaux</span></code> package folder <code class="docutils literal notranslate"><span class="pre">rudaux/rudaux</span></code>, and do <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">pip3</span> <span class="pre">install</span> <span class="pre">.</span> <span class="pre">--upgrade</span></code></p></li>
+<li><p>Fill out the template rudaux config in <code class="docutils literal notranslate"><span class="pre">rudaux/tests/rudaux_template_config.py</span></code> and put that in your home folder and rename it <code class="docutils literal notranslate"><span class="pre">rudaux/tests/rudaux_config.py</span></code></p></li>
+<li><p>Go to <code class="docutils literal notranslate"><span class="pre">rudaux/dictauth</span></code> and type <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">pip3</span> <span class="pre">install</span> <span class="pre">.</span> <span class="pre">--upgrade</span></code></p></li>
+<li><p>Open up your <code class="docutils literal notranslate"><span class="pre">/srv/jupyterhub_config.py</span></code> file remove any LTAuthenticator lines and replace with</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">c</span><span class="o">.</span><span class="n">JupyterHub</span><span class="o">.</span><span class="n">authenticator_class</span> <span class="o">=</span> <span class="s1">&#39;dictauth.DictionaryAuthenticator&#39;</span>
+<span class="n">c</span><span class="o">.</span><span class="n">DictionaryAuthenticator</span><span class="o">.</span><span class="n">encrypted_passwords</span> <span class="o">=</span> <span class="p">{}</span>
+</pre></div>
 </div>
-<div class="section" id="a-laptop-or-desktop-computer">
-<h2>A laptop or desktop computer<a class="headerlink" href="#a-laptop-or-desktop-computer" title="Permalink to this headline">¶</a></h2>
-<p><a class="reference external" href="https://github.com/UBC-DSCI/rudaux"><code class="docutils literal notranslate"><span class="pre">rudaux</span></code></a> uses a dev ops tool named Ansible to automate much of the installation and setup of the two JupyterHubs. Ansible is run on your local laptop or desktop computer and uses the instructions in the <code class="docutils literal notranslate"><span class="pre">ansible</span></code> directory in the <code class="docutils literal notranslate"><span class="pre">rudaux</span></code> GitHub repository to send installation and configuration commands to the AWS EC2 instances to install and setup the two JupyterHubs.</p>
+</li>
+<li><p>In the home folder, type <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">dictauth</span> <span class="pre">list_users</span></code> – should output an empty list</p></li>
+<li><p>Still in the home folder, run <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">dictauth</span> <span class="pre">encrypt_password</span></code> and follow the on-screen instructions
+this will spit out a hash and a salt then do <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">dictauth</span> <span class="pre">add_user</span> <span class="pre">--user</span> <span class="pre">tiffany</span> <span class="pre">--digest</span> <span class="pre">[the_big_hash_string]</span> <span class="pre">--salt</span> <span class="pre">[the_big_salt_string]</span></code></p></li>
+<li><p>Now go in your web browser to www.your-jupyterhub.domain.com and you should see the login screen – login with your username and password (make sure you can’t login with another username and password).</p></li>
+<li><p>Go back and do the <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">rudaux</span> <span class="pre">list</span></code> step and make sure that works</p></li>
+<li><p>Copy the cron script <code class="docutils literal notranslate"><span class="pre">rudaux/rudaux/cron/rudaux_manage</span></code> into <code class="docutils literal notranslate"><span class="pre">/etc/cron.d</span></code>, and make sure to fix the pathname to be your home folder with the rudaux config file</p></li>
+<li><p>Create a set of SSH keys to use to authenticate into the Instructor GitHub repository:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sudo</span> <span class="n">su</span>
+<span class="n">cd</span> <span class="o">/</span><span class="n">root</span><span class="o">/.</span><span class="n">ssh</span>
+<span class="n">vim</span> <span class="n">id_rsa</span><span class="o">.</span><span class="n">pub</span>
+</pre></div>
 </div>
-<div class="section" id="two-domain-names-that-are-compatible-with-let-s-encrypt">
-<h2>Two domain names that are compatible with <a class="reference external" href="https://letsencrypt.org/">Let’s Encrypt</a><a class="headerlink" href="#two-domain-names-that-are-compatible-with-let-s-encrypt" title="Permalink to this headline">¶</a></h2>
-<p>To keep the JupyterHubs secure we use the HTTPS protocol. This is a protocol which requires browser-trusted certificates. We use the service <a class="reference external" href="https://letsencrypt.org/">Let’s Encrypt</a> to automate the process of obtaining a browser-trusted certificate. For this to work, you will need two domain names that are compatible with <a class="reference external" href="https://letsencrypt.org/">Let’s Encrypt</a>.</p>
+</li>
+<li><p>Copy that public key to settings/deploy keys in whatever repo you want to give read access to (don’t give it write  permission, no need for that). <code class="docutils literal notranslate"><span class="pre">rudaux</span></code> runs as root, so you need to look in root’s user folder for the public key (no need to have multiple keys)</p></li>
+<li><p>Finally run <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">rudaux</span> <span class="pre">run</span></code> on the command line in your home folder and it’ll 1) give students an automatic extension for late reg assignments – it will create overrides on canvas, and 2) run the autograding workflow for all submissions that are past due.</p></li>
+</ol>
 </div>
 </div>
 
@@ -332,8 +368,6 @@
     
     <div class='prev-next-bottom'>
         
-    <a class='left-prev' id="prev-link" href="../preface.html" title="previous page">Welcome to Rudaux!</a>
-    <a class='right-next' id="next-link" href="setup-aws-cloud-architecture.html" title="next page">Set up AWS cloud architecture</a>
 
     </div>
     <footer class="footer mt-5 mt-md-0">
