@@ -9,7 +9,7 @@
   - file: content/infrastructure/setup-efs
   - file: content/infrastructure/build-jupyterhubs-w-ansible
   - file: content/infrastructure/add-jupyterhub-as-app-in-canvas
-  - file: content/setup-rudaux
+  - file: content/infrastructure/setup-rudaux
 
 - part: Assignments
   chapters:
