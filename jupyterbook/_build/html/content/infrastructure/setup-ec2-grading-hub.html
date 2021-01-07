@@ -1,0 +1,438 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Set up EC2 instance for grading JupyterHub</title>
+    
+  <link rel="stylesheet" href="../../_static/css/index.73d71520a4ca3b99cfee5594769eaaae.css">
+
+    
+  <link rel="stylesheet"
+    href="../../_static/vendor/fontawesome/5.13.0/css/all.min.css">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="../../_static/vendor/fontawesome/5.13.0/webfonts/fa-solid-900.woff2">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="../../_static/vendor/fontawesome/5.13.0/webfonts/fa-brands-400.woff2">
+
+    
+      
+  <link rel="stylesheet"
+    href="../../_static/vendor/open-sans_all/1.44.1/index.css">
+  <link rel="stylesheet"
+    href="../../_static/vendor/lato_latin-ext/1.44.1/index.css">
+
+    
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/sphinx-book-theme.2d2078699c18a0efb88233928e1cf6ed.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/togglebutton.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/mystnb.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-thebe.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/panels-main.c949a650a448cc0ae9fd3441c0e17fb0.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/panels-variables.06eb56fa6e07937060861dad626602ad.css" />
+    
+  <link rel="preload" as="script" href="../../_static/js/index.3da636dd464baa7582d2.js">
+
+    <script id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/language_data.js"></script>
+    <script src="../../_static/togglebutton.js"></script>
+    <script src="../../_static/clipboard.min.js"></script>
+    <script src="../../_static/copybutton.js"></script>
+    <script >var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+    <script src="../../_static/sphinx-book-theme.be0a4a0c39cd630af62a2fcf693f3f06.js"></script>
+    <script async="async" src="https://unpkg.com/thebelab@latest/lib/index.js"></script>
+    <script >
+        const thebe_selector = ".thebe"
+        const thebe_selector_input = "pre"
+        const thebe_selector_output = ".output"
+    </script>
+    <script async="async" src="../../_static/sphinx-thebe.js"></script>
+    <link rel="shortcut icon" href="../../_static/rudaux_jupiter.jpg"/>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Set up Amazon Elastic Filesystem (EFS)" href="setup-efs.html" />
+    <link rel="prev" title="Set up EC2 instance for student JupyterHub" href="setup-ec2-student-hub.html" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="docsearch:language" content="en" />
+
+
+
+  </head>
+  <body data-spy="scroll" data-target="#bd-toc-nav" data-offset="80">
+    
+
+    <div class="container-xl">
+      <div class="row">
+          
+<div class="col-12 col-md-3 bd-sidebar site-navigation show" id="site-navigation">
+    
+        <div class="navbar-brand-box">
+<a class="navbar-brand text-wrap" href="../../index.html">
+  
+  <img src="../../_static/rudaux_jupiter.jpg" class="logo" alt="logo">
+  
+  
+</a>
+</div>
+
+<form class="bd-search d-flex align-items-center" action="../../search.html" method="get">
+  <i class="icon fas fa-search"></i>
+  <input type="search" class="form-control" name="q" id="search-input" placeholder="Search this book..." aria-label="Search this book..." autocomplete="off" >
+</form>
+
+<nav class="bd-links" id="bd-docs-nav" aria-label="Main navigation">
+  <p class="caption">
+ <span class="caption-text">
+  Infrastructure
+ </span>
+</p>
+<ul class="current nav sidenav_l1">
+ <li class="toctree-l1">
+  <a class="reference internal" href="inventory-list.html">
+   Inventory list
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="setup-aws-cloud-architecture.html">
+   Set up AWS cloud architecture
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="setup-ec2-student-hub.html">
+   Set up EC2 instance for student JupyterHub
+  </a>
+ </li>
+ <li class="toctree-l1 current active">
+  <a class="current reference internal" href="#">
+   Set up EC2 instance for grading JupyterHub
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="setup-efs.html">
+   Set up Amazon Elastic Filesystem (EFS)
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="build-jupyterhubs-w-ansible.html">
+   Setting up Ansible on your local machine
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="build-jupyterhubs-w-ansible.html#add-the-variables-specific-to-your-course">
+   Add the variables specific to your course
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="build-jupyterhubs-w-ansible.html#build-the-jupyterhubs-using-ansible">
+   Build the JupyterHubs using Ansible
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="add-jupyterhub-as-app-in-canvas.html">
+   Add JupyterHub as an App on Canvas
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="setup-rudaux.html">
+   Setup
+   <code class="docutils literal notranslate">
+    <span class="pre">
+     ruduax
+    </span>
+   </code>
+  </a>
+ </li>
+</ul>
+<p class="caption">
+ <span class="caption-text">
+  Assignments
+ </span>
+</p>
+<ul class="nav sidenav_l1">
+ <li class="toctree-l1">
+  <a class="reference internal" href="../assignments/setting-up-assignments.html">
+   Setting up Assignments on Canvas
+  </a>
+ </li>
+</ul>
+<p class="caption">
+ <span class="caption-text">
+  Running the course
+ </span>
+</p>
+<ul class="nav sidenav_l1">
+ <li class="toctree-l1">
+  <a class="reference internal" href="../course/running-the-course.html">
+   Running the course
+  </a>
+ </li>
+</ul>
+
+</nav>
+
+ <!-- To handle the deprecated key -->
+
+<div class="navbar_extra_footer">
+  Powered by <a href="https://jupyterbook.org">Jupyter Book</a>
+</div>
+
+</div>
+
+
+          
+
+
+          
+<main class="col py-md-3 pl-md-4 bd-content overflow-auto" role="main">
+    
+    <div class="row topbar fixed-top container-xl">
+    <div class="col-12 col-md-3 bd-topbar-whitespace site-navigation show">
+    </div>
+    <div class="col pl-2 topbar-main">
+        
+        <button id="navbar-toggler" class="navbar-toggler ml-0" type="button" data-toggle="collapse"
+            data-toggle="tooltip" data-placement="bottom" data-target=".site-navigation" aria-controls="navbar-menu"
+            aria-expanded="true" aria-label="Toggle navigation" aria-controls="site-navigation"
+            title="Toggle navigation" data-toggle="tooltip" data-placement="left">
+            <i class="fas fa-bars"></i>
+            <i class="fas fa-arrow-left"></i>
+            <i class="fas fa-arrow-up"></i>
+        </button>
+        
+        <div class="dropdown-buttons-trigger">
+    <button id="dropdown-buttons-trigger" class="btn btn-secondary topbarbtn" aria-label="Download this page"><i
+            class="fas fa-download"></i></button>
+
+    
+    <div class="dropdown-buttons">
+        <!-- ipynb file if we had a myst markdown file -->
+        
+        <!-- Download raw file -->
+        <a class="dropdown-buttons" href="../../_sources/content/infrastructure/setup-ec2-grading-hub.md"><button type="button"
+                class="btn btn-secondary topbarbtn" title="Download source file" data-toggle="tooltip"
+                data-placement="left">.md</button></a>
+        <!-- Download PDF via print -->
+        <button type="button" id="download-print" class="btn btn-secondary topbarbtn" title="Print to PDF"
+            onClick="window.print()" data-toggle="tooltip" data-placement="left">.pdf</button>
+    </div>
+    
+</div>
+        <!-- Source interaction buttons -->
+
+<div class="dropdown-buttons-trigger">
+    <button id="dropdown-buttons-trigger" class="btn btn-secondary topbarbtn"
+        aria-label="Connect with source repository"><i class="fab fa-github"></i></button>
+    <div class="dropdown-buttons sourcebuttons">
+        <a class="repository-button"
+            href="https://github.com/UBC-DSCI/rudaux"><button type="button" class="btn btn-secondary topbarbtn"
+                data-toggle="tooltip" data-placement="left" title="Source repository"><i
+                    class="fab fa-github"></i>repository</button></a>
+        <a class="issues-button"
+            href="https://github.com/UBC-DSCI/rudaux/issues/new?title=Issue%20on%20page%20%2Fcontent/infrastructure/setup-ec2-grading-hub.html&body=Your%20issue%20content%20here."><button
+                type="button" class="btn btn-secondary topbarbtn" data-toggle="tooltip" data-placement="left"
+                title="Open an issue"><i class="fas fa-lightbulb"></i>open issue</button></a>
+        
+    </div>
+</div>
+
+
+        <!-- Full screen (wrap in <a> to have style consistency -->
+        <a class="full-screen-button"><button type="button" class="btn btn-secondary topbarbtn" data-toggle="tooltip"
+                data-placement="bottom" onclick="toggleFullScreen()" aria-label="Fullscreen mode"
+                title="Fullscreen mode"><i
+                    class="fas fa-expand"></i></button></a>
+
+        <!-- Launch buttons -->
+
+    </div>
+
+    <!-- Table of contents -->
+    <div class="d-none d-md-block col-md-2 bd-toc show">
+        
+    </div>
+</div>
+    <div id="main-content" class="row">
+        <div class="col-12 col-md-9 pl-md-3 pr-md-0">
+        
+              <div>
+                
+  <div class="section" id="set-up-ec2-instance-for-grading-jupyterhub">
+<h1>Set up EC2 instance for grading JupyterHub<a class="headerlink" href="#set-up-ec2-instance-for-grading-jupyterhub" title="Permalink to this headline">¶</a></h1>
+<p>Follow the instructions below to setup an AWS EC2 instance which will be used to host and serve the grading JupyterHub (where the teaching team will perform grading and where the autograding will be done).</p>
+<ol>
+<li><p>Log into the <a class="reference external" href="https://aws.amazon.com/console/">AWS Management console</a> and search for EC2 in the AWS services search bar:</p>
+ <br>
+<div class="figure align-center">
+<a class="reference internal image-reference" href="../../_images/ec2-1.png"><img alt="ec2-1" src="../../_images/ec2-1.png" style="width: 500px;" /></a>
+</div>
+ <br>
+</li>
+<li><p>Scroll down and click on the orange “Launch Instance” button:</p>
+ <br>
+<div class="figure align-center">
+<a class="reference internal image-reference" href="../../_images/ec2-2.png"><img alt="ec2-2" src="../../_images/ec2-2.png" style="width: 500px;" /></a>
+</div>
+ <br>
+</li>
+<li><p>Search for the Centos 7.8 Community Amazon machine image (AMI) that has the id <code class="docutils literal notranslate"><span class="pre">ami-0252eebc56636a56b</span></code>:</p>
+ <br>
+<div class="figure align-center">
+<a class="reference internal image-reference" href="../../_images/ec2-3.png"><img alt="ec2-3" src="../../_images/ec2-3.png" style="width: 500px;" /></a>
+</div>
+ <br>
+<p>and select it:</p>
+ <br>  
+<div class="figure align-center">
+<a class="reference internal image-reference" href="../../_images/ec2-4.png"><img alt="ec2-4" src="../../_images/ec2-4.png" style="width: 500px;" /></a>
+</div>
+ <br>    
+</li>
+<li><p>Select an instance type (we use a t2.large) and click “Next: Configure Instance Details”:</p>
+ <br>
+<div class="figure align-center">
+<a class="reference internal image-reference" href="../../_images/ec2-15.png"><img alt="ec2-5" src="../../_images/ec2-15.png" style="width: 500px;" /></a>
+</div>
+ <br>  
+</li>
+<li><p>Leave these settings as is, and click on “Next: Add Storage”:</p>
+ <br>  
+<div class="figure align-center">
+<a class="reference internal image-reference" href="../../_images/ec2-6.png"><img alt="ec2-6" src="../../_images/ec2-6.png" style="width: 500px;" /></a>
+</div>
+ <br>  
+</li>
+<li><p>Click the “Add New Volume” button to add an additional EBS volume for Docker. Edit the sizes to both be 30. Click the “Next: Add Tags” button:</p>
+ <br>  
+<div class="figure align-center">
+<a class="reference internal image-reference" href="../../_images/ec2-16.png"><img alt="ec2-7" src="../../_images/ec2-16.png" style="width: 500px;" /></a>
+</div>
+ <br>  
+</li>
+<li><p>Add a key and value pair to easily identify the machine later on your EC2 console (we used the key “Course” and value “workflows” here, but you can choose whatever is meaningful to you). Click the “Next: Configure Security Group” button:</p>
+ <br>  
+<div class="figure align-center">
+<a class="reference internal image-reference" href="../../_images/ec2-8.png"><img alt="ec2-8" src="../../_images/ec2-8.png" style="width: 500px;" /></a>
+</div>
+ <br>  
+</li>
+<li><p>Click the “Add Rule” button three times to add three additional security groups. Choose the one each of the following types: HTTP, HTTPS and All ICMP - IPv4. For the All ICMP - IPv4 security group, edit the value for the Source to be Custom and 0.0.0.0/0. Click the blue “Review and Launch” button:</p>
+ <br>  
+<div class="figure align-center">
+<a class="reference internal image-reference" href="../../_images/ec2-9.png"><img alt="ec2-9" src="../../_images/ec2-9.png" style="width: 500px;" /></a>
+</div>
+ <br>  
+</li>
+<li><p>Review your settings, and if satisfied, click the blue “Launch” button:</p>
+ <br>  
+<div class="figure align-center">
+<a class="reference internal image-reference" href="../../_images/ec2-10.png"><img alt="ec2-10" src="../../_images/ec2-10.png" style="width: 500px;" /></a>
+</div>
+ <br>  
+</li>
+<li><p>Choose “Create a new key pair” and create a “Key pair name” (here we used jupyterhub). Click “Download Key Pair” and then the blue “Launch Instance” button:</p>
+ <br>  
+<div class="figure align-center">
+<a class="reference internal image-reference" href="../../_images/ec2-11.png"><img alt="ec2-11" src="../../_images/ec2-11.png" style="width: 500px;" /></a>
+</div>
+ <br>  
+<p>Save the key pair somewhere intentional on your laptop (e.g., <code class="docutils literal notranslate"><span class="pre">~/.ssh/</span></code>) and then type the following to update the permissions of the key:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">chmod</span> <span class="mi">400</span> <span class="o">~/.</span><span class="n">ssh</span><span class="o">/</span><span class="n">jupyterhub</span><span class="o">.</span><span class="n">pem</span>
+</pre></div>
+</div>
+</li>
+<li><p>If successful, you should see this screen:</p>
+ <br>  
+<div class="figure align-center">
+<a class="reference internal image-reference" href="../../_images/ec2-12.png"><img alt="ec2-12" src="../../_images/ec2-12.png" style="width: 500px;" /></a>
+</div>
+ <br>  
+</li>
+<li><p>Go back to the EC2 Dashboard (reminder: you can get there via searching for EC2 in the AWS services search bar) and click on the “Running instances” link:</p>
+ <br>  
+<div class="figure align-center">
+<a class="reference internal image-reference" href="../../_images/ec2-13.png"><img alt="ec2-13" src="../../_images/ec2-13.png" style="width: 500px;" /></a>
+</div>
+ <br>  
+</li>
+<li><p>Select the instance you just launched and under the “Description” tab note (and record somewhere for future reference) the Public DNS (IPv4) value (which will be used to ssh into the instance) and the IPv4 Public IP address (which will be used by ansible and for mapping your custom domain name to the server):</p>
+ <br>  
+<div class="figure align-center">
+<a class="reference internal image-reference" href="../../_images/ec2-17.png"><img alt="ec2-14" src="../../_images/ec2-17.png" style="width: 500px;" /></a>
+</div>
+ <br>  
+</li>
+<li><p>Add the Ansible machine’s (e.g., your laptop’s) public key to <code class="docutils literal notranslate"><span class="pre">~/.ssh/authorized_keys</span></code> on the EC2 instances. To do this you need to ssh into the EC2 instance using the private key you downloaded from Amazon earlier (<code class="docutils literal notranslate"><span class="pre">jupyterhub.pem</span></code> in this example):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">ssh</span> <span class="o">-</span><span class="n">i</span> <span class="o">~/.</span><span class="n">ssh</span><span class="o">/</span><span class="n">jupyterhub</span><span class="o">.</span><span class="n">pem</span> <span class="n">centos</span><span class="nd">@ec2</span><span class="o">-</span><span class="mi">35</span><span class="o">-</span><span class="mi">183</span><span class="o">-</span><span class="mi">116</span><span class="o">-</span><span class="mf">177.</span><span class="n">ca</span><span class="o">-</span><span class="n">central</span><span class="o">-</span><span class="mf">1.</span><span class="n">compute</span><span class="o">.</span><span class="n">amazonaws</span><span class="o">.</span><span class="n">com</span>
+</pre></div>
+</div>
+<p>And then use The UNIX vi editor to add your public key the <code class="docutils literal notranslate"><span class="pre">~/.ssh/authorized_keys</span></code> file. To do this type the following to open vi:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sudo</span> <span class="n">vi</span> <span class="o">~/.</span><span class="n">ssh</span><span class="o">/</span><span class="n">authorized_keys</span>
+</pre></div>
+</div>
+<p>Then press <code class="docutils literal notranslate"><span class="pre">i</span></code> to enter insert mode and paste your key using your OS’s paste keyboard shortcut. Then press <code class="docutils literal notranslate"><span class="pre">ESC</span></code> + <code class="docutils literal notranslate"><span class="pre">w</span></code> + <code class="docutils literal notranslate"><span class="pre">q</span></code> to write the file and exit. Now you are are ready to move onto using Ansible to build the student JupyerHub.</p>
+</li>
+</ol>
+</div>
+
+    <script type="text/x-thebe-config">
+    {
+        requestKernel: true,
+        binderOptions: {
+            repo: "binder-examples/jupyter-stacks-datascience",
+            ref: "master",
+        },
+        codeMirrorConfig: {
+            theme: "abcdef",
+            mode: "python"
+        },
+        kernelOptions: {
+            kernelName: "python3",
+            path: "./content/infrastructure"
+        },
+        predefinedOutput: true
+    }
+    </script>
+    <script>kernelName = 'python3'</script>
+
+              </div>
+              
+        </div>
+    </div>
+    
+    
+    <div class='prev-next-bottom'>
+        
+    <a class='left-prev' id="prev-link" href="setup-ec2-student-hub.html" title="previous page">Set up EC2 instance for student JupyterHub</a>
+    <a class='right-next' id="next-link" href="setup-efs.html" title="next page">Set up Amazon Elastic Filesystem (EFS)</a>
+
+    </div>
+    <footer class="footer mt-5 mt-md-0">
+    <div class="container">
+      <p>
+        
+          By Tiffany Timbers<br/>
+        
+            &copy; Copyright 2020.<br/>
+      </p>
+    </div>
+  </footer>
+</main>
+
+
+      </div>
+    </div>
+
+    
+  <script src="../../_static/js/index.3da636dd464baa7582d2.js"></script>
+
+
+    
+  </body>
+</html>
