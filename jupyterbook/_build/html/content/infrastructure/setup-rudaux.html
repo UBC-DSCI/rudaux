@@ -5,7 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Setup ruduax</title>
+    <title>Setup NFS</title>
     
   <link rel="stylesheet" href="../../_static/css/index.73d71520a4ca3b99cfee5594769eaaae.css">
 
@@ -141,6 +141,11 @@
  </li>
  <li class="toctree-l1 current active">
   <a class="current reference internal" href="#">
+   Setup NFS
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="#setup-ruduax">
    Setup
    <code class="docutils literal notranslate">
     <span class="pre">
@@ -278,27 +283,44 @@
         </div>
         <nav id="bd-toc-nav">
             <ul class="nav section-nav flex-column">
- <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#setup-ruduax-on-the-student-server">
-   Setup
-   <code class="docutils literal notranslate">
-    <span class="pre">
-     ruduax
-    </span>
-   </code>
-   on the student server
+ <li class="toc-h1 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#">
+   Setup NFS
   </a>
  </li>
- <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#setup-ruduax-on-the-grading-server">
+ <li class="toc-h1 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#setup-ruduax">
    Setup
    <code class="docutils literal notranslate">
     <span class="pre">
      ruduax
     </span>
    </code>
-   on the grading server
   </a>
+  <ul class="nav section-nav flex-column">
+   <li class="toc-h2 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#setup-ruduax-on-the-student-server">
+     Setup
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       ruduax
+      </span>
+     </code>
+     on the student server
+    </a>
+   </li>
+   <li class="toc-h2 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#setup-ruduax-on-the-grading-server">
+     Setup
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       ruduax
+      </span>
+     </code>
+     on the grading server
+    </a>
+   </li>
+  </ul>
  </li>
 </ul>
 
@@ -311,7 +333,47 @@
         
               <div>
                 
-  <div class="section" id="setup-ruduax">
+  <div class="section" id="setup-nfs">
+<h1>Setup NFS<a class="headerlink" href="#setup-nfs" title="Permalink to this headline">¶</a></h1>
+<p>We need to connect the student and grading servers via NFS so that the snapshotted student work can be copied to the grading server for grading. Student server is sharing a ZFS volume with grading server, so client is grading server.</p>
+<p>Get the client (grading) server IP by ssh’ing on and typing: <code class="docutils literal notranslate"><span class="pre">ip</span> <span class="pre">addr</span> <span class="pre">show</span> <span class="pre">eth0</span></code> and you will get an output like this:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Last login: Thu Jan  7 20:11:00 2021 from 206.12.14.102
+[centos@dsci-100-instructor ~]$ ip addr show eth0
+2: eth0: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 9001 qdisc mq state UP group default qlen 1000
+    link/ether 02:5d:6f:37:03:a0 brd ff:ff:ff:ff:ff:ff
+    inet 222.32.32.222/22 brd 222.11.11.111 scope global dynamic eth0
+       valid_lft 3518sec preferred_lft 3518sec
+    inet6 fe80::5d:6fff:fe37:3a0/64 scope link 
+       valid_lft forever preferred_lft forever
+
+</pre></div>
+</div>
+<p>And the IP address is then <code class="docutils literal notranslate"><span class="pre">222.32.32.222/22</span></code>.</p>
+<p>We then use that IP address in the command below <strong>on the student server</strong> to add a property called <code class="docutils literal notranslate"><span class="pre">sharenfs</span></code> on the <code class="docutils literal notranslate"><span class="pre">tank/home</span></code> filesystem:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sudo</span> <span class="n">zfs</span> <span class="nb">set</span> <span class="n">sharenfs</span><span class="o">=</span><span class="s1">&#39;rw=@222.32.32.222/32,crossmnt,no_root_squash&#39;</span> <span class="n">tank</span><span class="o">/</span><span class="n">home</span>
+</pre></div>
+</div>
+<p>The “child” filesystems (e.g. <code class="docutils literal notranslate"><span class="pre">tank/home/dsci100</span></code>) will inherit this value (unless we override them, but we wont).</p>
+<p>To check that this worked type: <code class="docutils literal notranslate"><span class="pre">zfs</span> <span class="pre">get</span> <span class="pre">sharenfs</span> <span class="pre">tank/home</span></code> and you should see something like:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">NAME</span>       <span class="n">PROPERTY</span>  <span class="n">VALUE</span>                                         <span class="n">SOURCE</span>
+<span class="n">tank</span><span class="o">/</span><span class="n">home</span>  <span class="n">sharenfs</span>  <span class="n">rw</span><span class="o">=@</span><span class="mf">222.32</span><span class="o">.</span><span class="mf">32.222</span><span class="o">/</span><span class="mi">32</span><span class="p">,</span><span class="n">crossmnt</span><span class="p">,</span><span class="n">no_root_squash</span>  <span class="n">local</span>
+</pre></div>
+</div>
+<p>Next we need to start the NFS server via:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sudo</span> <span class="n">systemctl</span> <span class="n">enable</span> <span class="n">rpcbind</span>
+<span class="n">sudo</span> <span class="n">systemctl</span> <span class="n">enable</span> <span class="n">nfs</span><span class="o">-</span><span class="n">server</span>
+<span class="n">sudo</span> <span class="n">systemctl</span> <span class="n">start</span> <span class="n">rpcbind</span>
+<span class="n">sudo</span> <span class="n">systemctl</span> <span class="n">start</span> <span class="n">nfs</span><span class="o">-</span><span class="n">server</span>
+</pre></div>
+</div>
+<p>Using the AWS console, edit the security groups of the student server to add NFS with Port 2019, and the grading IP /32.</p>
+<p>Then on the grading server create a directory called: <code class="docutils literal notranslate"><span class="pre">/tank-student/home</span></code>, and then on the student server run <code class="docutils literal notranslate"><span class="pre">systemctl</span> <span class="pre">restart</span> <span class="pre">nfs-server</span></code>, and then on the grading server run <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">mount</span> <span class="pre">-t</span> <span class="pre">nfs</span> <span class="pre">&lt;STUDENT_SERVER_IP&gt;:/tank/home</span> <span class="pre">/tank-student/home</span></code>.</p>
+<p>Then on the grading server run the code below as a super user (<code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">su</span> <span class="pre">-</span></code>) to tell it to mount our NFS share after a reboot:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">echo</span> <span class="s2">&quot;&lt;STUDENT_SERVER_IP&gt;:/tank/home /tank-student/home nfs defaults 1 2&quot;</span> <span class="o">&gt;&gt;</span> <span class="o">/</span><span class="n">etc</span><span class="o">/</span><span class="n">fstab</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="setup-ruduax">
 <h1>Setup <code class="docutils literal notranslate"><span class="pre">ruduax</span></code><a class="headerlink" href="#setup-ruduax" title="Permalink to this headline">¶</a></h1>
 <p>The Python package <code class="docutils literal notranslate"><span class="pre">rudaux</span></code> manages the assignment collection, auto- and manual grading, as well as posting grades, solutions and feedback. <code class="docutils literal notranslate"><span class="pre">rudaux</span></code> needs to be installed and configured on both the student and grading servers.</p>
 <div class="section" id="setup-ruduax-on-the-student-server">
@@ -319,7 +381,9 @@
 <ol class="simple">
 <li><p>In the home folder of your student server, clone the <a class="reference external" href="https://github.com/UBC-DSCI/rudaux"><code class="docutils literal notranslate"><span class="pre">rudaux</span></code></a> repo</p></li>
 <li><p>Open the <code class="docutils literal notranslate"><span class="pre">rudaux</span></code> package folder <code class="docutils literal notranslate"><span class="pre">rudaux/rudaux</span></code>, and do <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">pip3</span> <span class="pre">install</span> <span class="pre">.</span> <span class="pre">--upgrade</span></code></p></li>
-<li><p>Fill out the template rudaux config in <code class="docutils literal notranslate"><span class="pre">rudaux/tests/rudaux_template_config.py</span></code> and put that in your home folder and rename it <code class="docutils literal notranslate"><span class="pre">rudaux/tests/rudaux_config.py</span></code></p></li>
+<li><p>Install nbgrader &amp; git via <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">pip3</span> <span class="pre">install</span> <span class="pre">nbgrader</span></code> and <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">pip3</span> <span class="pre">install</span> <span class="pre">gitpython</span></code>, and then go to <code class="docutils literal notranslate"><span class="pre">rudaux/dictauth</span></code> and type <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">pip3</span> <span class="pre">install</span> <span class="pre">.</span> <span class="pre">--upgrade</span></code></p></li>
+<li><p>Fill out the template rudaux config in <code class="docutils literal notranslate"><span class="pre">rudaux/rudaux/scripts/rudaux_template_config.py</span></code> and put that in your home folder and rename it <code class="docutils literal notranslate"><span class="pre">rudaux_config.py</span></code></p></li>
+<li><p>Add <code class="docutils literal notranslate"><span class="pre">rudaux</span></code> to the PATH for root and sudo user. To do this become the super user via <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">su</span> <span class="pre">-</span></code> and then in HOME add <code class="docutils literal notranslate"><span class="pre">rudaux</span></code> to the PATH in <code class="docutils literal notranslate"><span class="pre">.bash_profile</span></code> via <code class="docutils literal notranslate"><span class="pre">export</span> <span class="pre">PATH=&quot;/usr/local/bin:$PATH&quot;</span></code>, and then edit <code class="docutils literal notranslate"><span class="pre">/etc/sudoers</span></code> so that <code class="docutils literal notranslate"><span class="pre">/usr/local/bin/</span></code> is added to the  <code class="docutils literal notranslate"><span class="pre">secure_path</span></code> (it should read: <code class="docutils literal notranslate"><span class="pre">Defaults</span>&#160;&#160;&#160; <span class="pre">secure_path</span> <span class="pre">=</span> <span class="pre">/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin</span></code>).</p></li>
 <li><p>In the home folder run <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">rudaux</span> <span class="pre">list</span></code>  – this should successfully show you the list of students, tas, instructors, and Jupyterhub assignments</p></li>
 <li><p>Copy the cron job script <code class="docutils literal notranslate"><span class="pre">rudaux/rudaux/cron/rudaux_snapshot</span></code> into <code class="docutils literal notranslate"><span class="pre">/etc/cron.d/rudaux_snapshot</span></code>
 open it and make sure to replace the <code class="docutils literal notranslate"><span class="pre">/path/to/your/etc/</span></code> is your home folder, e.g. <code class="docutils literal notranslate"><span class="pre">/home/stty2u/</span></code>.</p></li>
@@ -331,7 +395,8 @@ open it and make sure to replace the <code class="docutils literal notranslate">
 <li><p>In the home folder of your grading server, clone the <a class="reference external" href="https://github.com/UBC-DSCI/rudaux"><code class="docutils literal notranslate"><span class="pre">rudaux</span></code></a> repo</p></li>
 <li><p>Open the <code class="docutils literal notranslate"><span class="pre">rudaux</span></code> package folder <code class="docutils literal notranslate"><span class="pre">rudaux/rudaux</span></code>, and do <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">pip3</span> <span class="pre">install</span> <span class="pre">.</span> <span class="pre">--upgrade</span></code></p></li>
 <li><p>Fill out the template rudaux config in <code class="docutils literal notranslate"><span class="pre">rudaux/tests/rudaux_template_config.py</span></code> and put that in your home folder and rename it <code class="docutils literal notranslate"><span class="pre">rudaux/tests/rudaux_config.py</span></code></p></li>
-<li><p>Go to <code class="docutils literal notranslate"><span class="pre">rudaux/dictauth</span></code> and type <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">pip3</span> <span class="pre">install</span> <span class="pre">.</span> <span class="pre">--upgrade</span></code></p></li>
+<li><p>Install nbgrader &amp; git via <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">pip3</span> <span class="pre">install</span> <span class="pre">nbgrader</span></code> and <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">pip3</span> <span class="pre">install</span> <span class="pre">gitpython</span></code>, and then go to <code class="docutils literal notranslate"><span class="pre">rudaux/dictauth</span></code> and type <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">pip3</span> <span class="pre">install</span> <span class="pre">.</span> <span class="pre">--upgrade</span></code></p></li>
+<li><p>Add <code class="docutils literal notranslate"><span class="pre">rudaux</span></code> to the PATH for root and sudo user. To do this become the super user via <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">su</span> <span class="pre">-</span></code> and then in HOME add <code class="docutils literal notranslate"><span class="pre">rudaux</span></code> to the PATH in <code class="docutils literal notranslate"><span class="pre">.bash_profile</span></code> via <code class="docutils literal notranslate"><span class="pre">export</span> <span class="pre">PATH=&quot;/usr/local/bin:$PATH&quot;</span></code>, and then edit <code class="docutils literal notranslate"><span class="pre">/etc/sudoers</span></code> so that <code class="docutils literal notranslate"><span class="pre">/usr/local/bin/</span></code> is added to the  <code class="docutils literal notranslate"><span class="pre">secure_path</span></code> (it should read: <code class="docutils literal notranslate"><span class="pre">Defaults</span>&#160;&#160;&#160; <span class="pre">secure_path</span> <span class="pre">=</span> <span class="pre">/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin</span></code>).</p></li>
 <li><p>Open up your <code class="docutils literal notranslate"><span class="pre">/srv/jupyterhub_config.py</span></code> file remove any LTAuthenticator lines and replace with</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">c</span><span class="o">.</span><span class="n">JupyterHub</span><span class="o">.</span><span class="n">authenticator_class</span> <span class="o">=</span> <span class="s1">&#39;dictauth.DictionaryAuthenticator&#39;</span>
 <span class="n">c</span><span class="o">.</span><span class="n">DictionaryAuthenticator</span><span class="o">.</span><span class="n">encrypted_passwords</span> <span class="o">=</span> <span class="p">{}</span>
