@@ -89,17 +89,6 @@
       include_role:
         name: docker
 
-    - name: Add interfaces their respective zones
-      firewalld:
-        interface: '{{ item.interface }}'
-        zone: '{{ item.zone }}'
-        state: enabled
-        permanent: true
-        immediate: yes
-      with_items:
-        - { interface: '{{ docker_interface }}', zone: 'home' }
-      notify: firewalld complete reload
-
     - name: update facts if docker0 is not defined
       action: setup filter="ansible_docker0"
       when: ansible_docker0 is not defined
