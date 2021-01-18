@@ -360,7 +360,12 @@
 <span class="n">sudo</span> <span class="n">systemctl</span> <span class="n">start</span> <span class="n">nfs</span><span class="o">-</span><span class="n">server</span>
 </pre></div>
 </div>
-<p>Using the AWS console, edit the security groups of the student server to add NFS with Port 2019, and the grading IP /32.</p>
+<p>From the student server, poke a hole through the firewall by typing:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">firewall</span><span class="o">-</span><span class="n">cmd</span> <span class="o">--</span><span class="n">permanent</span> <span class="o">--</span><span class="n">zone</span><span class="o">=</span><span class="n">public</span> <span class="o">--</span><span class="n">add</span><span class="o">-</span><span class="n">rich</span><span class="o">-</span><span class="n">rule</span><span class="o">=</span><span class="s1">&#39;rule family=&quot;ipv4&quot; source address=&quot;&lt;GRADING_SERVER_IP&gt;/32&quot; port port=&quot;2049&quot; protocol=&quot;tcp&quot; accept&#39;</span>
+<span class="n">firewall</span><span class="o">-</span><span class="n">cmd</span> <span class="o">--</span><span class="n">reload</span>
+</pre></div>
+</div>
+<p>Using the AWS console, edit the security groups of the student server to add NFS with Port 2049, and the grading IP /32.</p>
 <p>Then on the grading server create a directory called: <code class="docutils literal notranslate"><span class="pre">/tank-student/home</span></code>, and then on the student server run <code class="docutils literal notranslate"><span class="pre">systemctl</span> <span class="pre">restart</span> <span class="pre">nfs-server</span></code>, and then on the grading server run <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">mount</span> <span class="pre">-t</span> <span class="pre">nfs</span> <span class="pre">&lt;STUDENT_SERVER_IP&gt;:/tank/home</span> <span class="pre">/tank-student/home</span></code>.</p>
 <p>Then on the grading server run the code below as a super user (<code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">su</span> <span class="pre">-</span></code>) to tell it to mount our NFS share after a reboot:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">echo</span> <span class="s2">&quot;&lt;STUDENT_SERVER_IP&gt;:/tank/home /tank-student/home nfs defaults 1 2&quot;</span> <span class="o">&gt;&gt;</span> <span class="o">/</span><span class="n">etc</span><span class="o">/</span><span class="n">fstab</span>
