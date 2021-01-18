@@ -45,7 +45,14 @@
 # sudo systemctl start nfs-server
 # ```
 # 
-# Using the AWS console, edit the security groups of the student server to add NFS with Port 2019, and the grading IP /32.
+# From the student server, poke a hole through the firewall by typing:
+# 
+# ```
+# firewall-cmd --permanent --zone=public --add-rich-rule='rule family="ipv4" source address="<GRADING_SERVER_IP>/32" port port="2049" protocol="tcp" accept'
+# firewall-cmd --reload
+# ```
+# 
+# Using the AWS console, edit the security groups of the student server to add NFS with Port 2049, and the grading IP /32.
 # 
 # Then on the grading server create a directory called: `/tank-student/home`, and then on the student server run `systemctl restart nfs-server`, and then on the grading server run `sudo mount -t nfs <STUDENT_SERVER_IP>:/tank/home /tank-student/home`.
 # 
