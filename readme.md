@@ -27,25 +27,8 @@ Rudaux is named after the French artist and astronomer Lucien Rudaux, a pioneer 
 </figure>
 
 
-### Installation:
-
-```
-pip install -i https://test.pypi.org/simple/ rudaux
-```
-
-### Features
-- TODO
-
-### Dependencies
-
-- TODO
-
-### Usage
-
-- TODO
-
 ### Documentation
-The official documentation is hosted on Read the Docs: <https://rudaux.readthedocs.io/en/latest/>
+The official documentation is hosted on Read the Docs: <https://ubc-dsci.github.io/rudaux>
 
 ### Credits
 This package was created with Cookiecutter and the UBC-MDS/cookiecutter-ubc-mds project template, modified from the [pyOpenSci/cookiecutter-pyopensci](https://github.com/pyOpenSci/cookiecutter-pyopensci) project template and the [audreyr/cookiecutter-pypackage](https://github.com/audreyr/cookiecutter-pypackage).
