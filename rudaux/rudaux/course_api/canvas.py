@@ -83,8 +83,8 @@ def _canvas_get_people_by_type(config, typ):
               } for p in ppl_typ
            ] 
 
-def _canvas_get_overrides(config, assignment_id):
-    overs = _canvas_get(config, 'assignments/'+assignment_id+'/overrides')
+def _canvas_get_overrides(config, assignment):
+    overs = _canvas_get(config, 'assignments/'+assignment['id']+'/overrides')
     for over in overs:
         over['id'] = str(over['id'])
         over['student_ids'] = list(map(str, over['student_ids']))
@@ -145,29 +145,29 @@ def get_assignments(config, grader_type_identifier):
 #config.jupyterhub_host_root # 
     for a in processed_asgns:
         if a['has_overrides']:
-            a['overrides'] = _canvas_get_overrides(config, a['id'])
+            a['overrides'] = _canvas_get_overrides(config, a)
 
     return processed_asgns
 
 @task
-def get_submissions(config, assignment_id):
-    subms = _canvas_get(config, 'assignments/'+assignment_id+'/submissions')
+def get_submissions(config, assignment):
+    subms = _canvas_get(config, 'assignments/'+assignment['id']+'/submissions')
     return [ {
                    'student_id' : str(subm['user_id']), 
-                   'assignment_id' : assignment_id,
+                   'assignment_id' : assignment['id'],
                    'score' : subm['score'],
                    'posted_at' : None if subm['posted_at'] is None else plm.parse(subm['posted_at']),
                    'late' : subm['late'],
                    'missing' : subm['missing']
             } for subm in subms ]
 
-def create_override(config, assignment_id, override_dict):
+def create_override(config, assignment, override_dict):
     #check all required keys
     required_keys = ['student_ids', 'unlock_at', 'due_at', 'lock_at', 'title']
     for rk in required_keys:
         if not override_dict.get(rk):
-            sig = signals.FAIL("invalid override for assignment " + str(assignment_id) +": dict missing required key " + rk)
-            sig.assignment_id = assignment_id
+            sig = signals.FAIL("invalid override for assignment " + str(assignment['name']) +"("+str(assignment['id'])+"): dict missing required key " + rk)
+            sig.assignment = assignment
             sig.override_dict = override_dict
             sig.missing_key = rk
             raise sig
@@ -181,40 +181,40 @@ def create_override(config, assignment_id, override_dict):
 
     #post the override
     post_json = {'assignment_override' : override_dict}
-    _canvas_post(config, 'assignments/'+assignment_id+'/overrides', post_json)
+    _canvas_post(config, 'assignments/'+assignment['id']+'/overrides', post_json)
 
     #check that it posted properly 
-    overs = _canvas_get_overrides(config, assignment_id)
+    overs = _canvas_get_overrides(config, assignment)
     n_match = len([over for over in overs if over['title'] == override_dict['title']])
     if n_match != 1:
-        sig = signals.FAIL("override for assignment " + str(assignment_id) +" failed to upload to Canvas")
-        sig.assignment_id = assignment_id
+        sig = signals.FAIL("override for assignment " + str(assignment['name']) +"("+str(assignment['id'])+") failed to upload to Canvas")
+        sig.assignment = assignment
         sig.attempted_override = override_dict
         sig.overrides = overs
         raise sig
 
-def remove_override(config, assignment_id, override_id):
-    _canvas_delete(config, 'assignments/'+assignment_id+'/overrides/'+override_id)
+def remove_override(config, assignment, override):
+    _canvas_delete(config, 'assignments/'+assignment['id']+'/overrides/'+override['id'])
 
     #check that it was removed properly 
-    overs = _canvas_get_overrides(config, assignment_id)
-    n_match = len([over for over in overs if over['id'] == override_id])
+    overs = _canvas_get_overrides(config, assignment)
+    n_match = len([over for over in overs if over['id'] == override['id']])
     if n_match != 0:
-        sig = signals.FAIL("override " + str(override_id) + " for assignment " + str(assignment_id) + " failed to be removed from Canvas")
-        sig.override_id = override_id
-        sig.assignment_id = override_id
+        sig = signals.FAIL("override " + str(override['title']) + " for assignment " + str(assignment['name']) + "("+str(assignment['id'])+") failed to be removed from Canvas")
+        sig.override = override
+        sig.assignment = assignment
         sig.overrides = overs
         raise sig
 
-def put_grade(config, assignment_id, student_id, score):
-    _canvas_put(config, 'assignments/'+assignment_id+'/submissions/'+student_id, {'submission' : {'posted_grade' : score}})
+def put_grade(config, assignment, student, score):
+    _canvas_put(config, 'assignments/'+assignment['id']+'/submissions/'+student['id'], {'submission' : {'posted_grade' : score}})
 
     #check that it was posted properly
-    canvas_grade = str(_canvas_get(config, 'assignments/'+assignment_id+'/submissions/'+student_id)[0]['score'])
+    canvas_grade = str(_canvas_get(config, 'assignments/'+assignment['id']+'/submissions/'+student['id'])[0]['score'])
     if abs(float(score) - float(canvas_grade)) > 0.01:
-        sig = signals.FAIL("grade (" + str(score) +") failed to upload for assignment " + str(assignment_id) + ", student " + str(student_id) + "; grade on canvas is " + str(canvas_grade))
-        sig.assignment_id = assignment_id
-        sig.student_id = student_id
+        sig = signals.FAIL("grade (" + str(score) +") failed to upload for assignment " + str(assignment['name']) + "("+str(assignment['id'])+"), student " + str(student['name']) + "("+str(student['id'])+"); grade on canvas is " + str(canvas_grade))
+        sig.assignment = assignment
+        sig.student = student
         sig.score = score
         sig.canvas_score = canvas_grade
         raise sig
