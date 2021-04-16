@@ -1,6 +1,0 @@
-# update the registration list / late extensions every day
-35 23 * * * root cd /path/to/your/rudaux/config/folder; /usr/local/bin/rudaux extend_lateregs 2>&1 | ts '[\%F-\%H:\%M:\%S]' >> "rudaux_extend_lateregs_$(date +"\%Y_\%m_\%d").log"
-# run the autograding workflow after that
-50 23 * * * root cd /path/to/your/rudaux/config/folder; /usr/local/bin/rudaux run 2>&1 | ts '[\%F-\%H:\%M:\%S]' >> "rudaux_run_$(date +"\%Y_\%m_\%d").log"
-
-

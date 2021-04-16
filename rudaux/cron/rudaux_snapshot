@@ -1,3 +1,0 @@
-# run the snapshot code on the student hub every 30 minutes; save the output log (if any)
-3 * * * * root cd /path/to/your/rudaux/config/folder; /usr/local/bin/rudaux snapshot 2>&1 | ts '[\%F-\%H:\%M:\%S]' >> "rudaux_snapshot_$(date +"\%Y_\%m_\%d").log"
-33 * * * * root cd /path/to/your/rudaux/config/folder; /usr/local/bin/rudaux snapshot 2>&1 | ts '[\%F-\%H:\%M:\%S]' >> "rudaux_snapshot_$(date +"\%Y_\%m_\%d").log"
