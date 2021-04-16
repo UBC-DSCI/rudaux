@@ -13,10 +13,6 @@ def validate_config(config):
     config.student_dataset_root 
     return True
 
-def _get_ssh_client(config):
-    
-    return client
-
 def _snapshot(config, snap_path):
     # open a ssh connection to the student machine
     client = pmk.client.SSHClient()
@@ -49,6 +45,6 @@ def snapshot_all(config, assignment, snap_name):
     snap_path = config.student_dataset_root.strip('/') + '@' + snap_name
     _snapshot(config, snap_path)
 
-def snapshot_student(config, assignment, student, snap_name):
+def snapshot_single(config, assignment, student, snap_name):
     snap_path = os.path.join(config.student_datset_root, user['name']).strip('/') + '@' + snap_name
     _snapshot(config, snap_path)
