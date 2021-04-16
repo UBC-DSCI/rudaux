@@ -110,6 +110,18 @@ def _canvas_get_people_by_type(config, typ):
               } for p in ppl_typ
            ] 
 
+def _canvas_get_overrides(config, assignment_id):
+    overs = _canvas_get(config, 'assignments/'+assignment_id+'/overrides')
+    for over in overs:
+        over['id'] = str(over['id'])
+        over['student_ids'] = list(map(str, over['student_ids']))
+        for key in ['due_at', 'lock_at', 'unlock_at']:
+            if over.get(key) is not None:
+                over[key] = plm.parse(over[key])
+            else:
+                over[key] = None
+    return overs
+
 @task
 def get_course_info(config):
     return _canvas_get(config,'')[0]
@@ -152,10 +164,11 @@ def get_assignments(config):
 # if 'external_tool_tag_attributes' in a.keys() and self.jupyterhub_host_root in a['external_tool_tag_attributes']['url'] and a['omit_from_final_grade'] == False]
     for a in processed_asgns:
         if a['has_overrides']:
-            a['overrides'] = get_overrides(config, a['id'])
+            a['overrides'] = _canvas_get_overrides(config, a['id'])
 
     return processed_asgns
 
+@task
 def get_submissions(config, assignment_id):
     subms = _canvas_get(config, 'assignments/'+assignment_id+'/submissions')
     return [ {
@@ -166,18 +179,6 @@ def get_submissions(config, assignment_id):
                    'late' : subm['late'],
                    'missing' : subm['missing']
             } for subm in subms ]
-
-def get_overrides(config, assignment_id):
-    overs = _canvas_get(config, 'assignments/'+assignment_id+'/overrides')
-    for over in overs:
-        over['id'] = str(over['id'])
-        over['student_ids'] = list(map(str, over['student_ids']))
-        for key in ['due_at', 'lock_at', 'unlock_at']:
-            if over.get(key) is not None:
-                over[key] = plm.parse(over[key])
-            else:
-                over[key] = None
-    return overs
 
 def create_override(config, assignment_id, override_dict):
     #check all required keys
@@ -197,8 +198,8 @@ def create_override(config, assignment_id, override_dict):
     post_json = {'assignment_override' : override_dict}
     _canvas_post(config, 'assignments/'+assignment_id+'/overrides', post_json)
 
-    #check that it posted properly (only if not dry run)
-    overs = get_overrides(config, assignment_id)
+    #check that it posted properly 
+    overs = _canvas_get_overrides(config, assignment_id)
     n_match = len([over for over in overs if over['title'] == override_dict['title']])
     if n_match != 1:
         raise OverrideUploadError(overs, override_dict)    
@@ -206,8 +207,8 @@ def create_override(config, assignment_id, override_dict):
 def remove_override(config, assignment_id, override_id):
     _canvas_delete(config, 'assignments/'+assignment_id+'/overrides/'+override_id)
 
-    #check that it was removed properly (only if not a dry run)
-    overs = get_overrides(config, assignment_id)
+    #check that it was removed properly 
+    overs = _canvas_get_overrides(config, assignment_id)
     n_match = len([over for over in overs if over['id'] == override_id])
     if n_match != 0:
         raise OverrideRemoveError(overs, override_id)    
