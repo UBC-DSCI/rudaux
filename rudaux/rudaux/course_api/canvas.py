@@ -2,38 +2,7 @@ import requests
 import urllib.parse
 import pendulum as plm
 from prefect import task
-
-class CanvasGetError(Exception):
-    def __init__(self, url, resp):
-        self.url = url
-        self.resp = resp
-
-class CanvasUploadError(Exception):
-    def __init__(self, url, resp, typ):
-        self.typ = typ
-        self.url = url
-        self.resp = resp
-
-class InvalidOverrideError(Exception):
-    def __init__(self, override_dict, missing_key=None, multiple_students=False):
-        self.override_dict = override_dict
-        self.missing_key = missing_key
-        self.multiple_students = multiple_students
-
-class OverrideUploadError(Exception):
-    def __init__(self, overrides, override_to_upload):
-        self.overrides = overrides
-        self.override_to_upload = override_to_upload
-
-class OverrideRemoveError(Exception):
-    def __init__(self, overrides, override_id):
-        self.overrides = overrides
-        self.override_id = override_id
-
-class GradeNotUploadedError(Exception):
-    def __init__(self, uploaded_val, actual_val):
-        self.message = 'Grade on canvas not equal to the uploaded grade. Uploaded grade: ' + str(uploaded_val) + ' Canvas grade: ' + str(actual_val)
-        
+from prefect.engine import signals
 
 def _canvas_get(config, path_suffix, use_group_base=False):
     group_url = urllib.parse.urljoin(config.canvas_domain, 'api/v1/groups/')
@@ -61,7 +30,10 @@ def _canvas_get(config, path_suffix, use_group_base=False):
         )
 
         if resp.status_code < 200 or resp.status_code > 299:
-            raise CanvasGetError(url, resp)
+            sig = signals.FAIL("failed GET response status code " + str(resp.status_code) + " for URL: " + str(url))
+            sig.url = url
+            sig.resp = resp            
+            raise sig
 
         json_data = resp.json()
         if isinstance(json_data, list):
@@ -84,8 +56,10 @@ def _canvas_upload(config, path_suffix, json_data, typ):
         json=json_data
     )
     if resp.status_code < 200 or resp.status_code > 299:
-        print('Canvas Upload Error: ' + str(resp.reason))
-        raise CanvasUploadError(url, resp, typ)
+        sig = signals.FAIL("failed upload (" + typ + ")  response status code " + str(resp.status_code) + " for URL: " + str(url))
+        sig.url = url
+        sig.resp = resp            
+        raise sig
     return
      
 def _canvas_put(config, path_suffix, json_data):
@@ -192,7 +166,11 @@ def create_override(config, assignment_id, override_dict):
     required_keys = ['student_ids', 'unlock_at', 'due_at', 'lock_at', 'title']
     for rk in required_keys:
         if not override_dict.get(rk):
-            raise InvalidOverrideError(override_dict, missing_key=rk)
+            sig = signals.FAIL("invalid override for assignment " + str(assignment_id) +": dict missing required key " + rk)
+            sig.assignment_id = assignment_id
+            sig.override_dict = override_dict
+            sig.missing_key = rk
+            raise sig
 
     #convert student ids to integers
     override_dict['student_ids'] = list(map(int, override_dict['student_ids']))
@@ -209,7 +187,11 @@ def create_override(config, assignment_id, override_dict):
     overs = _canvas_get_overrides(config, assignment_id)
     n_match = len([over for over in overs if over['title'] == override_dict['title']])
     if n_match != 1:
-        raise OverrideUploadError(overs, override_dict)    
+        sig = signals.FAIL("override for assignment " + str(assignment_id) +" failed to upload to Canvas")
+        sig.assignment_id = assignment_id
+        sig.attempted_override = override_dict
+        sig.overrides = overs
+        raise sig
 
 def remove_override(config, assignment_id, override_id):
     _canvas_delete(config, 'assignments/'+assignment_id+'/overrides/'+override_id)
@@ -218,16 +200,24 @@ def remove_override(config, assignment_id, override_id):
     overs = _canvas_get_overrides(config, assignment_id)
     n_match = len([over for over in overs if over['id'] == override_id])
     if n_match != 0:
-        raise OverrideRemoveError(overs, override_id)    
+        sig = signals.FAIL("override " + str(override_id) + " for assignment " + str(assignment_id) + " failed to be removed from Canvas")
+        sig.override_id = override_id
+        sig.assignment_id = override_id
+        sig.overrides = overs
+        raise sig
 
 def put_grade(config, assignment_id, student_id, score):
     _canvas_put(config, 'assignments/'+assignment_id+'/submissions/'+student_id, {'submission' : {'posted_grade' : score}})
 
     #check that it was posted properly
-    #TODO clean this up, it's hard to understand as-is
     canvas_grade = str(_canvas_get(config, 'assignments/'+assignment_id+'/submissions/'+student_id)[0]['score'])
     if abs(float(score) - float(canvas_grade)) > 0.01:
-        raise GradeNotUploadedError(score, canvas_grade)
+        sig = signals.FAIL("grade (" + str(score) +") failed to upload for assignment " + str(assignment_id) + ", student " + str(student_id) + "; grade on canvas is " + str(canvas_grade))
+        sig.assignment_id = assignment_id
+        sig.student_id = student_id
+        sig.score = score
+        sig.canvas_score = canvas_grade
+        raise sig
 
 # TODO add these in???
 #def get_grades(course, assignment): #???
