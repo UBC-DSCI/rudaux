@@ -122,6 +122,11 @@ def _canvas_get_overrides(config, assignment_id):
                 over[key] = None
     return overs
 
+def validate_config(config):
+    # TODO: make sure the config has everything needed 
+    # for this particular course API
+    return True
+
 @task
 def get_course_info(config):
     return _canvas_get(config,'')[0]
