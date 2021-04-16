@@ -6,7 +6,7 @@ with open('requirements.txt', 'r') as in_:
 
 setup(
   name='rudaux',
-  version='0.1',
+  version='0.2',
   description='Course management with Canvas and Jupyterhub.',
   author='Trevor Campbell',
   author_email='trevor.d.campbell@gmail.com',
