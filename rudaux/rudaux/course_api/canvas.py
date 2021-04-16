@@ -39,7 +39,6 @@ def _canvas_get(config, path_suffix, use_group_base=False):
     group_url = urllib.parse.urljoin(config.canvas_domain, 'api/v1/groups/')
     base_url = urllib.parse.urljoin(config.canvas_domain, 'api/v1/courses/'+config.canvas_id+'/')
     token = config.canvas_token
-    jupyterhub_host_root = config.jupyterhub_host_root
 
     if use_group_base:
         url = urllib.parse.urljoin(group_url, path_suffix)
@@ -123,8 +122,9 @@ def _canvas_get_overrides(config, assignment_id):
     return overs
 
 def validate_config(config):
-    # TODO: make sure the config has everything needed 
-    # for this particular course API
+    #TODO validate canvas_domain, canvas_token; make sure they're strings, formatted properly, etc
+    config.canvas_domain
+    config.canvas_token 
     return True
 
 @task
@@ -153,7 +153,7 @@ def get_groups(config):
             } for g in grps]
 
 @task
-def get_assignments(config):
+def get_assignments(config, grader_type_identifier):
     asgns = _canvas_get(config, 'assignments')
     processed_asgns = [ {  
                'id' : str(a['id']),
@@ -163,10 +163,12 @@ def get_assignments(config):
                'unlock_at' : None if a['unlock_at'] is None else plm.parse(a['unlock_at']),
                'has_overrides' : a['has_overrides'],
                'overrides' : [],
-               'published' : a['published']
+               'published' : a['published'],
+               'grader_type' : grader_type_identifier(a)
              } for a in asgns]
 # TODO the below commented out code filters for jupyterhub assignments. need to put this code elsewhere
 # if 'external_tool_tag_attributes' in a.keys() and self.jupyterhub_host_root in a['external_tool_tag_attributes']['url'] and a['omit_from_final_grade'] == False]
+#config.jupyterhub_host_root # 
     for a in processed_asgns:
         if a['has_overrides']:
             a['overrides'] = _canvas_get_overrides(config, a['id'])
