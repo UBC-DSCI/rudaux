@@ -21,108 +21,108 @@ subparsers = parser.add_subparsers(
   title='Subcommands', dest="subparser", help='Commands that rudaux can process.'
 )
 
-#------------------------------------
-#          Snapshot 
-#------------------------------------
+##------------------------------------
+##          Snapshot 
+##------------------------------------
+#
+#snap_parser = subparsers.add_parser('snapshot', help='Take a snapshot of submissions past the assignment due date.')
+#snap_parser.set_defaults(func=commands.snapshot)
+#snap_parser.add_argument(
+#  '--dir',
+#  dest='directory',
+#  action='store',
+#  default=os.getcwd(),
+#  help="The directory containing the rudaux configuration file."
+#)
+#snap_parser.add_argument(
+#  '--dry-run',
+#  dest='dry_run',
+#  action='store_true',
+#  default=False,
+#  help="Specify that the snapshot should not actually be taken and print the zfs command instead."
+#)
+#
+#
+##------------------------------------
+##           List 
+##------------------------------------
+#list_parser = subparsers.add_parser('list', help='Print a list of assignments, students, etc')
+#list_parser.set_defaults(func=commands.print_list)
+#list_parser.add_argument(
+#  '--dir',
+#  dest='directory',
+#  action='store',
+#  default=os.getcwd(),
+#  help="The directory containing the rudaux configuration file."
+#)
+#list_parser.add_argument(
+#  '--assignments',
+#  '-a',
+#  dest='assignments',
+#  action='store_true',
+#  default=False,
+#  help='Print assignments'
+#)
+#list_parser.add_argument(
+#  '--students',
+#  '-s',
+#  dest='students',
+#  action='store_true',
+#  default=False,
+#  help='Print students'
+#)
+#list_parser.add_argument(
+#  '--instructors',
+#  '-i',
+#  dest='instructors',
+#  action='store_true',
+#  default=False,
+#  help='Print instructors'
+#)
+#list_parser.add_argument(
+#  '--tas',
+#  '-t',
+#  dest='tas',
+#  action='store_true',
+#  default=False,
+#  help='Print teaching assistants'
+#)
+#list_parser.add_argument(
+#  '--groups',
+#  '-g',
+#  dest='groups',
+#  action='store_true',
+#  default=False,
+#  help='Print groups'
+#)
 
-snap_parser = subparsers.add_parser('snapshot', help='Take a snapshot of submissions past the assignment due date.')
-snap_parser.set_defaults(func=commands.snapshot)
-snap_parser.add_argument(
-  '--dir',
-  dest='directory',
-  action='store',
-  default=os.getcwd(),
-  help="The directory containing the rudaux configuration file."
-)
-snap_parser.add_argument(
-  '--dry-run',
-  dest='dry_run',
-  action='store_true',
-  default=False,
-  help="Specify that the snapshot should not actually be taken and print the zfs command instead."
-)
-
-
-#------------------------------------
-#           List 
-#------------------------------------
-list_parser = subparsers.add_parser('list', help='Print a list of assignments, students, etc')
-list_parser.set_defaults(func=commands.print_list)
-list_parser.add_argument(
-  '--dir',
-  dest='directory',
-  action='store',
-  default=os.getcwd(),
-  help="The directory containing the rudaux configuration file."
-)
-list_parser.add_argument(
-  '--assignments',
-  '-a',
-  dest='assignments',
-  action='store_true',
-  default=False,
-  help='Print assignments'
-)
-list_parser.add_argument(
-  '--students',
-  '-s',
-  dest='students',
-  action='store_true',
-  default=False,
-  help='Print students'
-)
-list_parser.add_argument(
-  '--instructors',
-  '-i',
-  dest='instructors',
-  action='store_true',
-  default=False,
-  help='Print instructors'
-)
-list_parser.add_argument(
-  '--tas',
-  '-t',
-  dest='tas',
-  action='store_true',
-  default=False,
-  help='Print teaching assistants'
-)
-list_parser.add_argument(
-  '--groups',
-  '-g',
-  dest='groups',
-  action='store_true',
-  default=False,
-  help='Print groups'
-)
-
-#---------------------------------------------
-#           Extensions for Late Registrants
-#---------------------------------------------
-
-latereg_parser = subparsers.add_parser('extend_lateregs', help='Create due date overrides for late registrants')
-latereg_parser.set_defaults(func=commands.apply_latereg_extensions)
-latereg_parser.add_argument(
-  '--dir',
-  dest='directory',
-  action='store',
-  default=os.getcwd(),
-  help="The directory containing the rudaux configuration file."
-)
-latereg_parser.add_argument(
-  '--dry-run',
-  dest='dry_run',
-  action='store_true',
-  default=False,
-  help="Specify that late registrations should not actually be provided canvas extensions and print the canvas api calls instead."
-)
+##---------------------------------------------
+##           Extensions for Late Registrants
+##---------------------------------------------
+#
+#latereg_parser = subparsers.add_parser('extend_lateregs', help='Create due date overrides for late registrants')
+#latereg_parser.set_defaults(func=commands.apply_latereg_extensions)
+#latereg_parser.add_argument(
+#  '--dir',
+#  dest='directory',
+#  action='store',
+#  default=os.getcwd(),
+#  help="The directory containing the rudaux configuration file."
+#)
+#latereg_parser.add_argument(
+#  '--dry-run',
+#  dest='dry_run',
+#  action='store_true',
+#  default=False,
+#  help="Specify that late registrations should not actually be provided canvas extensions and print the canvas api calls instead."
+#)
 
 #---------------------------------------------
 #           Run workflow
 #---------------------------------------------
 
 run_parser = subparsers.add_parser('run', help='Run the course management workflow')
-run_parser.set_defaults(func=commands.run)
+run_parser.set_defaults(func=flow.run)
 run_parser.add_argument(
   '--dir',
   dest='directory',
@@ -131,15 +131,19 @@ run_parser.add_argument(
   help="The directory containing the rudaux configuration file."
 )
 run_parser.add_argument(
-  '--dry-run',
-  dest='dry_run',
-  action='store_true',
-  default=False,
-  help="(DRY RUN CURRENTLY DOES NOT WORK FOR THIS FUNCTION) Don't take any actions that actually change state; print function usage instead"
+  '--grade_interval',
+  dest='grade_interval',
+  action='store',
+  default=os.getcwd(),
+  help="The interval (minutes) to run the Rudaux flow"
 )
-
-
-
+run_parser.add_argument(
+  '--snapshot_interval',
+  dest='snapshot_interval',
+  action='store',
+  default=os.getcwd(),
+  help="The interval (minutes) to take snapshots" 
+)
 
 # Parse the arguments!
 args = parser.parse_args()
