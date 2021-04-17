@@ -1,1 +1,1 @@
-import canvas
+from . import canvas

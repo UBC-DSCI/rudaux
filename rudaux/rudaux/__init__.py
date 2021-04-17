@@ -1,1 +1,1 @@
-from .course import Course
+from . import flow

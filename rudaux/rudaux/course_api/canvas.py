@@ -101,6 +101,7 @@ def validate_config(config):
     #config.canvas_domain
     #config.canvas_token 
     #config.canvas_id 
+    logger = prefect.context.get("logger").info("rudaux_config.py valid for CanvasAPI")
     return config
 
 @task

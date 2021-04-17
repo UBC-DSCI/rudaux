@@ -1,17 +1,19 @@
 #!/usr/bin/python3
 
 from argparse import ArgumentParser
-from rudaux import commands
+from rudaux import flow
 import pendulum as plm
 import os, sys
+import pyfiglet, termcolor
 
-#print begin stamp for now while still debugging (useful for reading logs)
-sys.stderr.write('\n')
-sys.stderr.write('---------------------------------\n')
-sys.stderr.write('-----------Rudaux----------------\n')
-sys.stderr.write('---------------------------------\n')
-sys.stderr.write('DateTime: ' + str(plm.now().in_timezone('America/Vancouver')) + ' Vancouver Time\n')
-sys.stderr.write('Command: ' + str(sys.argv)+'\n')
+sys.stdout.write("\n")
+termcolor.cprint(pyfiglet.figlet_format("Rudaux"), 'blue', attrs=['bold'])
+sys.stdout.write('Version 0.2\n')
+sys.stdout.write('DateTime: ' + str(plm.now('UTC'))+'\n') 
+sys.stdout.write('Command: ' + str(sys.argv)+'\n')
+sys.stdout.write("Visit the documentation at https://ubc-dsci.github.io/rudaux\n")
+sys.stdout.write('============================================================\n')
+sys.stdout.write('\n')
 
 parser = ArgumentParser(
   description='Manage a Canvas / Jupyterhub / NbGrader course.'
