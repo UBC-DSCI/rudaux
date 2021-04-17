@@ -15,9 +15,7 @@ sys.stdout.write("Visit the documentation at https://ubc-dsci.github.io/rudaux\n
 sys.stdout.write('============================================================\n')
 sys.stdout.write('\n')
 
-parser = ArgumentParser(
-  description='Manage a Canvas / Jupyterhub / NbGrader course.'
-)
+parser = ArgumentParser()
 
 subparsers = parser.add_subparsers(
   title='Subcommands', dest="subparser", help='Commands that rudaux can process.'
