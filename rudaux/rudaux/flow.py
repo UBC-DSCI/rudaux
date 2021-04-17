@@ -22,8 +22,10 @@ def run(args):
     __config = Config()
     __config.merge(PyFileConfigLoader('rudaux_config.py', path=course_dir).load_config())
 
+    print("Ensuring the prefect server and agent are running")
+    # TODO
+
     print("Constructing the prefect flow...")
-    print("UNC")
     ## register the rudaux grading flow
     #schedule = IntervalSchedule(start_date = datetime.utcnow() + timedelta(seconds=1),
     #                            interval = timedelta(minutes=interval))
