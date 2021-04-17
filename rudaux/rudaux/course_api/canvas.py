@@ -95,11 +95,13 @@ def _canvas_get_overrides(config, assignment):
                 over[key] = None
     return overs
 
+@task
 def validate_config(config):
-    #TODO validate canvas_domain, canvas_token; make sure they're strings, formatted properly, etc
-    config.canvas_domain
-    config.canvas_token 
-    return True
+    #TODO validate these all strings, format, etc
+    #config.canvas_domain
+    #config.canvas_token 
+    #config.canvas_id 
+    return config
 
 @task
 def get_course_info(config):

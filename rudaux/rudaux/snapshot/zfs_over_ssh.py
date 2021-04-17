@@ -6,12 +6,12 @@ import paramiko as pmk
 
 def validate_config(config):
     # TODO validate these
-    config.student_ssh_hostname
-    config.student_ssh_port
-    config.student_ssh_username
-    config.student_zfs_path #usually /usr/sbin/zfs
-    config.student_dataset_root 
-    return True
+    #config.student_ssh_hostname
+    #config.student_ssh_port
+    #config.student_ssh_username
+    #config.student_zfs_path #usually /usr/sbin/zfs
+    #config.student_dataset_root 
+    return config
 
 def _snapshot(config, snap_path):
     # open a ssh connection to the student machine
