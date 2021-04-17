@@ -134,14 +134,14 @@ run_parser.add_argument(
   '--grade_interval',
   dest='grade_interval',
   action='store',
-  default=15,
+  default=1,
   help="The interval (minutes) to run the Rudaux flow"
 )
 run_parser.add_argument(
   '--snapshot_interval',
   dest='snapshot_interval',
   action='store',
-  default=15,
+  default=1,
   help="The interval (minutes) to take snapshots" 
 )
 

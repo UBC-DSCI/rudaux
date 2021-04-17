@@ -1,6 +1,7 @@
 import requests
 import urllib.parse
 import pendulum as plm
+import prefect
 from prefect import task
 from prefect.engine import signals
 

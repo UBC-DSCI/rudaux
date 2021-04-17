@@ -2,7 +2,7 @@ import sys, os
 import prefect
 from prefect import Flow
 from prefect.schedules import IntervalSchedule
-from prefect.executors import DaskExecutor
+from prefect.executors import DaskExecutor, LocalDaskExecutor
 from traitlets.config import Config
 from traitlets.config.loader import PyFileConfigLoader
 import pendulum as plm
@@ -41,7 +41,8 @@ def run(args):
         logger.info(str(cinfo))
 
     prefect.context.get("logger").info("Registering the flow and executing...")
-    executor = DaskExecutor(address="tcp://localhost:8786")
-    flow.register("temp project")
-    flow.run(executor=executor)
+    prefect.client.client.Client().create_project("proj")
+    #flow.executor = LocalDaskExecutor(num_workers = 8)  # for DaskExecutor: cluster_kwargs = {'n_workers': 8}) #address="tcp://localhost:8786")
+    flow.register("proj")
+    flow.run_agent()
 
