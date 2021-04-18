@@ -59,6 +59,7 @@ def run(args):
     agent.start()
     
 def build_snapshot_flow(_config, args):
+
     print("Importing course API, snapshot libraries")
     api = importlib.import_module(".course_api."+args.course_api_module, "rudaux")
     snap = importlib.import_module(".snapshot."+args.snapshot_module, "rudaux")
@@ -92,9 +93,11 @@ def build_snapshot_flow(_config, args):
     return flow
 
 def build_autoext_flow(_config, args):
+
     print("Importing course API, autoextension libraries")
     api = importlib.import_module(".course_api."+args.course_api_module, "rudaux")
     autoext = importlib.import_module(".auto_extension."+args.autoext_module, "rudaux")
+
     with Flow("autoextension") as flow:
         # validate the config file for API access
         config = api.validate_config(_config)
