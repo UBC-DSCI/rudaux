@@ -40,7 +40,7 @@ def run(args):
     snap_flow.register(project_name)
 
     print("Building/registering the late registration auto-extension flow...")
-    autoext_flow = build_autoextension_flow(_config)
+    autoext_flow = build_autoext_flow(_config)
     autoext_flow.executor = executor
     autoext_flow.schedule = IntervalSchedule(start_date = plm.now('UTC').add(seconds=1),
                                 interval = plm.duration(minutes=args.autoext_interval))
@@ -81,13 +81,13 @@ def build_snapshot_flow(_config):
         config = snap.validate_config(_config)
         
         # extract the total list of snapshots to take from assignment data
-        snaps = extract_snapshots(assignments)
+        snaps = snap.extract_snapshots(config, assignments)
 
         ## obtain the list of existing snapshots
-        #existing_snaps = get_existing_snapshots(config)
+        #existing_snaps = snap.get_existing_snapshots(config)
 
         ## take snapshots (map over snaps)
-        #take_snapshot.map(unmapped(config), snaps, unmapped(existing_snaps))
+        #snap.take_snapshot.map(unmapped(config), snaps, unmapped(existing_snaps))
     return flow
         
 def build_autoext_flow(_config):
@@ -114,7 +114,7 @@ def build_autoext_flow(_config):
         config = snap.validate_config(_config)
         
         # extract the total list of snapshots to take from assignment data
-        snaps = extract_snapshots(assignments)
+        snaps = snap.extract_snapshots(config, assignments)
 
     return flow
         
@@ -142,7 +142,7 @@ def build_grading_flow(_config):
         config = snap.validate_config(_config)
         
         # extract the total list of snapshots to take from assignment data
-        snaps = extract_snapshots(assignments)
+        snaps = snap.extract_snapshots(config, assignments)
 
     return flow
         

@@ -1,5 +1,6 @@
 from subprocess import check_output, STDOUT
 import os
+import prefect
 from prefect import task
 from prefect.engine import signals
 import paramiko as pmk

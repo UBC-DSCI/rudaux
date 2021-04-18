@@ -1,1 +1,1 @@
-import zfs_over_ssh
+from . import zfs_over_ssh
