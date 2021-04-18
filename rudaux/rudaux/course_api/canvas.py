@@ -75,6 +75,7 @@ def _canvas_delete(config, path_suffix):
 def _canvas_get_people_by_type(config, typ):
     people = _canvas_get(config, 'enrollments')
     ppl_typ = [p for p in people if p['type'] == typ]
+    prefect.context.get("logger").info(str(ppl_typ))
     return [ { 'id' : str(p['user']['id']),
                'name' : p['user']['name'],
                'sortable_name' : p['user']['sortable_name'],
@@ -131,7 +132,7 @@ def get_groups(config):
             } for g in grps]
 
 @task
-def get_assignments(config, grader_type_identifier):
+def get_assignments(config):
     asgns = _canvas_get(config, 'assignments')
     processed_asgns = [ {  
                'id' : str(a['id']),
@@ -141,12 +142,9 @@ def get_assignments(config, grader_type_identifier):
                'unlock_at' : None if a['unlock_at'] is None else plm.parse(a['unlock_at']),
                'has_overrides' : a['has_overrides'],
                'overrides' : [],
-               'published' : a['published'],
-               'grader_type' : grader_type_identifier(a)
+               'published' : a['published']
              } for a in asgns]
-# TODO the below commented out code filters for jupyterhub assignments. need to put this code elsewhere
-# if 'external_tool_tag_attributes' in a.keys() and self.jupyterhub_host_root in a['external_tool_tag_attributes']['url'] and a['omit_from_final_grade'] == False]
-#config.jupyterhub_host_root # 
+ 
     for a in processed_asgns:
         if a['has_overrides']:
             a['overrides'] = _canvas_get_overrides(config, a)

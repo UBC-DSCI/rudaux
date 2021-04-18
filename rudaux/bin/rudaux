@@ -131,8 +131,8 @@ run_parser.add_argument(
   help="The directory containing the rudaux configuration file."
 )
 run_parser.add_argument(
-  '--grade_interval',
-  dest='grade_interval',
+  '--grading_interval',
+  dest='grading_interval',
   action='store',
   default=1,
   help="The interval (minutes) to run the Rudaux flow"
@@ -143,6 +143,13 @@ run_parser.add_argument(
   action='store',
   default=1,
   help="The interval (minutes) to take snapshots" 
+)
+run_parser.add_argument(
+  '--autoextension_interval',
+  dest='autoext_interval',
+  action='store',
+  default=1,
+  help="The interval (minutes) to run the Rudaux flow"
 )
 
 # Parse the arguments!
