@@ -33,7 +33,7 @@ def _get_due_date(assignment, student):
         return basic_date, None
 
 
-@task
+@task(nout=2)
 def manage_extensions(config, course_info, assignment, student): 
     logger = prefect.context.get("logger")
     tz = self.course_info['time_zone']
