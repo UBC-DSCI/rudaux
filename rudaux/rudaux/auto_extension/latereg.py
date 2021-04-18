@@ -33,13 +33,13 @@ def _get_due_date(assignment, student):
         return basic_date, None
 
 
-@task(nout=2)
-def manage_extensions(config, course_info, submission_triplet):
+@task
+def manage_extensions(config, course_info, submission_pair):
     logger = prefect.context.get("logger")
     tz = course_info['time_zone']
     fmt = 'ddd YYYY-MM-DD HH:mm:ss'
     
-    assignment, student, submission = submission_triplet
+    assignment, student = submission_pair
 
     logger.info(f"Checking if student {student['name']} needs an extension on assignment {assignment['name']}")
 
@@ -81,4 +81,4 @@ def manage_extensions(config, course_info, submission_triplet):
     else:
         logger.info("Student inactive or unlock after registration date; no extension required.")
 
-    return to_remove, to_create
+    return ((assignment, to_create), (assignment, to_remove))

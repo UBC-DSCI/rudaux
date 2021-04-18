@@ -9,7 +9,7 @@ from traitlets.config.loader import PyFileConfigLoader
 import pendulum as plm
 import importlib
 
-from .util import build_submission_triplet
+from .util import build_submission_triplet, reduce_override_pairs
 
 def run(args): 
     print("Loading the rudaux_config.py file...")
@@ -39,6 +39,14 @@ def run(args):
                                 interval = plm.duration(minutes=args.snapshot_interval))
     snap_flow.register(project_name)
 
+    print("Building/registering the autoextension flow...")
+    autoext_flow = build_autoext_flow(_config, args)
+    autoext_flow.executor = executor
+    autoext_flow.schedule = IntervalSchedule(start_date = plm.now('UTC').add(seconds=1),
+                                   interval = plm.duration(minutes=args.autoext_interval))
+    autoext_flow.register(project_name)
+
+
     print("Building/registering the grading flow...")
     grading_flow = build_grading_flow(_config, args)
     grading_flow.executor = executor
@@ -56,14 +64,12 @@ def build_snapshot_flow(_config, args):
     snap = importlib.import_module(".snapshot."+args.snapshot_module, "rudaux")
 
     with Flow("snapshot") as flow:
-        #---------------------------------------------------------------#
-        # Obtain course/student/assignment/etc info from the course API #
-        #---------------------------------------------------------------#
-
         # validate the config file for API access
         config = api.validate_config(_config)
 
-        # obtain assignments from course API
+        #---------------------------------------------------------------#
+        # Obtain course/student/assignment/etc info from the course API #
+        #---------------------------------------------------------------#
         assignments = api.get_assignments(config)
 
         #------------------------------#
@@ -85,17 +91,43 @@ def build_snapshot_flow(_config, args):
         #snap.take_snapshot.map(unmapped(config), snaps, unmapped(existing_snaps))
     return flow
 
-@task
-def temp(to_rem, to_cre):
-    from prefect.engine import signals
-    logger = prefect.context.get("logger")
-    raise signals.FAIL('to rem: ' + str(to_rem) + ' to cre: ' + str(to_cre))
-
-def build_grading_flow(_config, args):
+def build_autoext_flow(_config, args):
     print("Importing course API, autoextension libraries")
     api = importlib.import_module(".course_api."+args.course_api_module, "rudaux")
     autoext = importlib.import_module(".auto_extension."+args.autoext_module, "rudaux")
-    with Flow("grading") as flow:
+    with Flow("autoextension") as flow:
+        # validate the config file for API access
+        config = api.validate_config(_config)
+        config = autoext.validate_config(_config)
+
+        #---------------------------------------------------------------#
+        # Obtain course/student/assignment/etc info from the course API #
+        #---------------------------------------------------------------#
+        course_info = api.get_course_info(config)
+        assignments = api.get_assignments(config)
+        students = api.get_students(config)
+
+        #----------------------------#
+        # Create submission triplets #
+        #----------------------------#
+        subm_pairs = build_assignment_student_pairs(assignments, students) 
+
+        #----------------------------#
+        # Remove / create extensions #
+        #----------------------------#
+        override_create_remove_pairs = autoext.manage_extensions.map(unmapped(config), unmapped(course_info), subm_pairs)
+        overrides_to_create, overrides_to_remove = reduce_override_pairs(override_create_remove_pairs)
+        # TODO uncomment these + test
+        #api.remove_override.map(unmapped(config), overrides_to_remove)
+        #api.create_override.map(unmapped(config), overrides_to_create)
+         
+    return flow
+        
+
+def build_grading_flow(_config, args):
+    print("Importing course API libraries")
+    api = importlib.import_module(".course_api."+args.course_api_module, "rudaux")
+    with Flow("autoextension") as flow:
         #---------------------------------------------------------------#
         # Obtain course/student/assignment/etc info from the course API #
         #---------------------------------------------------------------#
@@ -119,13 +151,11 @@ def build_grading_flow(_config, args):
         # Remove / create extensions #
         #----------------------------#
         config = autoext.validate_config(_config)
-        overrides_to_remove, overrides_to_create = autoext.manage_extensions.map(unmapped(config), unmapped(course_info), subm_triplets)
-
-        temp(overrides_to_remove, overrides_to_create)
+        override_create_remove_pairs = autoext.manage_extensions.map(unmapped(config), unmapped(course_info), subm_triplets)
+        overrides_to_create, overrides_to_remove = reduce_override_pairs(override_create_remove_pairs)
+        # TODO uncomment these + test
+        #api.remove_override.map(unmapped(config), overrides_to_remove)
+        #api.create_override.map(unmapped(config), overrides_to_create)
          
-        # TODO actually create/delete them
-        
     return flow
-        
-
-
+ 

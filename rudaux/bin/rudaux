@@ -159,6 +159,13 @@ run_parser.add_argument(
   help="The interval (minutes) to run the Rudaux flow"
 )
 run_parser.add_argument(
+  '--autoext_interval',
+  dest='autoext_interval',
+  action='store',
+  default=1,
+  help="The interval (minutes) to run the autoextension flow"
+)
+run_parser.add_argument(
   '--snapshot_interval',
   dest='snapshot_interval',
   action='store',

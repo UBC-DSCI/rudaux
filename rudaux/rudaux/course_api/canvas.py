@@ -164,7 +164,8 @@ def get_submissions(config, assignment):
                    'missing' : subm['missing']
             } for subm in subms ]
 
-def create_override(config, assignment, override_dict):
+def create_override(config, asgn_over_pair):
+    assignment, override_dict = asgn_over_pair
     #check all required keys
     required_keys = ['student_ids', 'unlock_at', 'due_at', 'lock_at', 'title']
     for rk in required_keys:
@@ -196,7 +197,9 @@ def create_override(config, assignment, override_dict):
         sig.overrides = overs
         raise sig
 
-def remove_override(config, assignment, override):
+def remove_override(config, asgn_over_pair):
+    assignment, override_dict = asgn_over_pair
+
     _canvas_delete(config, 'assignments/'+assignment['id']+'/overrides/'+override['id'])
 
     #check that it was removed properly 

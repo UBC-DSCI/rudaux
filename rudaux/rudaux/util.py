@@ -1,6 +1,8 @@
 from prefect import Flow, unmapped, flatten, task
 from prefect.engine import signals
 
+
+
 @task
 def build_submission_triplet(assignments, students, submission):
     assignment = None
@@ -23,3 +25,12 @@ def build_submission_triplet(assignments, students, submission):
  
     return (assignment, student, submission)
 
+@task
+def build_assignment_student_pairs(assignments, students):
+    return [(a, s) for a in assignments for s in students]
+
+@task(nout=2)
+def reduce_override_pairs(override_create_remove_pairs):
+    to_create = [pair[0] for pair in override_create_remove_pairs]
+    to_remove = [pair[1] for pair in override_create_remove_pairs]
+    return to_create, to_remove
