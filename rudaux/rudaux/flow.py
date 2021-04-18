@@ -34,34 +34,34 @@ def run(args):
     executor = LocalDaskExecutor(num_workers = 8)   # for DaskExecutor: cluster_kwargs = {'n_workers': 8}) #address="tcp://localhost:8786")
 
     print("Building/registering the snapshot flow...")
-    snap_flow = build_snapshot_flow(_config)
+    snap_flow = build_snapshot_flow(_config, args)
     snap_flow.executor = executor
     snap_flow.schedule = IntervalSchedule(start_date = plm.now('UTC').add(seconds=1),
                                 interval = plm.duration(minutes=args.snapshot_interval))
     snap_flow.register(project_name)
 
     print("Building/registering the late registration auto-extension flow...")
-    autoext_flow = build_autoext_flow(_config)
+    autoext_flow = build_autoext_flow(_config, args)
     autoext_flow.executor = executor
     autoext_flow.schedule = IntervalSchedule(start_date = plm.now('UTC').add(seconds=1),
                                 interval = plm.duration(minutes=args.autoext_interval))
     autoext_flow.register(project_name)
 
-    print("Building/registering the grading flow...")
-    grading_flow = build_grading_flow(_config)
-    grading_flow.executor = executor
-    grading_flow.schedule = IntervalSchedule(start_date = plm.now('UTC').add(seconds=1),
-                                interval = plm.duration(minutes=args.grading_interval))
-    grading_flow.register(project_name)
+    #print("Building/registering the grading flow...")
+    #grading_flow = build_grading_flow(_config, args)
+    #grading_flow.executor = executor
+    #grading_flow.schedule = IntervalSchedule(start_date = plm.now('UTC').add(seconds=1),
+    #                            interval = plm.duration(minutes=args.grading_interval))
+    #grading_flow.register(project_name)
 
     print("Running the local agent...")
     agent = prefect.agent.local.agent.LocalAgent()
     agent.start()
     
-def build_snapshot_flow(_config):
+def build_snapshot_flow(_config, args):
     print("Importing course API, snapshot libraries")
-    api = importlib.import_module(args.course_api_module)
-    snap = importlib.import_module(args.snapshot_module)
+    api = importlib.import_module(".course_api."+args.course_api_module, "rudaux")
+    snap = importlib.import_module(".snapshot."+args.snapshot_module, "rudaux")
 
     with Flow("snapshot") as flow:
         #---------------------------------------------------------------#
@@ -98,10 +98,10 @@ def build_snapshot_flow(_config):
         #snap.take_snapshot.map(unmapped(config), snaps, unmapped(existing_snaps))
     return flow
         
-def build_autoext_flow(_config):
+def build_autoext_flow(_config, args):
     print("Importing course API, autoextension libraries")
-    api = importlib.import_module(args.course_api_module)
-    autoext = importlib.import_module(args.autoext_module)
+    api = importlib.import_module(".course_api."+args.course_api_module, "rudaux")
+    autoext = importlib.import_module(".auto_extension."+args.autoext_module, "rudaux")
     with Flow("auto-extension") as flow:
         #---------------------------------------------------------------#
         # Obtain course/student/assignment/etc info from the course API #
@@ -129,33 +129,33 @@ def build_autoext_flow(_config):
     return flow
         
 
-# TODO this is just a template, essentially does nothing so far
-def build_grading_flow(_config):
-    with Flow("grading") as flow:
-        #################################################################
-        # Obtain course/student/assignment/etc info from the course API #
-        #################################################################
-
-        # validate the config file for API access
-        config = api.validate_config(_config)
-
-        # obtain course info, students, assignments, etc
-        course_info = api.get_course_info(config)
-        assignments = api.get_assignments(config)
-        students = api.get_students(config)
-        tas = api.get_tas(config)
-        instructors = api.get_instructors(config)
-
-        ################################
-        # Obtain the list of snapshots #
-        ################################
- 
-        # validate the config file for snapshots
-        config = snap.validate_config(_config)
-        
-        # extract the total list of snapshots to take from assignment data
-        snaps = snap.extract_snapshots(config, assignments)
-
-    return flow
+## TODO this is just a template, essentially does nothing so far
+#def build_grading_flow(_config, args):
+#    with Flow("grading") as flow:
+#        #################################################################
+#        # Obtain course/student/assignment/etc info from the course API #
+#        #################################################################
+#
+#        # validate the config file for API access
+#        config = api.validate_config(_config)
+#
+#        # obtain course info, students, assignments, etc
+#        course_info = api.get_course_info(config)
+#        assignments = api.get_assignments(config)
+#        students = api.get_students(config)
+#        tas = api.get_tas(config)
+#        instructors = api.get_instructors(config)
+#
+#        ################################
+#        # Obtain the list of snapshots #
+#        ################################
+# 
+#        # validate the config file for snapshots
+#        config = snap.validate_config(_config)
+#        
+#        # extract the total list of snapshots to take from assignment data
+#        snaps = snap.extract_snapshots(config, assignments)
+#
+#    return flow
         
 
