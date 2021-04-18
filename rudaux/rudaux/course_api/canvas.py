@@ -103,6 +103,7 @@ def validate_config(config):
     #config.canvas_domain
     #config.canvas_token 
     #config.canvas_id 
+    #config.ignored_assignments
     logger = prefect.context.get("logger").info("rudaux_config.py valid for CanvasAPI")
     return config
 
@@ -143,12 +144,12 @@ def get_assignments(config):
                'has_overrides' : a['has_overrides'],
                'overrides' : [],
                'published' : a['published']
-             } for a in asgns]
- 
+             } for a in asgns if str(a['id']) not in config.ignored_assignments]
+
     for a in processed_asgns:
         if a['has_overrides']:
             a['overrides'] = _canvas_get_overrides(config, a)
-
+    
     return processed_asgns
 
 @task

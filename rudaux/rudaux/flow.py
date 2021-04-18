@@ -1,6 +1,6 @@
 import sys, os
 import prefect
-from prefect import Flow, unmapped
+from prefect import Flow, unmapped, task
 from prefect.schedules import IntervalSchedule
 from prefect.executors import DaskExecutor, LocalDaskExecutor
 from prefect.utilities.logging import get_logger
@@ -9,8 +9,7 @@ from traitlets.config.loader import PyFileConfigLoader
 import pendulum as plm
 import importlib
 
-from .course_api import canvas as api
-from .snapshot import zfs_over_ssh as snap
+from .util import get_pairs
 
 def run(args): 
     print("Loading the rudaux_config.py file...")
@@ -40,19 +39,12 @@ def run(args):
                                 interval = plm.duration(minutes=args.snapshot_interval))
     snap_flow.register(project_name)
 
-    print("Building/registering the late registration auto-extension flow...")
-    autoext_flow = build_autoext_flow(_config, args)
-    autoext_flow.executor = executor
-    autoext_flow.schedule = IntervalSchedule(start_date = plm.now('UTC').add(seconds=1),
-                                interval = plm.duration(minutes=args.autoext_interval))
-    autoext_flow.register(project_name)
-
-    #print("Building/registering the grading flow...")
-    #grading_flow = build_grading_flow(_config, args)
-    #grading_flow.executor = executor
-    #grading_flow.schedule = IntervalSchedule(start_date = plm.now('UTC').add(seconds=1),
-    #                            interval = plm.duration(minutes=args.grading_interval))
-    #grading_flow.register(project_name)
+    print("Building/registering the grading flow...")
+    grading_flow = build_grading_flow(_config, args)
+    grading_flow.executor = executor
+    grading_flow.schedule = IntervalSchedule(start_date = plm.now('UTC').add(seconds=1),
+                                interval = plm.duration(minutes=args.grading_interval))
+    grading_flow.register(project_name)
 
     print("Running the local agent...")
     agent = prefect.agent.local.agent.LocalAgent()
@@ -97,12 +89,12 @@ def build_snapshot_flow(_config, args):
         # TODO uncomment + test 
         #snap.take_snapshot.map(unmapped(config), snaps, unmapped(existing_snaps))
     return flow
-        
-def build_autoext_flow(_config, args):
+
+def build_grading_flow(_config, args):
     print("Importing course API, autoextension libraries")
     api = importlib.import_module(".course_api."+args.course_api_module, "rudaux")
     autoext = importlib.import_module(".auto_extension."+args.autoext_module, "rudaux")
-    with Flow("auto-extension") as flow:
+    with Flow("grading") as flow:
         #---------------------------------------------------------------#
         # Obtain course/student/assignment/etc info from the course API #
         #---------------------------------------------------------------#
@@ -122,40 +114,12 @@ def build_autoext_flow(_config, args):
         # Remove / create extensions #
         #----------------------------#
         config = autoext.validate_config(_config)
-        overrides_to_delete, overrides_to_create = autoext.manage_extensions.map(config, course_info, assignments, students)
+        a_s_pairs = get_pairs(assignments, students)
+        overrides_to_remove = autoext.manage_extensions.map(unmapped(config), unmapped(course_info), a_s_pairs)
          
         # TODO actually create/delete them
         
     return flow
         
 
-## TODO this is just a template, essentially does nothing so far
-#def build_grading_flow(_config, args):
-#    with Flow("grading") as flow:
-#        #################################################################
-#        # Obtain course/student/assignment/etc info from the course API #
-#        #################################################################
-#
-#        # validate the config file for API access
-#        config = api.validate_config(_config)
-#
-#        # obtain course info, students, assignments, etc
-#        course_info = api.get_course_info(config)
-#        assignments = api.get_assignments(config)
-#        students = api.get_students(config)
-#        tas = api.get_tas(config)
-#        instructors = api.get_instructors(config)
-#
-#        ################################
-#        # Obtain the list of snapshots #
-#        ################################
-# 
-#        # validate the config file for snapshots
-#        config = snap.validate_config(_config)
-#        
-#        # extract the total list of snapshots to take from assignment data
-#        snaps = snap.extract_snapshots(config, assignments)
-#
-#    return flow
-        
 

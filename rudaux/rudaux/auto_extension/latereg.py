@@ -1,4 +1,4 @@
-from prefect import task
+from prefect import task, unmapped
 from prefect.engine import signals
 import pendulum as plm
 import prefect
@@ -33,11 +33,13 @@ def _get_due_date(assignment, student):
         return basic_date, None
 
 
-@task(nout=2)
-def manage_extensions(config, course_info, assignment, student): 
+@task
+def manage_extensions(config, course_info, assignment_student_pair):
     logger = prefect.context.get("logger")
-    tz = self.course_info['time_zone']
+    tz = course_info['time_zone']
     fmt = 'ddd YYYY-MM-DD HH:mm:ss'
+    
+    assignment, student = assignment_student_pair
 
     logger.info(f"Checking if student {student['name']} needs an extension on assignment {assignment['name']}")
 
@@ -48,12 +50,12 @@ def manage_extensions(config, course_info, assignment, student):
          raise sig
 
     logger.info("Validating student registration dates")
-    if student['reg_created'] is None:
-         sig = signals.FAIL(f"Invalid registration date ({student['reg_created']})")
+    if student['reg_date'] is None:
+         sig = signals.FAIL(f"Invalid registration date ({student['reg_date']})")
          sig.student = student
          raise sig
 
-    regdate = s['reg_updated'] if (s['reg_updated'] is not None) else s['reg_created']
+    regdate = student['reg_date']
     logger.info(f"Student registration date: {regdate}    Status: {student['status']}")
     logger.info(f"Assignment unlock: {assignment['unlock_at']}    Assignment deadline: {assignment['due_at']}")
     to_remove = None
@@ -79,4 +81,4 @@ def manage_extensions(config, course_info, assignment, student):
     else:
         logger.info("Student inactive or unlock after registration date; no extension required.")
 
-    return to_remove, to_create
+    return to_remove
