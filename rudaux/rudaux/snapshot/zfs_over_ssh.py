@@ -92,7 +92,7 @@ def take_snapshot(config, snap, existing_snapshots):
     snap_user = snap['user']
 
     if snap_deadline is None:
-         sig = signals.SKIP(f"Snapshot {snap_name} has invalid deadline {snap_deadline}")
+         sig = signals.FAIL(f"Snapshot {snap_name} has invalid deadline {snap_deadline}")
          sig.snap_name = snap_name
          sig.snap_deadline = snap_deadline
          raise sig

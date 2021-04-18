@@ -7,11 +7,12 @@ from prefect.utilities.logging import get_logger
 from traitlets.config import Config
 from traitlets.config.loader import PyFileConfigLoader
 import pendulum as plm
+import importlib
 
 from .course_api import canvas as api
 from .snapshot import zfs_over_ssh as snap
 
-def run(args):
+def run(args): 
     print("Loading the rudaux_config.py file...")
     if not os.path.exists(os.path.join(args.directory, 'rudaux_config.py')):
             sys.exit(
@@ -58,14 +59,19 @@ def run(args):
     agent.start()
     
 def build_snapshot_flow(_config):
+    print("Importing course API, snapshot libraries")
+    api = importlib.import_module(args.course_api_module)
+    snap = importlib.import_module(args.snapshot_module)
+
     with Flow("snapshot") as flow:
-        #################################################################
+        #---------------------------------------------------------------#
         # Obtain course/student/assignment/etc info from the course API #
-        #################################################################
+        #---------------------------------------------------------------#
 
         # validate the config file for API access
         config = api.validate_config(_config)
 
+        # TODO only obtain resources actually required here
         # obtain course info, students, assignments, etc
         course_info = api.get_course_info(config)
         assignments = api.get_assignments(config)
@@ -73,9 +79,9 @@ def build_snapshot_flow(_config):
         tas = api.get_tas(config)
         instructors = api.get_instructors(config)
 
-        ################################
+        #------------------------------#
         # Obtain the list of snapshots #
-        ################################
+        #------------------------------#
  
         # validate the config file for snapshots
         config = snap.validate_config(_config)
@@ -93,14 +99,18 @@ def build_snapshot_flow(_config):
     return flow
         
 def build_autoext_flow(_config):
+    print("Importing course API, autoextension libraries")
+    api = importlib.import_module(args.course_api_module)
+    autoext = importlib.import_module(args.autoext_module)
     with Flow("auto-extension") as flow:
-        #################################################################
+        #---------------------------------------------------------------#
         # Obtain course/student/assignment/etc info from the course API #
-        #################################################################
+        #---------------------------------------------------------------#
 
         # validate the config file for API access
         config = api.validate_config(_config)
 
+        # TODO only obtain resources actually required here
         # obtain course info, students, assignments, etc
         course_info = api.get_course_info(config)
         assignments = api.get_assignments(config)
@@ -108,16 +118,14 @@ def build_autoext_flow(_config):
         tas = api.get_tas(config)
         instructors = api.get_instructors(config)
 
-        ################################
-        # Obtain the list of snapshots #
-        ################################
- 
-        # validate the config file for snapshots
-        config = snap.validate_config(_config)
+        #----------------------------#
+        # Remove / create extensions #
+        #----------------------------#
+        config = autoext.validate_config(_config)
+        overrides_to_delete, overrides_to_create = autoext.manage_extensions.map(config, course_info, assignments, students)
+         
+        # TODO actually create/delete them
         
-        # extract the total list of snapshots to take from assignment data
-        snaps = snap.extract_snapshots(config, assignments)
-
     return flow
         
 def build_grading_flow(_config):

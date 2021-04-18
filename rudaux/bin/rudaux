@@ -124,6 +124,27 @@ subparsers = parser.add_subparsers(
 run_parser = subparsers.add_parser('run', help='Run the course management workflow')
 run_parser.set_defaults(func=flow.run)
 run_parser.add_argument(
+  '--course_api_module',
+  dest='course_api_module',
+  action='store',
+  default='canvas',
+  help="The name of the course API module."
+)
+run_parser.add_argument(
+  '--snapshot_module',
+  dest='snapshot_module',
+  action='store',
+  default='zfs_over_ssh',
+  help="The name of the snapshot module."
+)
+run_parser.add_argument(
+  '--auto_extension_module',
+  dest='autoext_module',
+  action='store',
+  default='latereg',
+  help="The name of the course API module."
+)
+run_parser.add_argument(
   '--dir',
   dest='directory',
   action='store',
