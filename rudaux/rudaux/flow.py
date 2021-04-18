@@ -24,7 +24,7 @@ def run(args):
     _config = Config()
     _config.merge(PyFileConfigLoader('rudaux_config.py', path=args.directory).load_config())
 
-    project_name = "Rudaux"
+    project_name = "rudaux"
 
     print(f"Creating the {project_name} project...")
     prefect.client.client.Client().create_project(project_name)
@@ -58,7 +58,7 @@ def run(args):
     agent.start()
     
 def build_snapshot_flow(_config):
-    with Flow("rudaux-snapshot") as flow:
+    with Flow("snapshot") as flow:
         #################################################################
         # Obtain course/student/assignment/etc info from the course API #
         #################################################################
@@ -84,14 +84,16 @@ def build_snapshot_flow(_config):
         snaps = snap.extract_snapshots(config, assignments)
 
         ## obtain the list of existing snapshots
+        # TODO uncomment + test 
         #existing_snaps = snap.get_existing_snapshots(config)
 
         ## take snapshots (map over snaps)
+        # TODO uncomment + test 
         #snap.take_snapshot.map(unmapped(config), snaps, unmapped(existing_snaps))
     return flow
         
 def build_autoext_flow(_config):
-    with Flow("rudaux-autoextension") as flow:
+    with Flow("auto-extension") as flow:
         #################################################################
         # Obtain course/student/assignment/etc info from the course API #
         #################################################################
@@ -119,7 +121,7 @@ def build_autoext_flow(_config):
     return flow
         
 def build_grading_flow(_config):
-    with Flow("rudaux-grading") as flow:
+    with Flow("grading") as flow:
         #################################################################
         # Obtain course/student/assignment/etc info from the course API #
         #################################################################
