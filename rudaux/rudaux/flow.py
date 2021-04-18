@@ -1,6 +1,6 @@
 import sys, os
 import prefect
-from prefect import Flow, unmapped, task
+from prefect import Flow, unmapped, task, flatten
 from prefect.schedules import IntervalSchedule
 from prefect.executors import DaskExecutor, LocalDaskExecutor
 from prefect.utilities.logging import get_logger
@@ -9,7 +9,7 @@ from traitlets.config.loader import PyFileConfigLoader
 import pendulum as plm
 import importlib
 
-from .util import get_pairs
+from .util import build_submission_triplet
 
 def run(args): 
     print("Loading the rudaux_config.py file...")
@@ -63,13 +63,8 @@ def build_snapshot_flow(_config, args):
         # validate the config file for API access
         config = api.validate_config(_config)
 
-        # TODO only obtain resources actually required here
-        # obtain course info, students, assignments, etc
-        course_info = api.get_course_info(config)
+        # obtain assignments from course API
         assignments = api.get_assignments(config)
-        students = api.get_students(config)
-        tas = api.get_tas(config)
-        instructors = api.get_instructors(config)
 
         #------------------------------#
         # Obtain the list of snapshots #
@@ -90,6 +85,12 @@ def build_snapshot_flow(_config, args):
         #snap.take_snapshot.map(unmapped(config), snaps, unmapped(existing_snaps))
     return flow
 
+@task
+def temp(to_rem, to_cre):
+    from prefect.engine import signals
+    logger = prefect.context.get("logger")
+    raise signals.FAIL('to rem: ' + str(to_rem) + ' to cre: ' + str(to_cre))
+
 def build_grading_flow(_config, args):
     print("Importing course API, autoextension libraries")
     api = importlib.import_module(".course_api."+args.course_api_module, "rudaux")
@@ -107,15 +108,20 @@ def build_grading_flow(_config, args):
         course_info = api.get_course_info(config)
         assignments = api.get_assignments(config)
         students = api.get_students(config)
-        tas = api.get_tas(config)
-        instructors = api.get_instructors(config)
+        submissions = flatten(api.get_submissions.map(unmapped(config), assignments))
+
+        #----------------------------#
+        # Create submission triplets #
+        #----------------------------#
+        subm_triplets = build_submission_triplet.map(unmapped(assignments), unmapped(students), submissions) 
 
         #----------------------------#
         # Remove / create extensions #
         #----------------------------#
         config = autoext.validate_config(_config)
-        a_s_pairs = get_pairs(assignments, students)
-        overrides_to_remove = autoext.manage_extensions.map(unmapped(config), unmapped(course_info), a_s_pairs)
+        overrides_to_remove, overrides_to_create = autoext.manage_extensions.map(unmapped(config), unmapped(course_info), subm_triplets)
+
+        temp(overrides_to_remove, overrides_to_create)
          
         # TODO actually create/delete them
         
