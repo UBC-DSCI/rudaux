@@ -67,7 +67,7 @@ def get_existing_snapshots(config):
     logger.info('Opening ssh connection to ' +str(config.student_ssh_hostname))
     client = _ssh_open(config)
 
-    logger.info('Obtaining a list of previously obtained snapshotsChecking Opening ssh connection to ' +str(config.student_ssh_hostname))
+    logger.info('Obtaining a list of previously obtained snapshots')
     stdout, stderr = _ssh_command(client, config.student_zfs_path + ' list -t snapshot')
 
     # look for ...@... and take the part after @ but before spaces

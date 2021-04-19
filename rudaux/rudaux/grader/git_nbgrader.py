@@ -9,6 +9,7 @@ from collections import namedtuple
 import git
 import shutil
 from ..util import _run_docker
+
 def _recursive_chown(path, uid):
     for root, dirs, files in os.walk(path):  
         for di in dirs:  
@@ -19,11 +20,40 @@ def _recursive_chown(path, uid):
 def _clean_jhub_uname(s):
     return ''.join(ch for ch in s if ch.isalnum())
 
+def _grader_account_name(asgn, grd):
+    return _clean_jhub_uname(asgn)+'-'+_clean_jhub_uname(grd)
+
+# TODO this is copied from autoext.latereg. Shouldn't duplicate code. Need to think of a better way to structure things. For now, just copy.
+def _get_due_date(assignment, student):
+    basic_date = assignment['due_at']
+
+    #get overrides for the student
+    overrides = [over for over in assignment['overrides'] if student['id'] in over['student_ids'] and (over['due_at'] is not None)]
+
+    #if there was no override, return the basic date
+    if len(overrides) == 0:
+        return basic_date, None
+
+    #if there was one, get the latest override date
+    latest_override = overrides[0]
+    for over in overrides:
+        if over['due_at'] > latest_override['due_at']:
+            latest_override = over
+    
+    #return the latest date between the basic and override dates
+    if latest_override['due_at'] > basic_date:
+        return latest_override['due_at'], latest_override
+    else:
+        return basic_date, None
+
+
+
 @task
 def validate_config(config):
     #config.graders
     #config.grading_jupyter_user
     #config.grading_dataset_root
+    #config.grading_attached_student_dataset_root
     #config.grading_zfs_path
     #config.grading_user_quota
     #config.grading_jupyterhub_config_dir
@@ -31,18 +61,22 @@ def validate_config(config):
     #config.grading_docker_image
     #config.grading_docker_memory
     #config.grading_docker_bind_folder
+    #config.grading_local_collection_folder
+    #config.return_solution_threshold
+    #config.earliest_solution_return_date
     return config
 
 @task
-def get_grader_assignment_pairs(config, assignments):
-    return [(grd, _clean_jhub_uname(asgn['name'])+'-'+_clean_jhub_uname(grd), asgn) for grd in config.graders[asgn['name']] for asgn in assignments]
+def get_grader_assignment_tuples(config, assignments):
+    return [(grd, _grader_account_name(asgn['name'], grd), asgn) for grd in config.graders[asgn['name']] for asgn in assignments]
 
 #TODO what happens if rudaux config doesn't have this one's name?
+# TODO split this into multiple tasks each with the same signature, store a global list in this submodule and then loop over it in the flow construction
 @task
-def initialize_grader(config, grd_pair):
+def initialize_grader(config, grd_tuple):
     logger = prefect.context.get("logger")
 
-    ta_user, grader, assignment = grd_pair
+    ta_user, grader, assignment = grd_tuple
 
     # check if assignment should be skipped
     if assignment['due_at'] >= plm.now():
@@ -56,7 +90,7 @@ def initialize_grader(config, grd_pair):
 
     # create the zfs volume 
     logger.info('Checking if grader folder exists..')
-    grader_path = os.path.join(config.jupyter_user_folder, grader).rstrip('/')
+    grader_path = os.path.join(config.grading_dataset_root, grader).rstrip('/')
     if not os.path.exists(grader_path): 
         logger.info("Folder doesn't exist, creating...")
         check_output([config.grading_zfs_path, 'create', "-o", "refquota="+config.grading_user_quota, grader_path.lstrip('/')], stderr=STDOUT)
@@ -104,6 +138,13 @@ def initialize_grader(config, grd_pair):
     else:
         logger.info(f"{grader_path} is a valid course repo.")
 
+
+    # create the submissions folder
+    subms_fldr = os.path.join(grader_path, config.grading_local_collection_folder)
+    if not os.path.exists(subms_fldr):
+        os.makedirs(subms_fldr, exist_ok=True)
+        _recursive_chown(subms_fldr, jupyter_uid)
+
     # if the assignment hasn't been generated yet, generate it
     logger.info(f"Checking if assignment {assignment['name']} has been generated for grader {grader}")
     generated_asgns = _run_docker(config, 'nbgrader db assignment list', grader_path)
@@ -131,3 +172,132 @@ def initialize_grader(config, grd_pair):
     
     return grd_pair
 
+@task
+def assign_submissions(config, students, submissions, grd_tuple):
+    ta_user, grader, assignment = grd_tuple
+
+    graders = [_grader_account_name(assignment['name'], grd) for grd in config.graders[assignment['name']]]
+    cur_idx = graders.index(grader)
+
+    subms = []
+    for i in range(len(students)):
+        # search for this student in the grader folders 
+        found = False
+        for gr in graders:
+            collected_asgn_path = os.path.join(config.grading_dataset_root, grader, config.grading_local_collection_folder, students[i]['id'], assignment['name'])
+            if os.path.exists(collected_asgn_path):
+                found = True
+                if gr == grader:
+                    subms.append( (grader, assignment, students[i]) )
+                break
+        # if not assigned, and the modulus of the student's index is the current grader
+        if not found and (i % len(graders)) == cur_idx:
+            # assign to this grader
+            subms.append( (grader, assignment, students[i]) )
+
+    return subms 
+
+
+@task
+def collect_submission(config, subm_tuple):
+    grader, assignment, student = subm_tuple
+    jupyter_uid = pwd.getpwnam(config.grading_jupyter_user).pw_uid
+    collected_asgn_path = os.path.join(config.grading_dataset_root, grader, config.grading_local_collection_folder, student['id'], assignment['name'], assignment['name']+'.ipynb')
+    due_date, override = _get_due_date(assignment, student)
+    #TODO snapshot name pattern for override is hard coded...
+    snap_name = assignment['name'] if override is None else assignment['name'] + '-override-' + override['id']
+    snapped_asgn_path = os.path.join(config.grading_attached_student_dataset_root, student['id'], '.zfs', 'snapshot', snap_name, 
+                                         config.student_local_assignment_folder, assignment['name'], assignment['name']+'.ipynb')
+
+    if not os.path.exists(collected_assignment_path):
+        shutil.copy(snapped_assignment_path, collected_assignment_path)
+        os.chown(collected_assignment_path, jupyter_uid, jupyter_uid)
+
+    return subm_tuple
+
+
+@task
+def clean_submission(config, subm_tuple):
+    logger = prefect.context.get("logger")
+    grader, assignment, student = subm_tuple
+    jupyter_uid = pwd.getpwnam(config.grading_jupyter_user).pw_uid
+    collected_asgn_path = os.path.join(config.grading_dataset_root, grader, config.grading_local_collection_folder, student['id'], assignment['name'], assignment['name']+'.ipynb')
+
+    #need to check for duplicate cell ids, see
+    #https://github.com/jupyter/nbgrader/issues/1083
+    
+    #open the student's notebook
+    f = open(collected_assignment_path, 'r')
+    nb = json.load(f)
+    f.close()
+    
+    #go through and delete the nbgrader metadata from any duplicated cells
+    cell_ids = set()
+    for cell in nb['cells']:
+      try:
+        cell_id = cell['metadata']['nbgrader']['grade_id']
+      except:
+        continue
+      if cell_id in cell_ids:
+        logger.info(f"Student {student['name']} assignment {assignment['name']} grader {grader} had a duplicate cell! ID = {cell_id}")
+        logger.info("Removing the nbgrader metainfo from that cell to avoid bugs in autograde")
+        cell['metadata'].pop('nbgrader', None)
+      else:
+        cell_ids.add(cell_id)
+    
+    #write the sanitized notebook back to the submitted folder
+    f = open(collected_assignment_path, 'w')
+    json.dump(nb, f)
+    f.close()
+
+    return subm_tuple
+
+@task
+def get_returnable_solutions(config, course_info, subm_tuples):
+    assignment_totals = {}
+    assignment_outstanding = {}
+    assignment_fracs = {}
+    for subm in subm_tuples:
+        grader, assignment, student = subm_tuple
+        anm = assignment['name']
+        if anm not in assignment_totals:
+            assignment_totals[anm] = 0
+        if anm not in assignment_outstanding:
+            assignment_outstanding[anm] = 0
+        
+        assignment_totals[anm] += 1
+        due_date, override = _get_due_date(assignment, student)
+        if due_date > plm.now():
+            assignment_outstanding[anm] += 1
+
+    for k, v in assignment_totals.items():
+        assignment_fracs[k] = (v - assignment_outstanding[k])/v
+
+    returnable_subms = []
+    for subm in subm_tuples:
+        grader, assignment, student = subm_tuple
+        anm = assignment['name']
+        if assignment_fracs[k] > config.return_solution_threshold and plm.now() > plm.parse(config.earliest_solution_return_date, tz=course_info['time_zone']):
+            returnable_subms.append(subm)
+
+    return returnable_subms
+
+@task
+def return_solution(config, subm_tuple):
+    logger = prefect.context.get("logger")
+    grader, assignment, student = subm_tuple
+
+    logger.info(f"Returning solution for submission {assignment['name']}, {student['name']}")
+    soln_path_grader = os.path.join(config.grading_dataset_root, grader, assignment['name'] + '_solution.html')
+    soln_folder_student = os.path.join(config.grading_attached_student_dataset_root, student['id'])
+    soln_path_student = os.path.join(soln_folder_student, assignment['name'] + '_solution.html')
+    if not os.path.exists(soln_path_student):
+        if os.path.exists(soln_folder_student):
+            try:
+                shutil.copy(soln_path_grader, soln_path_student) 
+                jupyter_uid = pwd.getpwnam('jupyter').pw_uid
+                os.chown(soln_path_student, jupyter_uid, jupyter_uid)
+            except Exception as e:
+                raise signals.FAIL(str(e))
+        else:
+            logger.warning(f"Warning: student folder {soln_folder_student} doesnt exist. Skipping solution return.")

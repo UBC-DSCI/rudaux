@@ -81,4 +81,4 @@ def manage_extensions(config, course_info, submission_pair):
     else:
         logger.info("Student inactive or unlock after registration date; no extension required.")
 
-    return ((assignment, to_create), (assignment, to_remove))
+    return (assignment, to_create, to_remove)

@@ -57,13 +57,14 @@ def run(args):
     print("Running the local agent...")
     agent = prefect.agent.local.agent.LocalAgent()
     agent.start()
-    
+
 def build_snapshot_flow(_config, args):
 
     print("Importing course API, snapshot libraries")
     api = importlib.import_module(".course_api."+args.course_api_module, "rudaux")
     snap = importlib.import_module(".snapshot."+args.snapshot_module, "rudaux")
 
+    print("Constructing the flow")
     with Flow(_config.course_name+"-snapshot") as flow:
         # validate the config file for API access
         config = api.validate_config(_config)
@@ -81,7 +82,7 @@ def build_snapshot_flow(_config, args):
         # extract the total list of snapshots to take from assignment data
         snaps = snap.extract_snapshots(config, assignments)
 
-        ## obtain the list of existing snapshots
+        # obtain the list of existing snapshots
         # TODO uncomment + test 
         #existing_snaps = snap.get_existing_snapshots(config)
  
@@ -98,6 +99,7 @@ def build_autoext_flow(_config, args):
     api = importlib.import_module(".course_api."+args.course_api_module, "rudaux")
     autoext = importlib.import_module(".auto_extension."+args.autoext_module, "rudaux")
 
+    print("Constructing the flow")
     with Flow(_config.course_name+"-autoextension") as flow:
         # validate the config file for API access
         config = api.validate_config(_config)
@@ -118,22 +120,18 @@ def build_autoext_flow(_config, args):
         #----------------------------#
         # Remove / create extensions #
         #----------------------------#
-        override_create_remove_pairs = autoext.manage_extensions.map(unmapped(config), unmapped(course_info), subm_pairs)
-        overrides_to_create, overrides_to_remove = reduce_override_pairs(override_create_remove_pairs)
+        override_update_tuples = autoext.manage_extensions.map(unmapped(config), unmapped(course_info), subm_pairs)
         # TODO uncomment these + test
-        #api.remove_override.map(unmapped(config), overrides_to_remove)
-        #api.create_override.map(unmapped(config), overrides_to_create)
+        #api.update_overrides.map(unmapped(config), override_update_tuples)
          
     return flow
         
-
-# TODO change all of these flows to not use maps. They force really unintuitive syntax.
-# TODO specify each task's name with a slug='blah'
-
 def build_grading_flow(_config, args):
     print("Importing course API libraries")
     api = importlib.import_module(".course_api."+args.course_api_module, "rudaux")
     grader = importlib.import_module(".grader."+args.grader_module, "rudaux")
+    
+    print("Constructing the flow")
     with Flow(_config.course_name+"-grading") as flow:
         # validate the config file for API access
         config = api.validate_config(_config)
@@ -142,44 +140,63 @@ def build_grading_flow(_config, args):
         #---------------------------------------------------------------#
         # Obtain course/student/assignment/etc info from the course API #
         #---------------------------------------------------------------#
-        
-        # TODO only obtain resources actually required here
-        # obtain course info, students, assignments, etc
         course_info = api.get_course_info(config)
         assignments = api.get_assignments(config)
         students = api.get_students(config)
         submissions = combine_dictionaries(api.get_submissions.map(unmapped(config), assignments))
 
-        #--------------------------------#
-        # Create grader accounts/folders #
-        #--------------------------------#
-        grd_pairs = get_grader_assignment_pairs(config, assignments)
-        grd_pairs = initialize_grader.map(config, grd_pairs)
+        #----------------------#
+        # Initialize graders   #
+        #----------------------#
+        #grd_tuples = grader.get_grader_assignment_tuples(config, assignments)
+        #grd_tuples = grader.initialize_grader.map(config, grd_tuples)
 
-        #-----------------------------#
-        #   Create submission tuples  #
-        #-----------------------------#
-        subm_pairs = build_assignment_student_pairs(assignments, students) 
+        #-----------------------#
+        #   Assign submissions  #
+        #-----------------------#
+
+        # TODO don't use tuples here, use an actual submission object
+
+        #subm_tuples = flatten(grader.assign_submissions.map(unmapped(config), unmapped(students), unmapped(submissions), grd_tuples))
+
+        #------------------------#
+        #   Collect submissions  #
+        #------------------------#
  
-        # assign graders to submissions
+        #subm_tuples = grader.collect_submission.map(unmapped(config), subm_tuples)
 
-        # collect submissions
+        #----------------------#
+        #   Clean submissions  #
+        #----------------------#
+
+        #subm_tuples = grader.clean_submission.map(unmapped(config), subm_tuples)
  
-        # clean submissions
+        #---------------------#
+        #   Return solutions  #
+        #---------------------#
 
-        # return solutions
+        # returnable_subms = grader.get_returnable_solutions(config, course_info, subm_tuples)
+        # grader.return_solution.map(unmapped(config), returnable_subms)
 
-        # handle missing submissions
-         
-        # autograde submissions
+        #-------------------------------#
+        #   Handle missing submissions  #
+        #-------------------------------#
 
-        # manual grade submissions
+        #--------------------------#
+        #   Autograde submissions  #
+        #--------------------------#
 
-        # upload grades
+        #----------------------------#
+        #   Wait for manual grading  #
+        #----------------------------#
 
-        # generate feedback
+        #------------------#
+        #   Upload grades  #
+        #------------------#
 
-        # return feedback
+        #---------------------------------#
+        #   Generate and return feedback  #
+        #---------------------------------#
 
     return flow
  
