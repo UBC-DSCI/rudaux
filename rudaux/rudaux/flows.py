@@ -151,6 +151,7 @@ def build_grading_flow(_config, args):
         # Create grader accounts/folders #
         #--------------------------------#
         grd_pairs = get_grader_assignment_pairs(config, assignments)
+        initialize_grader.map(config, grd_pairs)
 
         #----------------------------#
         # Create submission pairs    #
