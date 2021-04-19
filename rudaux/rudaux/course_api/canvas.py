@@ -155,7 +155,7 @@ def get_assignments(config):
 @task
 def get_submissions(config, assignment):
     subms = _canvas_get(config, 'assignments/'+assignment['id']+'/submissions')
-    return [ {
+    processed_subms =  [ {
                    'student_id' : str(subm['user_id']), 
                    'assignment_id' : assignment['id'],
                    'score' : subm['score'],
@@ -163,6 +163,12 @@ def get_submissions(config, assignment):
                    'late' : subm['late'],
                    'missing' : subm['missing']
             } for subm in subms ]
+    subms_map = {}
+    for subm in processed_subms:
+        if subm['assignment_id'] not in subms_map:
+            subms_map[subm['assignment_id']] = {}
+        subms_map[subm['assignment_id']][subm['student_id']] = subm
+    return subms_map
 
 def create_override(config, asgn_over_pair):
     assignment, override_dict = asgn_over_pair

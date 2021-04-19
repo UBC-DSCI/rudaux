@@ -9,7 +9,7 @@ from traitlets.config.loader import PyFileConfigLoader
 import pendulum as plm
 import importlib
 
-from .util import build_submission_triplet, reduce_override_pairs
+from .util import build_submission_triplet, build_assignment_student_pairs, reduce_override_pairs, combine_dictionaries
 
 def run(args): 
     print("Loading the rudaux_config.py file...")
@@ -64,9 +64,10 @@ def build_snapshot_flow(_config, args):
     api = importlib.import_module(".course_api."+args.course_api_module, "rudaux")
     snap = importlib.import_module(".snapshot."+args.snapshot_module, "rudaux")
 
-    with Flow("snapshot") as flow:
+    with Flow(_config.course_name+"-snapshot") as flow:
         # validate the config file for API access
         config = api.validate_config(_config)
+        config = snap.validate_config(config)
 
         #---------------------------------------------------------------#
         # Obtain course/student/assignment/etc info from the course API #
@@ -74,20 +75,19 @@ def build_snapshot_flow(_config, args):
         assignments = api.get_assignments(config)
 
         #------------------------------#
-        # Obtain the list of snapshots #
+        #  Obtain lists of snapshots   #
         #------------------------------#
  
-        # validate the config file for snapshots
-        config = snap.validate_config(_config)
-        
         # extract the total list of snapshots to take from assignment data
         snaps = snap.extract_snapshots(config, assignments)
 
         ## obtain the list of existing snapshots
         # TODO uncomment + test 
         #existing_snaps = snap.get_existing_snapshots(config)
-
-        ## take snapshots (map over snaps)
+ 
+        #--------------------#
+        # Take new snapshots #
+        #--------------------#
         # TODO uncomment + test 
         #snap.take_snapshot.map(unmapped(config), snaps, unmapped(existing_snaps))
     return flow
@@ -98,10 +98,10 @@ def build_autoext_flow(_config, args):
     api = importlib.import_module(".course_api."+args.course_api_module, "rudaux")
     autoext = importlib.import_module(".auto_extension."+args.autoext_module, "rudaux")
 
-    with Flow("autoextension") as flow:
+    with Flow(_config.course_name+"-autoextension") as flow:
         # validate the config file for API access
         config = api.validate_config(_config)
-        config = autoext.validate_config(_config)
+        config = autoext.validate_config(config)
 
         #---------------------------------------------------------------#
         # Obtain course/student/assignment/etc info from the course API #
@@ -111,7 +111,7 @@ def build_autoext_flow(_config, args):
         students = api.get_students(config)
 
         #----------------------------#
-        # Create submission triplets #
+        # Create submission pairs    #
         #----------------------------#
         subm_pairs = build_assignment_student_pairs(assignments, students) 
 
@@ -130,35 +130,52 @@ def build_autoext_flow(_config, args):
 def build_grading_flow(_config, args):
     print("Importing course API libraries")
     api = importlib.import_module(".course_api."+args.course_api_module, "rudaux")
-    with Flow("autoextension") as flow:
+    grader = importlib.import_module(".grader."+args.grader_module, "rudaux")
+    with Flow(_config.course_name+"-grading") as flow:
+        # validate the config file for API access
+        config = api.validate_config(_config)
+        config = grader.validate_config(config)
+
         #---------------------------------------------------------------#
         # Obtain course/student/assignment/etc info from the course API #
         #---------------------------------------------------------------#
-
-        # validate the config file for API access
-        config = api.validate_config(_config)
-
+        
         # TODO only obtain resources actually required here
         # obtain course info, students, assignments, etc
         course_info = api.get_course_info(config)
         assignments = api.get_assignments(config)
         students = api.get_students(config)
-        submissions = flatten(api.get_submissions.map(unmapped(config), assignments))
+        submissions = combine_dictionaries(api.get_submissions.map(unmapped(config), assignments))
+
+        #--------------------------------#
+        # Create grader accounts/folders #
+        #--------------------------------#
+        grd_pairs = get_grader_assignment_pairs(config, assignments)
 
         #----------------------------#
-        # Create submission triplets #
+        # Create submission pairs    #
         #----------------------------#
-        subm_triplets = build_submission_triplet.map(unmapped(assignments), unmapped(students), submissions) 
+        subm_pairs = build_assignment_student_pairs(assignments, students) 
+ 
+        # assign graders to submissions
 
-        #----------------------------#
-        # Remove / create extensions #
-        #----------------------------#
-        config = autoext.validate_config(_config)
-        override_create_remove_pairs = autoext.manage_extensions.map(unmapped(config), unmapped(course_info), subm_triplets)
-        overrides_to_create, overrides_to_remove = reduce_override_pairs(override_create_remove_pairs)
-        # TODO uncomment these + test
-        #api.remove_override.map(unmapped(config), overrides_to_remove)
-        #api.create_override.map(unmapped(config), overrides_to_create)
+        # collect submissions
+ 
+        # clean submissions
+
+        # return solutions
+
+        # handle missing submissions
          
+        # autograde submissions
+
+        # manual grade submissions
+
+        # upload grades
+
+        # generate feedback
+
+        # return feedback
+
     return flow
  

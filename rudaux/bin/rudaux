@@ -142,7 +142,14 @@ run_parser.add_argument(
   dest='autoext_module',
   action='store',
   default='latereg',
-  help="The name of the course API module."
+  help="The name of the automatic extensions module."
+)
+run_parser.add_argument(
+  '--grader_module',
+  dest='grader_module',
+  action='store',
+  default='git_nbgrader',
+  help="The name of the grader module."
 )
 run_parser.add_argument(
   '--dir',
