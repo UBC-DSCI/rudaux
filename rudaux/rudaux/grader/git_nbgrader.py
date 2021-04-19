@@ -128,4 +128,6 @@ def initialize_grader(config, grd_pair):
             raise signals.FAIL(f"Error generating solution for {assignment['name']} for grader {grader} at path {grader_path}")
     else:
         logger.info(f"Solution for {assignment['name']} already generated")
+    
+    return grd_pair
 

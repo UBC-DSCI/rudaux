@@ -127,6 +127,9 @@ def build_autoext_flow(_config, args):
     return flow
         
 
+# TODO change all of these flows to not use maps. They force really unintuitive syntax.
+# TODO specify each task's name with a slug='blah'
+
 def build_grading_flow(_config, args):
     print("Importing course API libraries")
     api = importlib.import_module(".course_api."+args.course_api_module, "rudaux")
@@ -151,11 +154,11 @@ def build_grading_flow(_config, args):
         # Create grader accounts/folders #
         #--------------------------------#
         grd_pairs = get_grader_assignment_pairs(config, assignments)
-        initialize_grader.map(config, grd_pairs)
+        grd_pairs = initialize_grader.map(config, grd_pairs)
 
-        #----------------------------#
-        # Create submission pairs    #
-        #----------------------------#
+        #-----------------------------#
+        #   Create submission tuples  #
+        #-----------------------------#
         subm_pairs = build_assignment_student_pairs(assignments, students) 
  
         # assign graders to submissions
