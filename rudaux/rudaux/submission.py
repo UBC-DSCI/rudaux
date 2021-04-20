@@ -73,9 +73,12 @@ def build_submissions(config, course_info, assignment, students, subm_info):
                 subm['zfs_snap_path'] = config.student_dataset_root.strip('/') + '@' + subm['snap_name']
             else:
                 subm['zfs_snap_path'] = os.path.join(config.student_dataset_root, student['id']).strip('/') + '@' + subm['snap_name']
-            subm['snapped_assignment_path'] = os.path.join(config.student_dataset_root, student['id'], 
+            subm['attached_folder'] = os.path.join(config.grading_attached_student_dataset_root, student['id'])
+            subm['snapped_assignment_path'] = os.path.join(subm['attached_folder'], 
                               '.zfs', 'snapshot', subm['snap_name'], config.student_local_assignment_folder, 
                               assignment['name'], assignment['name']+'.ipynb')
+            subm['soln_path'] = os.path.join(subm['attached_folder'], assignment['name'] + '_solution.html')
+            subm['fdbk_path'] = os.path.join(subm['attached_folder'], assignment['name'] + '_feedback.html')
             subm['score'] = subm_info[assignment['id']][student['id']]['score']
             subm['posted_at'] = subm_info[assignment['id']][student['id']]['posted_at']
             subm['late'] = subm_info[assignment['id']][student['id']]['late']
@@ -120,9 +123,6 @@ def get_latereg_override(config, submission):
         logger.info("Student inactive or unlock after registration date; no extension required.")
 
     return (assignment, to_create, to_remove)
-
-
-
 
 
 
@@ -540,25 +540,6 @@ class Submission:
                 print('Warning: student folder ' + str(soln_folder_student) + ' doesnt exist. Skipping solution return.')
 
 
-
-class SubmissionStatus(IntEnum):
-    ERROR = 0
-    NOT_DUE = 1
-    MISSING = 2
-    PREPARED = 3
-    NEEDS_AUTOGRADE = 4
-    AUTOGRADED = 5
-    AUTOGRADE_FAILED_PREVIOUSLY = 6
-    AUTOGRADE_FAILED = 7
-    NEEDS_MANUAL_GRADE = 8
-    DONE_GRADING = 9
-    GRADE_UPLOADED = 10
-    NEEDS_FEEDBACK = 11
-    FEEDBACK_GENERATED = 12
-    FEEDBACK_FAILED_PREVIOUSLY = 13
-    FEEDBACK_FAILED = 14
-    NEEDS_POST = 15
-    DONE = 16
 
 class MultipleGraderError(Exception):
     def __init__(self, message):

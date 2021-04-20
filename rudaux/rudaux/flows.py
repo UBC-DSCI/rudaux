@@ -8,11 +8,14 @@ from traitlets.config import Config
 from traitlets.config.loader import PyFileConfigLoader
 import pendulum as plm
 
-from .util import extract_snapshots, build_submission_triplet, build_assignment_student_pairs, reduce_override_pairs, combine_dictionaries
-
 import .snapshot as snap
 import .submission as subm
 import .course_api as api
+import .grader as grd
+
+@task
+def combine_dictionaries(dicts):
+    return {k : v for d in dicts for k, v in d.items()}
 
 def run(args): 
     print("Loading the rudaux_config.py file...")
@@ -58,8 +61,8 @@ def build_snapshot_flow(_config, args):
         config = snap.validate_config(config)
 
         # Obtain course/student/assignment/etc info from the course API 
-        assignments = api.get_assignments(config)
         course_info = api.get_course_info(config)
+        assignments = api.get_assignments(config)
  
         # extract the total list of snapshots to take from assignment data
         snaps = snap.extract_snapshots(config, assignments)
@@ -83,7 +86,7 @@ def build_autoext_flow(_config, args):
         course_info = api.get_course_info(config)
         assignments = api.get_assignments(config)
         students = api.get_students(config)
-        subm_info = api.get_submissions(config)
+        subm_info = combine_dictionaries(api.get_submissions.map(unmapped(config), assignments))
 
         # Create submissions
         submissions = flatten(subm.build_submissions.map(unmapped(config), unmapped(course_info), assignments, unmapped(students), unmapped(subm_info)))
@@ -97,65 +100,44 @@ def build_autoext_flow(_config, args):
     return flow
         
 def build_grading_flow(_config, args):
-    print("Importing course API libraries")
-    api = importlib.import_module(".course_api."+args.course_api_module, "rudaux")
-    grader = importlib.import_module(".grader."+args.grader_module, "rudaux")
-    
-    print("Constructing the flow")
     with Flow(_config.course_name+"-grading") as flow:
         # validate the config file for API access
         config = api.validate_config(_config)
         config = grader.validate_config(config)
 
-        #---------------------------------------------------------------#
-        # Obtain course/student/assignment/etc info from the course API #
-        #---------------------------------------------------------------#
+        # Obtain course/student/assignment/etc info from the course API 
         course_info = api.get_course_info(config)
         assignments = api.get_assignments(config)
         students = api.get_students(config)
-        submission_info = combine_dictionaries(api.get_submissions.map(unmapped(config), assignments))
+        subm_info = combine_dictionaries(api.get_submissions.map(unmapped(config), assignments))
 
-        #----------------------#
-        # Initialize graders   #
-        #----------------------#
-        # TODO TA + assignment = grader
-        #grd_tuples = grader.get_grader_assignment_tuples(config, assignments)
-        #grd_tuples = grader.initialize_grader.map(config, grd_tuples)
+        # Create submissions
+        submissions = flatten(subm.build_submissions.map(unmapped(config), unmapped(course_info), assignments, unmapped(students), unmapped(subm_info)))
 
-        #-----------------------#
-        #   Assign submissions  #
-        #-----------------------#
+        # Create graders
+        graders = flatten(grd.build_graders.map(unmapped(config), assignments))
 
-        # TODO don't use tuples here, use an actual submission object
-        # Assignment + student = submission
-        # grader + submission = grader_task
+        # create grader volume, add git repo, create folder structure, initialize nbgrader
+        graders = grd.initialize_volume.map(unmapped(config), graders)
 
-        # start by building assign/stu pairs, then use assign func to merge ta/assign pairs
-
-        #subm_tuples = flatten(grader.assign_submissions.map(unmapped(config), unmapped(students), unmapped(submissions), grd_tuples))
-
-        #------------------------#
-        #   Collect submissions  #
-        #------------------------#
+        # create grader jhub account
+        graders = grd.initialize_account.map(unmapped(config), graders)
  
-        #subm_tuples = grader.collect_submission.map(unmapped(config), subm_tuples)
+        # combine graders and submissions to create grading tasks
+        grading_tasks = flatten(grd.assign_grading_tasks.map(unmapped(config), graders, unmapped(submissions)))
 
-        #----------------------#
-        #   Clean submissions  #
-        #----------------------#
+        # collect submissions
+        grading_tasks = grd.collect_submission.map(unmapped(config), grading_tasks)
 
-        #subm_tuples = grader.clean_submission.map(unmapped(config), subm_tuples)
- 
-        #---------------------#
-        #   Return solutions  #
-        #---------------------#
+        # clean submissions
+        grading_tasks = grd.clean_submission.map(unmapped(config), grading_tasks)
 
-        # returnable_subms = grader.get_returnable_solutions(config, course_info, subm_tuples)
-        # grader.return_solution.map(unmapped(config), returnable_subms)
+        # Return solutions  #
+        returnables = grd.get_returnable_solutions(config, course_info, grading_tasks)
+        grd.return_solution.map(unmapped(config), returnables)
 
-        #-------------------------------#
-        #   Handle missing submissions  #
-        #-------------------------------#
+        # Upload 0 for missing submissions
+        grading_tasks = grd.
 
         #--------------------------#
         #   Autograde submissions  #
