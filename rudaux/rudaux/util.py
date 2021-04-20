@@ -3,24 +3,6 @@ from prefect.engine import signals
 import docker
 import time
 
-def _snap_name(course_name, assignment_name, override_name):
-    return course_name+'-'+assignment_name+'-' ('' if override_name is None else override_name)
-
-@task
-def extract_snapshots(config, assignments):
-    logger = prefect.context.get("logger")
-    snaps = []
-    for asgn in assignments:
-        snaps.append( {'due_at' : asgn['due_at'], 
-                       'name' : _snap_name(config.course_name, asgn['name'], None),
-                       'student_id' : None})
-        for override in asgn['overrides']:
-            for student_id in override['student_ids']:
-                snaps.append({'due_at': override['due_at'], 
-                              'name' : _snap_name(config.course_name, asgn['name'], override['id']), 
-                              'student_id' : student_id})
-    return snaps
-
 
 
 @task

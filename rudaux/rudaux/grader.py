@@ -10,56 +10,6 @@ import git
 import shutil
 from ..util import _run_docker
 
-
-# TODO make snapshot name include course name
-class Submission(object):
-    def __init__(self, config, assignment, student, grade_uploaded, grade_posted):
-        self.assignment = assignment
-        self.student = student
-        self.due_date, self.override = assignment.get_due_date(stu)
-        self.snap_name = assignment['name'] if (override is None) else (assignment['name'] + '-override-' + override['id'])
-        self.grader_folder_root = config.user_folder_root
-        self.student_folder_root = config.student_folder_root
-        self.student_local_assignment_folder = config.student_local_assignment_folder
-        self.student_prefix = 'student_'
-        self.snapped_assignment_path = os.path.join(self.student_folder_root, self.stu.canvas_id, '.zfs', 'snapshot', self.snap_name, self.student_local_assignment_folder, self.asgn.name, self.asgn.name+'.ipynb')
-        self.grader_local_collection_folder = os.path.join('submitted', self.student_prefix + self.stu.canvas_id, self.asgn.name)
-        self.grader_local_autograded_folder = os.path.join('autograded', self.student_prefix + self.stu.canvas_id, self.asgn.name)
-        self.grader_local_feedback_folder = os.path.join('feedback', self.student_prefix + self.stu.canvas_id, self.asgn.name)
-        self.grader = self.get_grader()
-        self.grader_repo_path = None
-        self.grade_uploaded = grade_uploaded
-        self.grade_posted = grade_posted
-        self.autograde_docker_job_id = None
-        self.feedback_docker_job_id = None
-        self.score = None
-        self.max_score = None
-        self.error = None
-
-    def _get_due_date(self):
-        basic_date = self.assignment['due_at']
-
-        #get overrides for the student
-        overrides = [over for over in self.assignment['overrides'] if self.student['id'] in over['student_ids'] and (over['due_at'] is not None)]
-
-        #if there was no override, return the basic date
-        if len(overrides) == 0:
-            return basic_date, None
-
-        #if there was one, get the latest override date
-        latest_override = overrides[0]
-        for over in overrides:
-            if over['due_at'] > latest_override['due_at']:
-                latest_override = over
-        
-        #return the latest date between the basic and override dates
-        if latest_override['due_at'] > basic_date:
-            return latest_override['due_at'], latest_override
-        else:
-            return basic_date, None
-
-
-
 def _recursive_chown(path, uid):
     for root, dirs, files in os.walk(path):  
         for di in dirs:  
@@ -70,37 +20,15 @@ def _recursive_chown(path, uid):
 def _clean_jhub_uname(s):
     return ''.join(ch for ch in s if ch.isalnum())
 
-def _grader_account_name(asgn, grd):
-    return _clean_jhub_uname(asgn)+'-'+_clean_jhub_uname(grd)
-
-# TODO this is copied from autoext.latereg. Shouldn't duplicate code. Need to think of a better way to structure things. For now, just copy.
-def _get_due_date(assignment, student):
-    basic_date = assignment['due_at']
-
-    #get overrides for the student
-    overrides = [over for over in assignment['overrides'] if student['id'] in over['student_ids'] and (over['due_at'] is not None)]
-
-    #if there was no override, return the basic date
-    if len(overrides) == 0:
-        return basic_date, None
-
-    #if there was one, get the latest override date
-    latest_override = overrides[0]
-    for over in overrides:
-        if over['due_at'] > latest_override['due_at']:
-            latest_override = over
-    
-    #return the latest date between the basic and override dates
-    if latest_override['due_at'] > basic_date:
-        return latest_override['due_at'], latest_override
-    else:
-        return basic_date, None
-
-
+def _grader_account_name(assignment, ta):
+    return _clean_jhub_uname(assignment['name'])+'-'+_clean_jhub_uname(ta)
 
 @task
 def validate_config(config):
     #config.graders
+    #config.snapshot_window
+
+
     #config.grading_jupyter_user
     #config.grading_dataset_root
     #config.grading_attached_student_dataset_root
@@ -117,22 +45,29 @@ def validate_config(config):
     return config
 
 @task
-def get_grader_assignment_tuples(config, assignments):
-    return [(grd, _grader_account_name(asgn['name'], grd), asgn) for grd in config.graders[asgn['name']] for asgn in assignments]
+def build_graders(config, assignments):
+    graders = []
+    for assignment in assignments:
+        for ta in config.graders[assignment['name']]:
+            grader = {}
+            grader['assignment'] = assignment
+            grader['ta'] = ta
+            grader['name'] = _grader_account_name(assignment, ta)
+            graders.append(grader)
+    return graders
 
 #TODO what happens if rudaux config doesn't have this one's name?
 # TODO split this into multiple tasks each with the same signature, store a global list in this submodule and then loop over it in the flow construction
 @task
-def initialize_grader(config, grd_tuple):
+def initialize_grader(config, grader):
     logger = prefect.context.get("logger")
 
-    ta_user, grader, assignment = grd_tuple
-
     # check if assignment should be skipped
-    if assignment['due_at'] >= plm.now():
-        raise signals.SKIP(f"Assignment {assignment['name']} due date {assignment['due_at']} in the future. Skipping grader account creation.")
+    asgn = grader['assignment']
+    if asgn['due_at'] > plm.now() or asgn['due_at'].add(days=config.snapshot_window) < plm.now():
+        raise signals.SKIP(f"Assignment {grader['assignment']['name']} due date {grader['assignment']['due_at']} is not within the snapshot window. Skipping grader {grader['name']} account creation.")
     else:
-        logger.info(f"Assignment {assignment['name']} due date {assignment['due_at']} in the past. Initializing grader account {grader}")
+        logger.info(f"Assignment {grader['assignment']['name']} due date {grader['assignment']['due_at']} is within the snapshot window. Initializing grader account {grader['name']}")
 
     # get the UID for the jupyterhub unix user account (for folder permissions/ownership etc)
     jupyter_uid = pwd.getpwnam(config.grading_jupyter_user).pw_uid

@@ -7,9 +7,12 @@ from prefect.utilities.logging import get_logger
 from traitlets.config import Config
 from traitlets.config.loader import PyFileConfigLoader
 import pendulum as plm
-import importlib
 
 from .util import extract_snapshots, build_submission_triplet, build_assignment_student_pairs, reduce_override_pairs, combine_dictionaries
+
+import .snapshot as snap
+import .course_api as api
+import .autoext as ext
 
 def run(args): 
     print("Loading the rudaux_config.py file...")
@@ -53,73 +56,42 @@ def run(args):
 # assignment + student = submission
 # assignment + TA = grader
 # submission + grader = grading_task
-
 def build_snapshot_flow(_config, args):
-
-    print("Importing course API, snapshot libraries")
-    api = importlib.import_module(".course_api."+args.course_api_module, "rudaux")
-    snap = importlib.import_module(".snapshot."+args.snapshot_module, "rudaux")
-
-    print("Constructing the flow")
     with Flow(_config.course_name+"-snapshot") as flow:
         # validate the config file for API access
         config = api.validate_config(_config)
         config = snap.validate_config(config)
 
-        #---------------------------------------------------------------#
-        # Obtain course/student/assignment/etc info from the course API #
-        #---------------------------------------------------------------#
+        # Obtain course/student/assignment/etc info from the course API 
         assignments = api.get_assignments(config)
  
-        # TODO to make this more generic, construct submissions first, have them compute their own snaps, and then reduce unique snapshots
-
-        #------------------------------#
-        #  Obtain lists of snapshots   #
-        #------------------------------#
- 
         # extract the total list of snapshots to take from assignment data
-        snaps = extract_snapshots(config, assignments)
+        snaps = snap.extract_snapshots(config, assignments)
 
         # obtain the list of existing snapshots
-        existing_snaps = snap.get_snapshots(config)
+        existing_snaps = snap.get_existing_snapshot_names(config)
  
-        #--------------------#
-        # Take new snapshots #
-        #--------------------#
+        # take new snapshots 
         snap.take_snapshot.map(unmapped(config), snaps, unmapped(existing_snaps))
 
     return flow
 
 # should run at the same or faster interval as the snapshot flow
-# TODO merge this with the snapshot flow?
-# maybe not -- if one fails don't want to stop the other...
 def build_autoext_flow(_config, args):
-
-    print("Importing course API, autoextension libraries")
-    api = importlib.import_module(".course_api."+args.course_api_module, "rudaux")
-    autoext = importlib.import_module(".auto_extension."+args.autoext_module, "rudaux")
-
-    print("Constructing the flow")
     with Flow(_config.course_name+"-autoextension") as flow:
         # validate the config file for API access
         config = api.validate_config(_config)
-        config = autoext.validate_config(config)
+        config = ext.validate_config(config)
 
-        #---------------------------------------------------------------#
-        # Obtain course/student/assignment/etc info from the course API #
-        #---------------------------------------------------------------#
+        # Obtain course/student/assignment/etc info from the course API 
         course_info = api.get_course_info(config)
         assignments = api.get_assignments(config)
         students = api.get_students(config)
 
-        #----------------------------#
-        # Create submission pairs    #
-        #----------------------------#
+        # Create submission pairs 
         subm_pairs = build_assignment_student_pairs(assignments, students) 
 
-        #----------------------------#
-        # Remove / create extensions #
-        #----------------------------#
+        # Remove / create extensions 
         override_update_tuples = autoext.manage_extensions.map(unmapped(config), unmapped(course_info), subm_pairs)
         api.update_overrides.map(unmapped(config), override_update_tuples)
          
@@ -204,3 +176,26 @@ def build_grading_flow(_config, args):
 
     return flow
  
+
+# TODO a flow that resets an assignment; take in parameter, no interval, require manual task "do you really want to do this"
+def build_reset_flow(_config, args):
+    with Flow(_config.course_name+"-reset") as flow:
+        # validate the config file for API access
+        config = api.validate_config(_config)
+        config = snap.validate_config(config)
+
+        # Obtain course/student/assignment/etc info from the course API 
+        assignments = api.get_assignments(config)
+ 
+        # extract the total list of snapshots to take from assignment data
+        snaps = snap.extract_snapshots(config, assignments)
+
+        # obtain the list of existing snapshots
+        existing_snaps = snap.get_existing_snapshot_names(config)
+ 
+        # take new snapshots 
+        snap.take_snapshot.map(unmapped(config), snaps, unmapped(existing_snaps))
+
+    return flow
+
+

@@ -1,0 +1,152 @@
+import os
+import prefect
+from prefect import task
+from prefect.engine import signals
+import paramiko as pmk
+
+def _parse_zfs_snap_paths(stdout):
+    # look for ...@... and take the part after @ but before spaces
+    # E.g.
+    # NAME                                                    USED  AVAIL     REFER  MOUNTPOINT
+    # tank/home/dsci100@worksheet_01                            0B      -      427K  -
+    # tank/home/dsci100/110335@worksheet_11                     0B      -      199M  -
+    # tank/home/dsci100/111547@worksheet_01-override-103988     0B      -     57.5M  -
+    snap_paths = []
+    for line in stdout: 
+        if '@' in line:
+            ridx = line.find(' ')
+            snap_paths.append(line[:ridx])
+    return snap_paths
+
+def _parse_zfs_snap_names(stdout):
+    paths = _parse_zfs_snap_paths(stdout)
+    names = []
+    for path in paths:
+        lidx = path.find('@')+1
+        names.append(path[lidx:])
+    return names
+
+def _ssh_open(config):
+    # open a ssh connection to the student machine
+    client = pmk.client.SSHClient()
+    client.set_missing_host_key_policy(pmk.client.AutoAddPolicy())
+    client.load_system_host_keys()
+    client.connect(config.student_ssh_hostname, config.student_ssh_port, config.student_ssh_username, allow_agent=True)
+    s = client.get_transport().open_session()
+    pmk.agent.AgentRequestHandler(s)
+    return client
+
+def _ssh_command(client, cmd):
+    # execute the snapshot command
+    stdin, stdout, stderr = client.exec_command(cmd)
+    
+    # block on result
+    stdout.channel.recv_exit_status()
+    stderr.channel.recv_exit_status()
+
+    # return
+    return stdout, stderr 
+
+def _ssh_snapshot(config, snap_path):
+    # open the connection
+    client = _ssh_open(config)
+
+    # execute the snapshot
+    stdout, stderr = _ssh_command(client, config.student_zfs_path + ' snapshot -r ' + snap_path)
+
+    # verify the snapshot
+    stdout, stderr = _ssh_command(client, config.student_zfs_path + ' list -t snapshot')
+    snap_paths = _parse_zfs_snap_paths(stdout)
+    if snap_path not in snap_paths:
+        sig = signals.FAIL(f"Failed to take snapshot {snap_path}.")
+        sig.snap_path = snap_path
+        sig.taken_snaps = snap_paths
+        raise sig
+    
+    # close the connection
+    client.close()
+
+def _ssh_list_snapshot_names(config):
+    # open the connection
+    client = _ssh_open(config)
+
+    # list snapshots
+    stdout, stderr = _ssh_command(client, config.student_zfs_path + ' list -t snapshot')
+
+    return _parse_zfs_snap_names(stdout)
+
+
+@task
+def validate_config(config):
+    # TODO validate these
+    #config.student_ssh_hostname
+    #config.student_ssh_port
+    #config.student_ssh_username
+    #config.student_zfs_path #usually /usr/sbin/zfs
+    #config.student_dataset_root 
+    #config.snapshot_window
+    logger = prefect.context.get("logger").info("rudaux_config.py valid for ZFS snapshots over SSH")
+    return config
+
+@task
+def extract_snapshots(config, assignments):
+    logger = prefect.context.get("logger")
+    snaps = []
+    for asgn in assignments:
+        snaps.append( {'due_at' : asgn['due_at'], 
+                       'name' : snap_name(config, asgn, None),
+                       'student_id' : None})
+        for override in asgn['overrides']:
+            for student_id in override['student_ids']:
+                snaps.append({'due_at': override['due_at'], 
+                              'name' : get_snap_name(config, asgn, override), 
+                              'student_id' : student_id})
+    return snaps
+
+@task
+def get_existing_snapshot_names(config):
+    logger = prefect.context.get("logger")
+    return _ssh_list_snapshot_names(config)
+
+@task
+def take_snapshot(config, snap, existing_snap_names):
+    logger = prefect.context.get("logger")
+    snap_deadline = snap['due_at']
+    snap_name = snap['name']
+    snap_user = snap['user']
+
+
+    if snap_name in existing_snap_names:
+         sig = signals.SKIP(f"Snapshot {snap_name} has already been taken; skipping")
+         sig.snap_name = snap_name
+         sig.snap_deadline = snap_deadline
+         sig.existing_snap_names = existing_snap_names
+         raise sig
+
+    if snap_deadline is None:
+         sig = signals.FAIL(f"Snapshot {snap_name} has invalid deadline {snap_deadline}")
+         sig.snap_name = snap_name
+         sig.snap_deadline = snap_deadline
+         raise sig
+
+    if snap_deadline > plm.now():
+         sig = signals.SKIP(f"Snapshot {snap_name} has future deadline {snap_deadline}; skipping")
+         sig.snap_name = snap_name
+         sig.snap_deadline = snap_deadline
+         raise sig
+
+    if snap_deadline.add(days=config.snapshot_window) < plm.now():
+         sig = signals.FAIL(f"Snapshot {snap_name} deadline ({snap_deadline}) more than {config.snapshot_window} days in the past, but not taken yet. This is often because of an old deadline from a copied Canvas course from a previous semester. Please make sure assignment deadlines are all updated to the current semester.")
+         sig.snap_name = snap_name
+         sig.snap_deadline = snap_deadline
+         raise sig
+
+    logger.info(f'Snapshot {snap_name} deadline {snap_deadline} is valid, within the snapshot window, and snap does not already exist; taking snapshot.') 
+    if snap_user is None:
+        snap_path = config.student_dataset_root.strip('/') + '@' + snap_name
+        _ssh_snapshot(config, snap_path)
+    else:
+        snap_path = os.path.join(config.student_datset_root, snap_user).strip('/') + '@' + snap_name
+        _ssh_snapshot(config, snap_path)
+
+    return

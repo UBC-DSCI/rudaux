@@ -8,28 +8,60 @@ from .docker import DockerError
 from .canvas import GradeNotUploadedError
 import pendulum as plm
 
-class SubmissionStatus(IntEnum):
-    ERROR = 0
-    NOT_DUE = 1
-    MISSING = 2
-    PREPARED = 3
-    NEEDS_AUTOGRADE = 4
-    AUTOGRADED = 5
-    AUTOGRADE_FAILED_PREVIOUSLY = 6
-    AUTOGRADE_FAILED = 7
-    NEEDS_MANUAL_GRADE = 8
-    DONE_GRADING = 9
-    GRADE_UPLOADED = 10
-    NEEDS_FEEDBACK = 11
-    FEEDBACK_GENERATED = 12
-    FEEDBACK_FAILED_PREVIOUSLY = 13
-    FEEDBACK_FAILED = 14
-    NEEDS_POST = 15
-    DONE = 16
+def _get_due_date(assignment, student):
+        basic_date = assignment['due_at']
 
-class MultipleGraderError(Exception):
-    def __init__(self, message):
-        self.message = message
+        #get overrides for the student
+        overrides = [over for over in assignment['overrides'] if student['id'] in over['student_ids'] and (over['due_at'] is not None)]
+
+        #if there was no override, return the basic date
+        if len(overrides) == 0:
+            return basic_date, None
+
+        #if there was one, get the latest override date
+        latest_override = overrides[0]
+        for over in overrides:
+            if over['due_at'] > latest_override['due_at']:
+                latest_override = over
+        
+        #return the latest date between the basic and override dates
+        if latest_override['due_at'] > basic_date:
+            return latest_override['due_at'], latest_override
+        else:
+            return basic_date, None
+
+def _get_snap_name(config, assignment, override):
+    return config.course_name+'-'+assignment['name']+'-' + assignment['id'] + ('' if override is None else override['id'])
+
+@task
+def validate_config(config):
+    # config.student_dataset_root
+    # config.student_local_assignment_folder
+    return config
+
+
+@task
+def build_submissions(config, assignment, students):
+    subms = []
+    for student in students:
+        subm = {}
+        subm['assignment'] = assignment
+        subm['student'] = student
+        due_date, override = _get_due_date(assignment, student)
+        subm['snap_name'] = _get_snap_name(config, assignment, override) 
+        subm['due_at'] = due_date
+        if override is None:
+            subm['zfs_snap_path'] = config.student_dataset_root.strip('/') + '@' + subm['snap_name']
+        else:
+            subm['zfs_snap_path'] = os.path.join(config.student_dataset_root, student['id']).strip('/') + '@' + subm['snap_name']
+        subm['snapped_assignment_path'] = os.path.join(config.student_dataset_root, student['id'], 
+                          '.zfs', 'snapshot', subm['snap_name'], config.student_local_assignment_folder, 
+                          assignment['name'], assignment['name']+'.ipynb')
+        subms.append(subm)
+    return subms
+
+
+
 
 class Submission:
 
@@ -434,3 +466,29 @@ class Submission:
                     return SubmissionStatus.ERROR
             else:
                 print('Warning: student folder ' + str(soln_folder_student) + ' doesnt exist. Skipping solution return.')
+
+
+
+class SubmissionStatus(IntEnum):
+    ERROR = 0
+    NOT_DUE = 1
+    MISSING = 2
+    PREPARED = 3
+    NEEDS_AUTOGRADE = 4
+    AUTOGRADED = 5
+    AUTOGRADE_FAILED_PREVIOUSLY = 6
+    AUTOGRADE_FAILED = 7
+    NEEDS_MANUAL_GRADE = 8
+    DONE_GRADING = 9
+    GRADE_UPLOADED = 10
+    NEEDS_FEEDBACK = 11
+    FEEDBACK_GENERATED = 12
+    FEEDBACK_FAILED_PREVIOUSLY = 13
+    FEEDBACK_FAILED = 14
+    NEEDS_POST = 15
+    DONE = 16
+
+class MultipleGraderError(Exception):
+    def __init__(self, message):
+        self.message = message
+
