@@ -51,11 +51,6 @@ def run(args):
     agent = prefect.agent.local.agent.LocalAgent()
     agent.start()
 
-
-# TODO: reframe the below code with the following structures:
-# assignment + student = submission
-# assignment + TA = grader
-# submission + grader = grading_task
 def build_snapshot_flow(_config, args):
     with Flow(_config.course_name+"-snapshot") as flow:
         # validate the config file for API access

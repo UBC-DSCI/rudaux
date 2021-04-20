@@ -42,13 +42,14 @@ def validate_config(config):
 
 @task
 def build_submissions(config, course_info, assignment, students, subm_info):
+
     logger.info("Validating assignment due/unlock dates")
     if assignment['unlock_at'] is None or assignment['due_at'] is None:
          sig = signals.FAIL(f"Invalid unlock ({assignment['unlock_at']}) and/or due ({assignment['due_at']}) date for assignment {assignment['name']}")
          sig.assignment = assignment
          raise sig
     if assignment['unlock_at'] < course_info['start_at'] or assignment['due_at'] < course_info['start_at']:
-         sig = signals.FAIL(f"Assignment {assignment['name']} unlock date ({assignment['unlock_at']}) and/or due date ({assignment['due_at']}) is prior to the course start date ({course_info['start_at']})")
+         sig = signals.FAIL(f"Assignment {assignment['name']} unlock date ({assignment['unlock_at']}) and/or due date ({assignment['due_at']}) is prior to the course start date ({course_info['start_at']}). This is often because of an old deadline from a copied Canvas course from a previous semester. Please make sure assignment deadlines are all updated to the current semester.")
          sig.assignment = assignment
          raise sig
 
