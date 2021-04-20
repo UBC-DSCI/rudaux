@@ -29,30 +29,20 @@ def run(args):
     print(f"Creating the {project_name} project...")
     prefect.client.client.Client().create_project(project_name)
 
-    print("Creating Dask executor")
-    executor = LocalDaskExecutor(num_workers = 8)   # for DaskExecutor: cluster_kwargs = {'n_workers': 8}) #address="tcp://localhost:8786")
+    print("Creating the local Dask executor")
+    executor = LocalDaskExecutor(num_workers = args.dask_threads)   # for DaskExecutor: cluster_kwargs = {'n_workers': 8}) #address="tcp://localhost:8786")
 
-    print("Building/registering the snapshot flow...")
-    snap_flow = build_snapshot_flow(_config, args)
-    snap_flow.executor = executor
-    snap_flow.schedule = IntervalSchedule(start_date = plm.now('UTC').add(seconds=1),
-                                interval = plm.duration(minutes=args.snapshot_interval))
-    snap_flow.register(project_name)
+    flows = [ (build_snapshot_flow, 'snapshot', args.snapshot_interval),
+              (build_autoext_flow, 'autoextension', args.autoext_interval),
+              (build_snapshot_flow, 'grading', args.grading_interval)]
 
-    print("Building/registering the autoextension flow...")
-    autoext_flow = build_autoext_flow(_config, args)
-    autoext_flow.executor = executor
-    autoext_flow.schedule = IntervalSchedule(start_date = plm.now('UTC').add(seconds=1),
-                                   interval = plm.duration(minutes=args.autoext_interval))
-    autoext_flow.register(project_name)
-
-
-    print("Building/registering the grading flow...")
-    grading_flow = build_grading_flow(_config, args)
-    grading_flow.executor = executor
-    grading_flow.schedule = IntervalSchedule(start_date = plm.now('UTC').add(seconds=1),
-                                interval = plm.duration(minutes=args.grading_interval))
-    grading_flow.register(project_name)
+    for build_func, flow_name, interval in flows:
+        print(f"Building/registering the {flow_name} flow...")
+        flow = build_func(_config, args)
+        flow.executor = executor
+        flow.schedule = IntervalSchedule(start_date = plm.now('UTC').add(seconds=1),
+                               interval = plm.duration(minutes=interval))
+        flow.register(project_name)
 
     print("Running the local agent...")
     agent = prefect.agent.local.agent.LocalAgent()
@@ -93,6 +83,9 @@ def build_snapshot_flow(_config, args):
         #snap.take_snapshot.map(unmapped(config), snaps, unmapped(existing_snaps))
     return flow
 
+# should run at the same or faster interval as the snapshot flow
+# TODO merge this with the snapshot flow?
+# maybe not -- if one fails don't want to stop the other...
 def build_autoext_flow(_config, args):
 
     print("Importing course API, autoextension libraries")
@@ -143,7 +136,7 @@ def build_grading_flow(_config, args):
         course_info = api.get_course_info(config)
         assignments = api.get_assignments(config)
         students = api.get_students(config)
-        submissions = combine_dictionaries(api.get_submissions.map(unmapped(config), assignments))
+        submission_info = combine_dictionaries(api.get_submissions.map(unmapped(config), assignments))
 
         #----------------------#
         # Initialize graders   #

@@ -179,6 +179,14 @@ run_parser.add_argument(
   default=1,
   help="The interval (minutes) to take snapshots" 
 )
+run_parser.add_argument(
+  '--dask_threads',
+  dest='dask_threads',
+  action='store',
+  default=8,
+  help="The number of local dask executor threads"
+)
+
 
 # Parse the arguments!
 args = parser.parse_args()
