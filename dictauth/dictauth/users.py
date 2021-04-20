@@ -1,10 +1,13 @@
-import os
-import sys
+import olistimport sys
 from traitlets.config import Config
 from traitlets.config.loader import PyFileConfigLoader
 import re
 
-def _save_dict(epwrds, directory):
+
+# TODO the _save and _load code here is largely repeated for user dict and admin list.
+# try to avoid duplicated code
+
+def _save_user_dict(epwrds, directory):
     #traitlets doesn't have a great way of writing PyFile configs back to disk, so we'll just do it manually
     with open(os.path.join(directory, 'jupyterhub_config.py'), 'r') as f:
         lines = f.readlines()
@@ -23,7 +26,7 @@ def _save_dict(epwrds, directory):
     with open(os.path.join(directory, 'jupyterhub_config.py'), 'w') as f:
         f.writelines(lines)
 
-def _load_dict(directory):
+def _load_user_dict(directory):
     #check the config file exists
     if not os.path.exists(os.path.join(directory, 'jupyterhub_config.py')):
         sys.exit(
@@ -44,6 +47,46 @@ def _load_dict(directory):
         epwrds = {}
     return epwrds
 
+def _save_admin_list(admins, directory):
+    #traitlets doesn't have a great way of writing PyFile configs back to disk, so we'll just do it manually
+    with open(os.path.join(directory, 'jupyterhub_config.py'), 'r') as f:
+        lines = f.readlines()
+
+    found_line = False
+    for i in range(len(lines)):
+        if 'c.DictionaryAuthenticator.admins' == lines[i][:32]:
+            found_line = True
+            lines[i] = 'c.DictionaryAuthenticator.admins = ' + str(admins) 
+            break
+    #if no line starting with this found, append a new one
+    if not found_line:
+        lines.append('c.DictionaryAuthenticator.admins = ' + str(admins) )
+       
+    #save the file
+    with open(os.path.join(directory, 'jupyterhub_config.py'), 'w') as f:
+        f.writelines(lines)
+
+def _load_admin_list(directory):
+    #check the config file exists
+    if not os.path.exists(os.path.join(directory, 'jupyterhub_config.py')):
+        sys.exit(
+             f"""
+             There is no jupyterhub_config.py in the specified directory ({directory}). 
+             Please specify a directory with a valid jupyterhub_config.py file. 
+             """
+           )
+    #load the config
+    config = Config()
+    config.merge(PyFileConfigLoader('jupyterhub_config.py', path=directory).load_config())
+    try:
+        admins = config.DictionaryAuthenticator.admins
+        if not isinstance(admins, list):
+            admins = list(admins)
+    except KeyError as e:
+        print('jupyterhub_config.py does not have an entry for c.DictionaryAuthenticator.admins; continuing with empty list')
+        admins = []
+    return admins
+
 def get_users(args):
     directory = args.directory
     if not os.path.exists(os.path.join(directory, 'jupyterhub_config.py')):
@@ -53,19 +96,28 @@ def get_users(args):
              Please specify a directory with a valid jupyterhub_config.py file. 
              """
            )
-    epwrds = _load_dict(directory)
+    epwrds = _load_user_dict(directory)
     return list(epwrds.keys())
 
 def list_users(args):
     print(get_users(args))
 
-#TODO prevent special chars in name
 def add_user(args):
     username = args.username
     salt = args.salt
     digest = args.digest
     directory = args.directory
     user_creds_to_copy = args.copy_creds
+
+    # prevent special characters in name
+    if not username.isalnum():
+        sys.exit(
+                 f"""
+                 The username must have only alphanumeric characters.
+                 Input Username: {username}
+                 """
+               )
+
 
     epwrds = None
     if user_creds_to_copy is None:
@@ -76,12 +128,12 @@ def add_user(args):
                  f"""
                  The salt or digest is not valid.
                  Both the salt and digest must be a 128-character long string with characters from a-f and 0-9.
-                 Salt: {salt}
-                 Dgst: {digest}
+                 Input Salt: {salt}
+                 Input Dgst: {digest}
                  """
                )
 
-        epwrds = _load_dict(directory)
+        epwrds = _load_user_dict(directory)
 
         #if the user already exists (or if DictionaryAuthenticator.encrypted_passwords isn't in the file), error
         if epwrds.get(username):
@@ -93,7 +145,7 @@ def add_user(args):
                )
         epwrds[username] = {'salt' : salt, 'digest' : digest}
     else:
-        epwrds = _load_dict(directory)
+        epwrds = _load_user_dict(directory)
         if not epwrds.get(user_creds_to_copy): 
             sys.exit(
                 f"""
@@ -110,7 +162,7 @@ def add_user(args):
                )
         epwrds[username] = {'salt' : epwrds[user_creds_to_copy]['salt'], 'digest' : epwrds[user_creds_to_copy]['digest']}
 
-    _save_dict(epwrds, directory)
+    _save_user_dict(epwrds, directory)
         
         
 
@@ -118,7 +170,7 @@ def remove_user(args):
     username = args.username
     directory = args.directory
  
-    epwrds = _load_dict(directory)
+    epwrds = _load_user_dict(directory)
     
     if not epwrds.get(username):
         sys.exit(
@@ -128,7 +180,7 @@ def remove_user(args):
            )
     epwrds.pop(username, None)
 
-    _save_dict(epwrds, directory)
+    _save_user_dict(epwrds, directory)
 
 def rename_user(args):
     username = args.username
@@ -136,7 +188,7 @@ def rename_user(args):
     directory = args.directory
     
     #first make sure the user exists and extract the salt/digest
-    epwrds = _load_dict(directory)
+    epwrds = _load_user_dict(directory)
     if not epwrds.get(username):
         sys.exit(
              f"""
@@ -151,3 +203,41 @@ def rename_user(args):
     args.digest = tmp['digest']
     args.username = args.new_username
     add_user(args)
+
+def make_admin(args):
+    username = args.username
+    directory = args.directory
+    admins = _load_admin_list(directory)
+    epwrds = _load_user_dict(directory)
+    
+    if not epwrds.get(username):
+        sys.exit(
+             f"""
+             There is no user named {username} in the dictionary.   
+             """
+           )
+
+    if username in admins:
+        sys.exit(
+             f"""
+             User {username} is already in the list of admins.
+             """
+           )
+    admins.append(username)
+
+    _save_admin_list(admins, directory)
+
+def un_admin(args):
+    username = args.username
+    directory = args.directory
+    admins = _load_admin_list(directory)
+
+    if not admins.find(username):
+        sys.exit(
+             f"""
+             There is no user named {username} in the list of admins.
+             """
+           )
+    admins.remove(username)
+
+    _save_admin_list(admins, directory)

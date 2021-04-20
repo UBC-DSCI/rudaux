@@ -107,6 +107,39 @@ rename_user_parser.add_argument(
   help="The new name of the user."
 )
 
+make_admin_parser = subparsers.add_parser('make_admin', help='Make a user an admin.')
+make_admin_parser.set_defaults(func=make_admin)
+make_admin_parser.add_argument(
+  '--dir',
+  dest='directory',
+  action='store',
+  default='/srv/jupyterhub/',
+  help="The directory containing the jupyterhub configuration file."
+)
+make_admin_parser.add_argument(
+  '--user',
+  dest='username',
+  action='store',
+  default='',
+  help="The name of the user to add to the list of admins."
+)
+
+un_admin_parser = subparsers.add_parser('un_admin', help='Remove a user from the list of admins.')
+un_admin_parser.set_defaults(func=un_admin)
+un_admin_parser.add_argument(
+  '--dir',
+  dest='directory',
+  action='store',
+  default='/srv/jupyterhub/',
+  help="The directory containing the jupyterhub configuration file."
+)
+un_admin_parser.add_argument(
+  '--user',
+  dest='username',
+  action='store',
+  default='',
+  help="The name of the user to remove from the list of admins."
+)
 
 # Parse the arguments!
 args = parser.parse_args()
