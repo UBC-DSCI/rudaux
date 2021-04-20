@@ -9,7 +9,7 @@ from traitlets.config.loader import PyFileConfigLoader
 import pendulum as plm
 import importlib
 
-from .util import build_submission_triplet, build_assignment_student_pairs, reduce_override_pairs, combine_dictionaries
+from .util import extract_snapshots, build_submission_triplet, build_assignment_student_pairs, reduce_override_pairs, combine_dictionaries
 
 def run(args): 
     print("Loading the rudaux_config.py file...")
@@ -48,6 +48,12 @@ def run(args):
     agent = prefect.agent.local.agent.LocalAgent()
     agent.start()
 
+
+# TODO: reframe the below code with the following structures:
+# assignment + student = submission
+# assignment + TA = grader
+# submission + grader = grading_task
+
 def build_snapshot_flow(_config, args):
 
     print("Importing course API, snapshot libraries")
@@ -64,23 +70,24 @@ def build_snapshot_flow(_config, args):
         # Obtain course/student/assignment/etc info from the course API #
         #---------------------------------------------------------------#
         assignments = api.get_assignments(config)
+ 
+        # TODO to make this more generic, construct submissions first, have them compute their own snaps, and then reduce unique snapshots
 
         #------------------------------#
         #  Obtain lists of snapshots   #
         #------------------------------#
  
         # extract the total list of snapshots to take from assignment data
-        snaps = snap.extract_snapshots(config, assignments)
+        snaps = extract_snapshots(config, assignments)
 
         # obtain the list of existing snapshots
-        # TODO uncomment + test 
-        #existing_snaps = snap.get_existing_snapshots(config)
+        existing_snaps = snap.get_snapshots(config)
  
         #--------------------#
         # Take new snapshots #
         #--------------------#
-        # TODO uncomment + test 
-        #snap.take_snapshot.map(unmapped(config), snaps, unmapped(existing_snaps))
+        snap.take_snapshot.map(unmapped(config), snaps, unmapped(existing_snaps))
+
     return flow
 
 # should run at the same or faster interval as the snapshot flow
@@ -114,8 +121,7 @@ def build_autoext_flow(_config, args):
         # Remove / create extensions #
         #----------------------------#
         override_update_tuples = autoext.manage_extensions.map(unmapped(config), unmapped(course_info), subm_pairs)
-        # TODO uncomment these + test
-        #api.update_overrides.map(unmapped(config), override_update_tuples)
+        api.update_overrides.map(unmapped(config), override_update_tuples)
          
     return flow
         
@@ -141,6 +147,7 @@ def build_grading_flow(_config, args):
         #----------------------#
         # Initialize graders   #
         #----------------------#
+        # TODO TA + assignment = grader
         #grd_tuples = grader.get_grader_assignment_tuples(config, assignments)
         #grd_tuples = grader.initialize_grader.map(config, grd_tuples)
 
@@ -149,6 +156,10 @@ def build_grading_flow(_config, args):
         #-----------------------#
 
         # TODO don't use tuples here, use an actual submission object
+        # Assignment + student = submission
+        # grader + submission = grader_task
+
+        # start by building assign/stu pairs, then use assign func to merge ta/assign pairs
 
         #subm_tuples = flatten(grader.assign_submissions.map(unmapped(config), unmapped(students), unmapped(submissions), grd_tuples))
 

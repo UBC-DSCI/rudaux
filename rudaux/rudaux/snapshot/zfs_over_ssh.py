@@ -5,16 +5,6 @@ from prefect import task
 from prefect.engine import signals
 import paramiko as pmk
 
-def validate_config(config):
-    # TODO validate these
-    #config.student_ssh_hostname
-    #config.student_ssh_port
-    #config.student_ssh_username
-    #config.student_zfs_path #usually /usr/sbin/zfs
-    #config.student_dataset_root 
-    logger = prefect.context.get("logger").info("rudaux_config.py valid for ZFS snapshots over SSH")
-    return config
-
 def _ssh_open(config):
     # open a ssh connection to the student machine
     client = pmk.client.SSHClient()
@@ -50,18 +40,18 @@ def _ssh_snapshot(config, snap_path):
     client.close()
 
 @task
-def extract_snapshots(config, assignments):
-    logger = prefect.context.get("logger")
-    snaps = []
-    for asgn in assignments:
-        snaps.append( {'due_at' : asgn['due_at'], 'name' : asgn['name'], 'user' : None})
-        for override in asgn['overrides']:
-            for student_id in override['student_ids']:
-                snaps.append({'due_at': override['due_at'], 'name' : asgn['name']+'-override-'+override['id'], 'user' : student_id})
-    return snaps
+def validate_config(config):
+    # TODO validate these
+    #config.student_ssh_hostname
+    #config.student_ssh_port
+    #config.student_ssh_username
+    #config.student_zfs_path #usually /usr/sbin/zfs
+    #config.student_dataset_root 
+    logger = prefect.context.get("logger").info("rudaux_config.py valid for ZFS snapshots over SSH")
+    return config
 
 @task
-def get_existing_snapshots(config):
+def get_snapshots(config):
     logger = prefect.context.get("logger")
 
     logger.info('Opening ssh connection to ' +str(config.student_ssh_hostname))
