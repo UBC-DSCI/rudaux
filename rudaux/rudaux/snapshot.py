@@ -84,7 +84,7 @@ def validate_config(config):
     #config.student_ssh_username
     #config.student_zfs_path #usually /usr/sbin/zfs
     #config.student_dataset_root 
-    #config.snapshot_window
+    #config.course_start_date
     logger = prefect.context.get("logger").info("rudaux_config.py valid for ZFS snapshots over SSH")
     return config
 
@@ -109,7 +109,7 @@ def get_existing_snapshot_names(config):
     return _ssh_list_snapshot_names(config)
 
 @task
-def take_snapshot(config, snap, existing_snap_names):
+def take_snapshot(config, course_info, snap, existing_snap_names):
     logger = prefect.context.get("logger")
     snap_deadline = snap['due_at']
     snap_name = snap['name']
@@ -135,13 +135,13 @@ def take_snapshot(config, snap, existing_snap_names):
          sig.snap_deadline = snap_deadline
          raise sig
 
-    if snap_deadline.add(days=config.snapshot_window) < plm.now():
-         sig = signals.FAIL(f"Snapshot {snap_name} deadline ({snap_deadline}) more than {config.snapshot_window} days in the past, but not taken yet. This is often because of an old deadline from a copied Canvas course from a previous semester. Please make sure assignment deadlines are all updated to the current semester.")
+    if snap_deadline < course_info['start_at']:
+         sig = signals.FAIL(f"Snapshot {snap_name} deadline ({snap_deadline}) prior to the course start ({course_info['start_at']}). This is often because of an old deadline from a copied Canvas course from a previous semester. Please make sure assignment deadlines are all updated to the current semester.")
          sig.snap_name = snap_name
          sig.snap_deadline = snap_deadline
          raise sig
 
-    logger.info(f'Snapshot {snap_name} deadline {snap_deadline} is valid, within the snapshot window, and snap does not already exist; taking snapshot.') 
+    logger.info(f'Snapshot {snap_name} deadline {snap_deadline} is valid, and snap does not already exist; taking snapshot.') 
     if snap_user is None:
         snap_path = config.student_dataset_root.strip('/') + '@' + snap_name
         _ssh_snapshot(config, snap_path)

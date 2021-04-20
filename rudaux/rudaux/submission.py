@@ -41,24 +41,95 @@ def validate_config(config):
 
 
 @task
-def build_submissions(config, assignment, students):
+def build_submissions(config, course_info, assignment, students, subm_info):
+    logger.info("Validating assignment due/unlock dates")
+    if assignment['unlock_at'] is None or assignment['due_at'] is None:
+         sig = signals.FAIL(f"Invalid unlock ({assignment['unlock_at']}) and/or due ({assignment['due_at']}) date for assignment {assignment['name']}")
+         sig.assignment = assignment
+         raise sig
+    if assignment['unlock_at'] < course_info['start_at'] or assignment['due_at'] < course_info['start_at']:
+         sig = signals.FAIL(f"Assignment {assignment['name']} unlock date ({assignment['unlock_at']}) and/or due date ({assignment['due_at']}) is prior to the course start date ({course_info['start_at']})")
+         sig.assignment = assignment
+         raise sig
+
     subms = []
     for student in students:
-        subm = {}
-        subm['assignment'] = assignment
-        subm['student'] = student
-        due_date, override = _get_due_date(assignment, student)
-        subm['snap_name'] = _get_snap_name(config, assignment, override) 
-        subm['due_at'] = due_date
-        if override is None:
-            subm['zfs_snap_path'] = config.student_dataset_root.strip('/') + '@' + subm['snap_name']
-        else:
-            subm['zfs_snap_path'] = os.path.join(config.student_dataset_root, student['id']).strip('/') + '@' + subm['snap_name']
-        subm['snapped_assignment_path'] = os.path.join(config.student_dataset_root, student['id'], 
-                          '.zfs', 'snapshot', subm['snap_name'], config.student_local_assignment_folder, 
-                          assignment['name'], assignment['name']+'.ipynb')
-        subms.append(subm)
+        # only build submission objects for students actively enrolled in the course (some will drop)
+        if student['status'] == 'active':
+            logger.info("Validating student registration date")
+            if student['reg_date'] is None:
+                 sig = signals.FAIL(f"Invalid registration date for student {student['name']}, {student['id']} ({student['reg_date']})")
+                 sig.student = student
+                 raise sig
+            subm = {}
+            subm['assignment'] = assignment
+            subm['student'] = student
+            due_date, override = _get_due_date(assignment, student)
+            subm['due_at'] = due_date
+            subm['override'] = override
+            subm['snap_name'] = _get_snap_name(config, assignment, override) 
+            if override is None:
+                subm['zfs_snap_path'] = config.student_dataset_root.strip('/') + '@' + subm['snap_name']
+            else:
+                subm['zfs_snap_path'] = os.path.join(config.student_dataset_root, student['id']).strip('/') + '@' + subm['snap_name']
+            subm['snapped_assignment_path'] = os.path.join(config.student_dataset_root, student['id'], 
+                              '.zfs', 'snapshot', subm['snap_name'], config.student_local_assignment_folder, 
+                              assignment['name'], assignment['name']+'.ipynb')
+            subm['score'] = subm_info[assignment['id']][student['id']]['score']
+            subm['posted_at'] = subm_info[assignment['id']][student['id']]['posted_at']
+            subm['late'] = subm_info[assignment['id']][student['id']]['late']
+            subm['missing'] = subm_info[assignment['id']][student['id']]['missing']
+            subms.append(subm)
     return subms
+
+@task
+def get_latereg_override(config, submission):
+    logger = prefect.context.get("logger")
+    tz = course_info['time_zone']
+    fmt = 'ddd YYYY-MM-DD HH:mm:ss'
+    
+    assignment = submission['assignment']
+    student = submission['student']
+
+    logger.info(f"Checking if student {student['name']} needs an extension on assignment {assignment['name']}")
+    regdate = student['reg_date']
+    logger.info(f"Student registration date: {regdate}    Status: {student['status']}")
+    logger.info(f"Assignment unlock: {assignment['unlock_at']}    Assignment deadline: {assignment['due_at']}")
+    to_remove = None
+    to_create = None
+    if regdate > assignment['unlock_at']:
+        logger.info("Assignment unlock date after student registration date. Extension required.")
+        #the late registration due date
+        latereg_date = regdate.add(days=config.latereg_extension_days)
+        logger.info("Current student-specific due date: " + submission['due_at'].in_timezone(tz).format(fmt) + " from override: " + str(True if (submission['override'] is not None) else False))
+        logger.info('Late registration extension date: ' + latereg_date.in_timezone(tz).format(fmt))
+        if latereg_date > submission['due_at']:
+            logger.info('Creating automatic late registration extension to ' + latereg_date.in_timezone(tz).format(fmt)) 
+            if override is not None:
+                logger.info("Need to remove old override " + str(override['id']))
+                to_remove = override
+            to_create = {'student_ids' : [student['id']],
+                         'due_at' : latereg_date,
+                         'lock_at' : assignment['lock_at'],
+                         'unlock_at' : assignment['unlock_at'],
+                         'title' : student['name']+'-'+assignment['name']+'-latereg'}
+        else:
+            logger.info("Current due date after late registration date; no override modifications required.")
+    else:
+        logger.info("Student inactive or unlock after registration date; no extension required.")
+
+    return (assignment, to_create, to_remove)
+
+
+
+
+
+
+
+
+
+
+
 
 
 

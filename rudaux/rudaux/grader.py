@@ -27,19 +27,18 @@ def _grader_account_name(assignment, ta):
 def validate_config(config):
     #config.graders
     #config.snapshot_window
-
-
     #config.grading_jupyter_user
     #config.grading_dataset_root
+    #config.grading_user_quota
+    #config.grading_local_collection_folder
+
     #config.grading_attached_student_dataset_root
     #config.grading_zfs_path
-    #config.grading_user_quota
     #config.grading_jupyterhub_config_dir
     #config.instructor_repo_url
     #config.grading_docker_image
     #config.grading_docker_memory
     #config.grading_docker_bind_folder
-    #config.grading_local_collection_folder
     #config.return_solution_threshold
     #config.earliest_solution_return_date
     return config
@@ -53,6 +52,10 @@ def build_graders(config, assignments):
             grader['assignment'] = assignment
             grader['ta'] = ta
             grader['name'] = _grader_account_name(assignment, ta)
+            grader['folder'] = os.path.join(config.grading_dataset_root, grader).rstrip('/')
+            grader['unix_uid'] = pwd.getpwnam(config.grading_jupyter_user).pw_uid
+            grader['unix_quota'] = config.grading_user_quota
+            grader['submissions_folder'] = os.path.join(grader['folder'], config.grading_local_collection_folder)
             graders.append(grader)
     return graders
 

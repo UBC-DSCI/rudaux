@@ -11,8 +11,8 @@ import pendulum as plm
 from .util import extract_snapshots, build_submission_triplet, build_assignment_student_pairs, reduce_override_pairs, combine_dictionaries
 
 import .snapshot as snap
+import .submission as subm
 import .course_api as api
-import .autoext as ext
 
 def run(args): 
     print("Loading the rudaux_config.py file...")
@@ -64,6 +64,7 @@ def build_snapshot_flow(_config, args):
 
         # Obtain course/student/assignment/etc info from the course API 
         assignments = api.get_assignments(config)
+        course_info = api.get_course_info(config)
  
         # extract the total list of snapshots to take from assignment data
         snaps = snap.extract_snapshots(config, assignments)
@@ -72,7 +73,7 @@ def build_snapshot_flow(_config, args):
         existing_snaps = snap.get_existing_snapshot_names(config)
  
         # take new snapshots 
-        snap.take_snapshot.map(unmapped(config), snaps, unmapped(existing_snaps))
+        snap.take_snapshot.map(unmapped(config), unmapped(course_info), snaps, unmapped(existing_snaps))
 
     return flow
 
@@ -81,19 +82,22 @@ def build_autoext_flow(_config, args):
     with Flow(_config.course_name+"-autoextension") as flow:
         # validate the config file for API access
         config = api.validate_config(_config)
-        config = ext.validate_config(config)
+        config = subm.validate_config(config)
 
         # Obtain course/student/assignment/etc info from the course API 
         course_info = api.get_course_info(config)
         assignments = api.get_assignments(config)
         students = api.get_students(config)
+        subm_info = api.get_submissions(config)
 
-        # Create submission pairs 
-        subm_pairs = build_assignment_student_pairs(assignments, students) 
+        # Create submissions
+        submissions = flatten(subm.build_submissions.map(unmapped(config), unmapped(course_info), assignments, unmapped(students), unmapped(subm_info)))
+        
+        # get override updates to make
+        override_updates = get_latereg_override.map(unmapped(config), submissions)
 
         # Remove / create extensions 
-        override_update_tuples = autoext.manage_extensions.map(unmapped(config), unmapped(course_info), subm_pairs)
-        api.update_overrides.map(unmapped(config), override_update_tuples)
+        api.update_overrides.map(unmapped(config), override_updates)
          
     return flow
         

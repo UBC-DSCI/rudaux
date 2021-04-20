@@ -156,7 +156,16 @@ def validate_config(config):
 
 @task
 def get_course_info(config):
-    return _canvas_get(config,'')[0]
+    info = _canvas_get(config,'')[0]
+    processed_info = {
+             "id" : info['id'],
+             "name" : info['name'],
+             "code" : info['course_code'],
+             "start_at" : None if info['start_at'] is None else plm.parse(info['start_at']),
+             "end_at" : None if info['end_at'] is None else plm.parse(info['end_at']),
+             "time_zone" : info['time_zone']
+    }
+    return processed_info
 
 @task
 def get_students(config):
