@@ -11,23 +11,24 @@ import shutil
 from .docker import _run_docker
 
 class GradingStatus(IntEnum):
-    ERROR = 0
+    ASSIGNED = 0
     NOT_DUE = 1
     MISSING = 2
-    PREPARED = 3
-    NEEDS_AUTOGRADE = 4
-    AUTOGRADED = 5
-    AUTOGRADE_FAILED_PREVIOUSLY = 6
-    AUTOGRADE_FAILED = 7
-    NEEDS_MANUAL_GRADE = 8
-    DONE_GRADING = 9
-    GRADE_UPLOADED = 10
-    NEEDS_FEEDBACK = 11
-    FEEDBACK_GENERATED = 12
-    FEEDBACK_FAILED_PREVIOUSLY = 13
-    FEEDBACK_FAILED = 14
-    NEEDS_POST = 15
-    DONE = 16
+    COLLECTED = 3
+    PREPARED = 4
+    NEEDS_AUTOGRADE = 5
+    AUTOGRADED = 6
+    AUTOGRADE_FAILED_PREVIOUSLY = 7
+    AUTOGRADE_FAILED = 8
+    NEEDS_MANUAL_GRADE = 9
+    DONE_GRADING = 10
+    GRADE_UPLOADED = 11
+    NEEDS_FEEDBACK = 12
+    FEEDBACK_GENERATED = 13
+    FEEDBACK_FAILED_PREVIOUSLY = 14
+    FEEDBACK_FAILED = 15
+    NEEDS_POST = 16
+    DONE = 17
 
 def _recursive_chown(path, uid):
     for root, dirs, files in os.walk(path):  
@@ -225,7 +226,8 @@ def assign_grading_tasks(config, grader, submissions):
             task['grader'] = grader
             task['submission'] = asgn_subms[i]
             task['collected_assignment_path'] = os.path.join(grader['submissions_folder'], asgn_subms[i]['student']['id'], asgn_subms[i]['assignment']['name'] + '.ipynb')
-            task['status'] = 
+            task['status'] = GradingStatus.ASSIGNED
+            task['grade_to_upload'] = None
             tasks.append(task)
 
     return tasks
@@ -233,13 +235,37 @@ def assign_grading_tasks(config, grader, submissions):
 @task
 def collect_submission(config, grading_task):
     logger = prefect.context.get("logger")
-    logger.info(f"Collecting submission for grading task ({grading_task['grader']['name'], grading_task['submission']['student']['name']})")
-    if not os.path.exists(grading_task['collected_assignment_path']):
-        shutil.copy(grading_task['submission']['snapped_assignment_path'], grading_task['collected_assignment_path'])
-        os.chown(grading_task['collected_assignment_path'], grading_task['grader']['unix_uid'], grading_task['grader']['unix_uid'])
+    if grading_task['submission']['due_at'] < plm.now():
+        logger.info(f"Submission ({grading_task['grader']['name'], grading_task['submission']['student']['name']}) is due. Collecting...")
+        if not os.path.exists(grading_task['collected_assignment_path']):
+            if not os.path.exists(grading_task['submission']['snapped_assignment_path']):
+                logger.info(f"Submission missing. Not collecting.")
+                grading_task['status'] = GradingStatus.MISSING
+                grading_task['score'] = 0.
+            else:
+                shutil.copy(grading_task['submission']['snapped_assignment_path'], grading_task['collected_assignment_path'])
+                os.chown(grading_task['collected_assignment_path'], grading_task['grader']['unix_uid'], grading_task['grader']['unix_uid'])
+                grading_task['status'] = GradingStatus.COLLECTED
+                logger.info("Submission collected.")
+        else:
+            logger.info("Submission already collected.")
+            grading_task['status'] = GradingStatus.COLLECTED
     else:
-        logger.info("Submission already collected.")
+        grading_task['status'] = GradingStatus.NOT_DUE
     return grading_task
+
+@task
+def handle_missing(config, grading_task):
+    logger.info(f"Submission for grading task ({grading_task['grader']['name'], grading_task['submission']['student']['name']}) is missing. Uploading 0 for this assignment and skipping the remainder of this task's flow.")
+    try:
+        canvas.put_grade(self.asgn.canvas_id, self.stu.canvas_id, pct)
+    except GradeNotUploadedError as e: 
+        print('Error when uploading grade')
+        print(e.message)
+        self.error = e
+        return SubmissionStatus.ERROR
+    self.grade_uploaded = True
+    return SubmissionStatus.GRADE_UPLOADED
 
 @task
 def clean_submission(config, grading_task):

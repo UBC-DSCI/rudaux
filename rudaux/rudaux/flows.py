@@ -1,6 +1,7 @@
 import sys, os
 import prefect
 from prefect import Flow, unmapped, task, flatten
+from prefect.engine import signals
 from prefect.schedules import IntervalSchedule
 from prefect.executors import DaskExecutor, LocalDaskExecutor
 from prefect.utilities.logging import get_logger
@@ -8,10 +9,10 @@ from traitlets.config import Config
 from traitlets.config.loader import PyFileConfigLoader
 import pendulum as plm
 
-import .snapshot as snap
-import .submission as subm
-import .course_api as api
-import .grader as grd
+from . import snapshot as snap
+from . import submission as subm
+from . import course_api as api
+from . import grader as grd
 
 @task
 def combine_dictionaries(dicts):
@@ -38,6 +39,13 @@ def run(args):
     print("Creating the local Dask executor")
     executor = LocalDaskExecutor(num_workers = args.dask_threads)   # for DaskExecutor: cluster_kwargs = {'n_workers': 8}) #address="tcp://localhost:8786")
 
+
+    #flow = build_test_flow()
+    #flow.executor = executor
+    #flow.schedule = IntervalSchedule(start_date = plm.now('UTC').add(seconds=1),
+    #                           interval = plm.duration(minutes=1))
+    #flow.register(project_name)
+
     flows = [ (build_snapshot_flow, 'snapshot', args.snapshot_interval),
               (build_autoext_flow, 'autoextension', args.autoext_interval),
               (build_snapshot_flow, 'grading', args.grading_interval)]
@@ -53,6 +61,31 @@ def run(args):
     print("Running the local agent...")
     agent = prefect.agent.local.agent.LocalAgent()
     agent.start()
+
+
+#@task
+#def get_list():
+#    return [1, 2, 3, 4]
+#
+#@task
+#def skip_some(num):
+#    if num % 2 == 0:
+#        raise signals.SKIP(f"skipped this one {num}")
+#    return num
+#
+#@task
+#def mergeli(nums):
+#    logger = prefect.context.get("logger")
+#    logger.info(f"this is nums: {nums}")
+#    return nums[0]
+#
+#def build_test_flow():
+#    with Flow("test") as flow:
+#        li = get_list()
+#        li2 = skip_some.map(li)
+#        li3 = mergeli(li2)
+#    return flow
+
 
 def build_snapshot_flow(_config, args):
     with Flow(_config.course_name+"-snapshot") as flow:
@@ -89,10 +122,11 @@ def build_autoext_flow(_config, args):
         subm_info = combine_dictionaries(api.get_submissions.map(unmapped(config), assignments))
 
         # Create submissions
-        submissions = flatten(subm.build_submissions.map(unmapped(config), unmapped(course_info), assignments, unmapped(students), unmapped(subm_info)))
+        submissions = subm.build_submissions(assignments, students)
+        submissions = subm.init_submission.map(unmapped(config), unmapped(course_info), unmapped(subm_info), submissions)
         
         # get override updates to make
-        override_updates = get_latereg_override.map(unmapped(config), submissions)
+        override_updates = subm.get_latereg_override.map(unmapped(config), submissions)
 
         # Remove / create extensions 
         api.update_overrides.map(unmapped(config), override_updates)
@@ -132,12 +166,9 @@ def build_grading_flow(_config, args):
         # clean submissions
         grading_tasks = grd.clean_submission.map(unmapped(config), grading_tasks)
 
-        # Return solutions  #
+        # Return solutions  
         returnables = grd.get_returnable_solutions(config, course_info, grading_tasks)
         grd.return_solution.map(unmapped(config), returnables)
-
-        # Upload 0 for missing submissions
-        grading_tasks = grd.
 
         #--------------------------#
         #   Autograde submissions  #

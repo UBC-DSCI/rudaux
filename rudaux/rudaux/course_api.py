@@ -235,10 +235,15 @@ def update_overrides(config, override_update_tuple):
         _create_override(config, assignment, to_create)
 
 @task
-def put_grade(config, assignment, student, score):
+def put_grade(config, grading_task):
+    assignment = grading_task['submission']['assignment']
+    student = grading_task['submission']['student']
+    score = grading_task['score']
+
+    # post the grade
     _canvas_put(config, 'assignments/'+assignment['id']+'/submissions/'+student['id'], {'submission' : {'posted_grade' : score}})
 
-    #check that it was posted properly
+    # check that it was posted properly
     canvas_grade = str(_canvas_get(config, 'assignments/'+assignment['id']+'/submissions/'+student['id'])[0]['score'])
     if abs(float(score) - float(canvas_grade)) > 0.01:
         sig = signals.FAIL("grade (" + str(score) +") failed to upload for assignment " + str(assignment['name']) + "("+str(assignment['id'])+"), student " + str(student['name']) + "("+str(student['id'])+"); grade on canvas is " + str(canvas_grade))
