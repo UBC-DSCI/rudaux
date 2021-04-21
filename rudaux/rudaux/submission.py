@@ -7,6 +7,29 @@ from nbgrader.api import Gradebook, MissingEntry
 from .docker import DockerError
 from .canvas import GradeNotUploadedError
 import pendulum as plm
+from .course_api import put_grade
+
+class GradingStatus(IntEnum):
+    ASSIGNED = 0
+    NOT_DUE = 1
+    MISSING = 2
+    COLLECTED = 3
+    PREPARED = 4
+    NEEDS_AUTOGRADE = 5
+    AUTOGRADED = 6
+    AUTOGRADE_FAILED_PREVIOUSLY = 7
+    AUTOGRADE_FAILED = 8
+    NEEDS_MANUAL_GRADE = 9
+    DONE_GRADING = 10
+    GRADE_UPLOADED = 11
+    NEEDS_FEEDBACK = 12
+    FEEDBACK_GENERATED = 13
+    FEEDBACK_FAILED_PREVIOUSLY = 14
+    FEEDBACK_FAILED = 15
+    NEEDS_POST = 16
+    DONE = 17
+
+
 
 def _get_due_date(assignment, student):
         basic_date = assignment['due_at']
@@ -40,9 +63,9 @@ def validate_config(config):
     return config
 
 
-# used to construct the product of all student x assignments
+# used to construct the product of all student x assignments and assign to graders
 @task
-def build_submissions(assignments, students, subm_info):
+def build_submissions(assignments, students, subm_info, graders):
     logger = prefect.context.get("logger")
     logger.info(f"Initializing submission objects")
     subms = []
@@ -53,16 +76,35 @@ def build_submissions(assignments, students, subm_info):
             subm['assignment'] = asgn
             subm['student'] = stu
             subm['name'] = f"({asgn['name']}-{asgn['id']},{stu['name']}-{stu['id']})"  
+
+            # search for this student in the grader folders 
+            found = False
+            for grader in graders:
+                collected_assignment_path = os.path.join(grader['submissions_folder'], 
+                                                         config.grading_collected_student_folder_prefix+stu['id'], 
+                                                         asgn['name'] + '.ipynb')
+                if os.path.exists(collected_assignment_path):
+                    found = True
+                    subm['grader'] = grader
+                    break
+            # if not assigned to anyone, choose the worker with the minimum current workload
+            if not found:
+                # TODO I believe sorted makes a copy, so I need to find the original grader in the list to increase their workload
+                # should debug this to make sure workloads are actually increasing, and also figure out whether it's possible to simplify
+                min_grader = sorted(graders, key = lambda g : g['workload'])[0]
+                graders[graders.index(min_grader)]['workload'] += 1
+                subm['grader'] = graders[graders.index(min_grader)]
+            
             subms.append(subm)
     return subms
 
 # validate each submission, skip if not due yet 
 @task
-def initialize_submission(config, course_info, submission):
+def initialize_submission(config, course_info, subm):
     logger = prefect.context.get("logger")
     logger.info(f"Validating submission {submission['name']}")
-    assignment = submission['assignment']
-    student = submission['student']
+    assignment = subm['assignment']
+    student = subm['student']
 
     # check student regdate, assignment due/unlock dates exist
     if assignment['unlock_at'] is None or assignment['due_at'] is None:
@@ -77,6 +119,10 @@ def initialize_submission(config, course_info, submission):
          sig = signals.FAIL(f"Invalid registration date for student {student['name']}, {student['id']} ({student['reg_date']})")
          sig.student = student
          raise sig
+
+    # if student is inactive, skip
+    if student['status'] != 'active':
+         raise signals.SKIP(f"Student {student['name']} is inactive. Skipping their submissions.")
 
     # initialize values that are potential failure points here
     due_date, override = _get_due_date(assignment, student)
@@ -97,16 +143,199 @@ def initialize_submission(config, course_info, submission):
     subm['posted_at'] = subm_info[assignment['id']][student['id']]['posted_at']
     subm['late'] = subm_info[assignment['id']][student['id']]['late']
     subm['missing'] = subm_info[assignment['id']][student['id']]['missing']
+    subm['collected_assignment_path'] = os.path.join(grader['submissions_folder'], asgn_subms[i]['student']['id'], asgn_subms[i]['assignment']['name'] + '.ipynb')
+    subm['status'] = GradingStatus.ASSIGNED
 
-    # if student is inactive, skip
-    if student['status'] != 'active':
-         raise signals.SKIP(f"Student {student['name']} is inactive. Skipping their submissions.")
+    return subm
 
-    # if the submission is due in the future, skip
-    if submission['due_at'] > plm.now():
-         raise signals.SKIP(f"Submission {subm['name']} is due in the future. Skipping.")
+@task
+def get_pastdue_fractions(config, course_info, submissions):
+    assignment_totals = {}
+    assignment_outstanding = {}
+    assignment_fracs = {}
+    for subm in submissions:
+        assignment = subm['assignment'] 
+        anm = assignment['name']
+        if anm not in assignment_totals:
+            assignment_totals[anm] = 0
+        if anm not in assignment_outstanding:
+            assignment_outstanding[anm] = 0
+        
+        assignment_totals[anm] += 1
+        if subm['due_at'] > plm.now():
+            assignment_outstanding[anm] += 1
+
+    for k, v in assignment_totals.items():
+        assignment_fracs[k] = (v - assignment_outstanding[k])/v
+
+    return assignment_fracs
+
+@task
+def return_solution(config, course_info, assignment_fracs, subm):
+    logger = prefect.context.get("logger")
+    assignment = subm['assignment'] 
+    anm = assignment['name']
+    logger.info(f"Checking whether solution for submission {subm['name']} can be returned")
+    if subm['due_at'] > plm.now() and assignment_fracs[anm] > config.return_solution_threshold and plm.now() > plm.parse(config.earliest_solution_return_date, tz=course_info['time_zone']):
+        logger.info(f"Returning solution submission {subm['name']}")
+        if not os.path.exists(subm['soln_path']):
+            if os.path.exists(subm['attached_folder']):
+                try:
+                    shutil.copy(subm['grader']['soln_path'], subm['soln_path']) 
+                    os.chown(subm['soln_path'], subm['grader']['unix_uid'], subm['grader']['unix_uid'])
+                except Exception as e:
+                    raise signals.FAIL(str(e))
+            else:
+                logger.warning(f"Warning: student folder {subm['attached_folder']} doesnt exist. Skipping solution return.")
+    else:
+        logger.info(f"Not returnable yet. Either the student-specific due date ({subm['due_at']}) has not passed, threshold not yet reached ({assignment_fracs[anm]} <= {config.return_solution_threshold}) or not yet reached the earliest possible solution return date")
 
     return submission
+
+@task
+def collect_submission(config, subm):
+    logger = prefect.context.get("logger")
+    logger.info(f"Collecting submission {subm['name']}...")
+    # if the submission is due in the future, skip
+    if subm['due_at'] > plm.now():
+         subm['status'] = GradingStatus.NOT_DUE
+         raise signals.SKIP(f"Submission {subm['name']} is due in the future. Skipping.")
+
+    if not os.path.exists(subm['collected_assignment_path']):
+        if not os.path.exists(subm['snapped_assignment_path']):
+            logger.info(f"Submission {subm['name']} is missing. Uploading score of 0.")
+            subm['status'] = GradingStatus.MISSING
+            subm['score'] = 0.
+            try:
+                put_grade(config, subm)
+            except Exception as e: 
+                sig = signals.FAIL(f"Error when uploading missing assignment grade of 0 for submission {subm['name']}")
+                sig.subm = subm
+                sig.e = e
+                raise sig 
+            raise signals.SKIP(f"Skipping the remainder of the task flow for submission {subm['name']}.")
+        else:
+            shutil.copy(subm['snapped_assignment_path'], subm['collected_assignment_path'])
+            os.chown(subm['collected_assignment_path'], subm['grader']['unix_uid'], subm['grader']['unix_uid'])
+            subm['status'] = GradingStatus.COLLECTED
+            logger.info("Submission collected.")
+    else:
+        logger.info("Submission already collected.")
+        subm['status'] = GradingStatus.COLLECTED
+    return subm
+
+@task
+def clean_submission(config, subm):
+    logger = prefect.context.get("logger")
+
+    #need to check for duplicate cell ids, see
+    #https://github.com/jupyter/nbgrader/issues/1083
+    #open the student's notebook
+    f = open(subm['collected_assignment_path'], 'r')
+    nb = json.load(f)
+    f.close()
+    
+    #go through and delete the nbgrader metadata from any duplicated cells
+    cell_ids = set()
+    for cell in nb['cells']:
+      try:
+        cell_id = cell['metadata']['nbgrader']['grade_id']
+      except:
+        continue
+      if cell_id in cell_ids:
+        logger.info(f"Student {student['name']} assignment {assignment['name']} grader {grader} had a duplicate cell! ID = {cell_id}")
+        logger.info("Removing the nbgrader metainfo from that cell to avoid bugs in autograde")
+        cell['metadata'].pop('nbgrader', None)
+      else:
+        cell_ids.add(cell_id)
+    
+    #write the sanitized notebook back to the submitted folder
+    f = open(subm['collected_assignment_path'], 'w')
+    json.dump(nb, f)
+    f.close()
+
+    return subm
+
+# TODO 
+@task
+def autograde(config, subm):
+    logger = prefect.context.get("logger")
+
+    #run_container(config, command, homedir = None)
+ 
+    #self.autograde_docker_job_id = docker.submit('nbgrader autograde --force --assignment=' + self.asgn.name + ' --student='+self.student_prefix+self.stu.canvas_id, self.grader_repo_path)
+
+
+    # create the autograded assignment file path
+    self.autograded_assignment_path = os.path.join(self.grader_repo_path, self.grader_local_autograded_folder)
+    self.autograde_fail_flag_path = os.path.join(self.grader_repo_path, 'autograde_failed_'+self.asgn.name+'-'+self.stu.canvas_id)
+
+    print('Autograding submission ' + self.asgn.name+':'+self.stu.canvas_id)
+
+    if os.path.exists(self.autograde_fail_flag_path):
+        print('Autograde failed previously. Returning')
+        return SubmissionStatus.AUTOGRADE_FAILED_PREVIOUSLY
+
+    if os.path.exists(self.autograded_assignment_path):
+        print('Assignment previously autograded & validated.')
+        return SubmissionStatus.AUTOGRADED
+    else:
+        print('Removing old autograding result from DB if it exists')
+        try:
+            gb = Gradebook('sqlite:///'+self.grader_repo_path +'/gradebook.db')
+            gb.remove_submission(self.asgn.name, self.student_prefix+self.stu.canvas_id)
+        except MissingEntry as e:
+            pass
+        finally:
+            gb.close()
+        print('Submitting job to docker pool for autograding')
+        self.autograde_docker_job_id = docker.submit('nbgrader autograde --force --assignment=' + self.asgn.name + ' --student='+self.student_prefix+self.stu.canvas_id, self.grader_repo_path)
+        return SubmissionStatus.NEEDS_AUTOGRADE
+
+def check_grading(self, canvas, docker_results):
+    if self.autograde_docker_job_id is not None:
+        print('Checking autograding for submission ' + self.asgn.name+':'+self.stu.canvas_id)
+        try:
+            self.validate_docker_result(self.autograde_docker_job_id, docker_results, self.autograded_assignment_path)
+        except DockerError as e:
+            print('Autograder failed.')
+            print(e.message)
+            print(e.docker_output)
+            self.error = e
+            #create the fail flag file
+            with open(self.autograde_fail_flag_path, 'wb') as f:
+                pass
+            jupyter_uid = pwd.getpwnam('jupyter').pw_uid
+            os.chown(self.autograde_fail_flag_path, jupyter_uid, jupyter_uid)
+            return SubmissionStatus.AUTOGRADE_FAILED
+        print('Valid autograder result.')
+        self.autograde_docker_job_id = None
+        
+    # check if the submission needs manual grading
+    print('Checking whether submission ' + self.asgn.name+':'+self.stu.canvas_id + ' needs manual grading')
+    try:
+        if self.needs_manual_grading():
+            print('Still needs manual grading.') 
+            return SubmissionStatus.NEEDS_MANUAL_GRADE
+    except Exception as e:
+        print('Error when checking whether subm needs manual grading')
+        print(e)
+        self.error =e
+        return SubmissionStatus.ERROR
+        
+    print('Done grading for ' + self.asgn.name+':'+self.stu.canvas_id )
+    return SubmissionStatus.DONE_GRADING
+
+def needs_manual_grading(self):
+    try:
+        gb = Gradebook('sqlite:///'+self.grader_repo_path +'/gradebook.db')
+        subm = gb.find_submission(self.asgn.name, self.student_prefix+self.stu.canvas_id)
+        flag = subm.needs_manual_grade
+    finally:
+        gb.close()
+    return flag
+
+
 
 @task
 def get_latereg_override(config, submission):

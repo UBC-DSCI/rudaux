@@ -145,95 +145,46 @@ def build_grading_flow(_config, args):
         students = api.get_students(config)
         subm_info = combine_dictionaries(api.get_submissions.map(unmapped(config), assignments))
 
-        # TODO create a nested list of "grading teams" by assignment
-        # some teams will fail, some will succeed
-        # then do flatten(build_submissions.map(teams, assignments, students, subm_info))
-        # therefore any failed or skipped team won't generate submissions
-        # and in build_subms any special due dates will be skipped
+        # ideally we would have individual graders, not grader teams here
+        # but Prefect (Apr 2021) doesn't allow product maps yet; so in order to preserve
+        # proper cascading of skips/failures/successes, we'll use this design for now
+        # If Prefect implements product maps, we can probably parallelize more across individual graders
 
-        # Create submissions
-        submissions = subm.build_submissions(assignments, students, subm_info)
+        # Create grader teams
+        grader_teams = grd.build_grading_team.map(unmapped(config), assignments)
+  
+        # create grader volumes, add git repos, create folder structures, initialize nbgrader
+        grader_teams = grd.initialize_volumes.map(unmapped(config), grader_teams)
+
+        # create grader jhub accounts
+        grader_teams = grd.initialize_accounts.map(unmapped(config), grader_teams)
+
+        # create submission lists for each grading team, then flatten 
+        submissions = flatten(subm.build_submissions.map(unmapped(assignments), unmapped(students), unmapped(subm_info), grader_teams))
         submissions = subm.initialize_submission.map(unmapped(config), unmapped(course_info), submissions)
 
-        # Create graders
-        graders = grd.build_graders(config, assignments)
-        graders = grd.initialize_grader.map(unmapped(config), unmapped(course_info), graders)
-
-        # create grader volume, add git repo, create folder structure, initialize nbgrader
-        graders = grd.initialize_volume.map(unmapped(config), graders)
-
-        # create grader jhub account
-        graders = grd.initialize_account.map(unmapped(config), graders)
-
-        # TODO
-        # we want to propagate skips / failures from graders and submissions to grading_tasks (= combination of grader + subm)
-        # ideally we'd do something like 
-        #     grading_tasks = grd.assign_grading_tasks.product_map(unmapped(config), graders, submissions)
-        # to iterate over all pairs of grader x submission
-        # but Prefect currently (Apr 2021) doesn't allow "product maps" of two lists of tasks
-        # all the options for mapping / flattening don't properly propagate skip/failure/success here
-        # so in the below, we give "submissions" the jobs of:
-        # 1. collecting a list of possible graders from the config
-        # 2. verifying that all the grader folders are set up properly (normally we would just rely on fail / skip state from the graders list,
-        #    but per earlie we can't do that right now)
-        # 3. assigning themselves to a grader
-        # 4. doing all the other tasks (collecting, cleaning, autograding, feedback, returning solns, etc)
-
-        
-        
-
- 
-        # combine graders and submissions to create grading tasks
-        grading_tasks = flatten(grd.assign_grading_tasks.map(unmapped(config), graders, unmapped(submissions)))
+        # compute the fraction of submissions past due for each assignment, and then return solutions for all assignments past the threshold
+        pastdue_fracs = subm.get_pastdue_fractions(config, course_info, submissions)
+        subm.return_solution.map(unmapped(config), unmapped(course_info), unmapped(pastdue_fracs), submissions)
 
         # collect submissions
-        grading_tasks = grd.collect_submission.map(unmapped(config), grading_tasks)
+        submissions = grd.collect_submission.map(unmapped(config), submissions)
 
         # clean submissions
-        grading_tasks = grd.clean_submission.map(unmapped(config), grading_tasks)
+        submissions = grd.clean_submission.map(unmapped(config), submissions)
 
-        # Return solutions  
-        returnables = grd.get_returnable_solutions(config, course_info, grading_tasks)
-        grd.return_solution.map(unmapped(config), returnables)
+        # Autograde submissions 
 
-        #--------------------------#
-        #   Autograde submissions  #
-        #--------------------------#
+        # Wait for manual grading
 
-        #----------------------------#
-        #   Wait for manual grading  #
-        #----------------------------#
+        # Upload grades 
 
-        #------------------#
-        #   Upload grades  #
-        #------------------#
-
-        #---------------------------------#
-        #   Generate and return feedback  #
-        #---------------------------------#
+        # Generate and return feedback 
 
     return flow
  
-
 # TODO a flow that resets an assignment; take in parameter, no interval, require manual task "do you really want to do this"
 def build_reset_flow(_config, args):
-    with Flow(_config.course_name+"-reset") as flow:
-        # validate the config file for API access
-        config = api.validate_config(_config)
-        config = snap.validate_config(config)
-
-        # Obtain course/student/assignment/etc info from the course API 
-        assignments = api.get_assignments(config)
- 
-        # extract the total list of snapshots to take from assignment data
-        snaps = snap.extract_snapshots(config, assignments)
-
-        # obtain the list of existing snapshots
-        existing_snaps = snap.get_existing_snapshot_names(config)
- 
-        # take new snapshots 
-        snap.take_snapshot.map(unmapped(config), snaps, unmapped(existing_snaps))
-
-    return flow
+    raise NotImplementedError
 
 

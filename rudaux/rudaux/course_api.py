@@ -234,11 +234,10 @@ def update_overrides(config, override_update_tuple):
     if to_create is not None:
         _create_override(config, assignment, to_create)
 
-@task
-def put_grade(config, grading_task):
-    assignment = grading_task['submission']['assignment']
-    student = grading_task['submission']['student']
-    score = grading_task['score']
+def put_grade(config, subm):
+    assignment = subm['assignment']
+    student = subm['student']
+    score = subm['score']
 
     # post the grade
     _canvas_put(config, 'assignments/'+assignment['id']+'/submissions/'+student['id'], {'submission' : {'posted_grade' : score}})
