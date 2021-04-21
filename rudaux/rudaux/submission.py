@@ -42,22 +42,28 @@ def validate_config(config):
 
 # used to construct the product of all student x assignments
 @task
-def build_submissions(assignments, students):
+def build_submissions(assignments, students, subm_info):
+    logger = prefect.context.get("logger")
+    logger.info(f"Initializing submission objects")
     subms = []
     for asgn in assignments:
         for stu in students:
             subm = {}
+            # initialize values that are *not* potential failure points here
             subm['assignment'] = asgn
             subm['student'] = stu
-            subm['name'] = f"({asgn['name']}-{asgn['id']},{stu['name']}-{stu['id']})" 
+            subm['name'] = f"({asgn['name']}-{asgn['id']},{stu['name']}-{stu['id']})"  
+            subms.append(subm)
     return subms
 
-# used to actually fill out the required information for each submission, validate it, and skip if not due yet 
+# validate each submission, skip if not due yet 
 @task
-def init_submission(config, course_info, subm_info, submission):
+def initialize_submission(config, course_info, submission):
+    logger = prefect.context.get("logger")
     logger.info(f"Validating submission {submission['name']}")
     assignment = submission['assignment']
     student = submission['student']
+
     # check student regdate, assignment due/unlock dates exist
     if assignment['unlock_at'] is None or assignment['due_at'] is None:
          sig = signals.FAIL(f"Invalid unlock ({assignment['unlock_at']}) and/or due ({assignment['due_at']}) date for assignment {assignment['name']}")
@@ -71,32 +77,34 @@ def init_submission(config, course_info, subm_info, submission):
          sig = signals.FAIL(f"Invalid registration date for student {student['name']}, {student['id']} ({student['reg_date']})")
          sig.student = student
          raise sig
+
+    # initialize values that are potential failure points here
+    due_date, override = _get_due_date(assignment, student)
+    subm['due_at'] = due_date
+    subm['override'] = override
+    subm['snap_name'] = _get_snap_name(config, assignment, override) 
+    if override is None:
+        subm['zfs_snap_path'] = config.student_dataset_root.strip('/') + '@' + subm['snap_name']
+    else:
+        subm['zfs_snap_path'] = os.path.join(config.student_dataset_root, student['id']).strip('/') + '@' + subm['snap_name']
+    subm['attached_folder'] = os.path.join(config.grading_attached_student_dataset_root, student['id'])
+    subm['snapped_assignment_path'] = os.path.join(subm['attached_folder'], 
+                '.zfs', 'snapshot', subm['snap_name'], config.student_local_assignment_folder, 
+                assignment['name'], assignment['name']+'.ipynb')
+    subm['soln_path'] = os.path.join(subm['attached_folder'], assignment['name'] + '_solution.html')
+    subm['fdbk_path'] = os.path.join(subm['attached_folder'], assignment['name'] + '_feedback.html')
+    subm['score'] = subm_info[assignment['id']][student['id']]['score']
+    subm['posted_at'] = subm_info[assignment['id']][student['id']]['posted_at']
+    subm['late'] = subm_info[assignment['id']][student['id']]['late']
+    subm['missing'] = subm_info[assignment['id']][student['id']]['missing']
+
     # if student is inactive, skip
     if student['status'] != 'active':
          raise signals.SKIP(f"Student {student['name']} is inactive. Skipping their submissions.")
-    # if assignment is due in the future, skip
-    if assignment['due_at'] > plm.now():
-         raise signals.SKIP(f"Assignment {assignment['name']} is due in the future. Skipping its submissions.")
-    
-    # the assignment and student are valid. Initialize the submission object.
-    due_date, override = _get_due_date(assignment, student)
-    submission['due_at'] = due_date
-    submission['override'] = override
-    submission['snap_name'] = _get_snap_name(config, assignment, override) 
-    if override is None:
-        submission['zfs_snap_path'] = config.student_dataset_root.strip('/') + '@' + submission['snap_name']
-    else:
-        submission['zfs_snap_path'] = os.path.join(config.student_dataset_root, student['id']).strip('/') + '@' + submission['snap_name']
-    submission['attached_folder'] = os.path.join(config.grading_attached_student_dataset_root, student['id'])
-    submission['snapped_assignment_path'] = os.path.join(submission['attached_folder'], 
-                      '.zfs', 'snapshot', submission['snap_name'], config.student_local_assignment_folder, 
-                      assignment['name'], assignment['name']+'.ipynb')
-    submission['soln_path'] = os.path.join(submission['attached_folder'], assignment['name'] + '_solution.html')
-    submission['fdbk_path'] = os.path.join(submission['attached_folder'], assignment['name'] + '_feedback.html')
-    submission['score'] = subm_info[assignment['id']][student['id']]['score']
-    submission['posted_at'] = subm_info[assignment['id']][student['id']]['posted_at']
-    submission['late'] = subm_info[assignment['id']][student['id']]['late']
-    submission['missing'] = subm_info[assignment['id']][student['id']]['missing']
+
+    # if the submission is due in the future, skip
+    if submission['due_at'] > plm.now():
+         raise signals.SKIP(f"Submission {subm['name']} is due in the future. Skipping.")
 
     return submission
 

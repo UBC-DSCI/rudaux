@@ -64,52 +64,71 @@ def validate_config(config):
     return config
 
 @task
-def build_graders(config, course_info, assignment):
+def build_graders(config, assignments):
     logger = prefect.context.get("logger")
-    logger.info("Checking whether to create graders for assignment {assignment['name']}")
-    # check if assignment should be skipped
-    if assignment['due_at'] < course_info['start_at']:
-        raise signals.FAIL(f"Assignment {assignment['name']} due date {assignment['due_at']} is before the course start date ({course_info['start_at']}). This can happen when courses are copied from past semesters. Please make sure all assignment unlock/due dates are updated for the present semester.")
-
-    if assignment['due_at'] > plm.now():
-        logger.info(f"Assignment {assignment['name']} due date {assignment['due_at']} is in the future. Skipping.")
-        return []
-
-    logger.info("Creating graders...")
+    logger.info("Initializing grader objects")
     graders = []
-    for i in range(len(config.graders[assignment['name']])):
-        ta = config.graders[assignment['name']][i]
-        grader_name = _grader_account_name(assignment, ta)
-        logger.info(f'Building grader account {grader_name}')
-        # ensure TA user exists
-        logger.info(f"Checking if jupyterhub user {ta} exists")
-        Args = namedtuple('Args', 'directory')
-        args = Args(directory = config.grading_jupyterhub_config_dir)
-        output = get_users(args)
-        if ta not in output:
-            raise signals.FAIL(f"User {ta} does not exist! Make sure to use dictauth to create a grader account for each of the TAs listed in config.graders")
-        else:
-            logger.info(f"User {ta} exists.")
-        grader = {}
-        grader['assignment'] = assignment
-        grader['ta'] = ta
-        grader['name'] = grader_name
-        grader['index'] = i
-        grader['unix_uid'] = pwd.getpwnam(config.grading_jupyter_user).pw_uid
-        grader['unix_quota'] = config.grading_user_quota
-        grader['folder'] = os.path.join(config.grading_dataset_root, grader_name).rstrip('/')
-        grader['local_source_path'] = os.path.join('source', assignment['name'], assignment['name']+'.ipynb')
-        grader['submissions_folder'] = os.path.join(grader['folder'], config.grading_local_collection_folder)
-        grader['soln_name'] = assignment['name'] + '_solution.html'
-        grader['soln_path'] = os.path.join(grader['folder'], grader['soln_name'])
-        graders.append(grader)
+    for assignment in assignments:
+        asgn_graders = []
+        for i in range(len(config.graders[assignment['name']])):
+            grader = {}
+            # initialize any values in the grader that are *not* potential failure points here
+            grader['assignment'] = assignment
+            grader['ta'] = config.graders[assignment['name']][i]
+            grader['name'] = _grader_account_name(assignment, grader['ta'])
+            grader['index'] = i
+            grader['unix_uid'] = pwd.getpwnam(config.grading_jupyter_user).pw_uid
+            grader['unix_quota'] = config.grading_user_quota
+            grader['folder'] = os.path.join(config.grading_dataset_root, grader_name).rstrip('/')
+            grader['local_source_path'] = os.path.join('source', assignment['name'], assignment['name']+'.ipynb')
+            grader['submissions_folder'] = os.path.join(grader['folder'], config.grading_local_collection_folder)
+            grader['soln_name'] = assignment['name'] + '_solution.html'
+            grader['soln_path'] = os.path.join(grader['folder'], grader['soln_name'])
+            asgn_graders.append(grader)
 
-    # each grader needs to know what other folders to look in when deciding whether to grade an assignment
-    team_subm_folders = [grader['submissions_folder'] for grader in graders]
-    for grader in graders:
-        grader['team_submissions_folders'] = team_subm_folders
+        # each grader needs to know what other folders to look in when deciding whether to grade an assignment
+        team_subm_folders = [grader['submissions_folder'] for grader in asgn_graders]
+        for grader in asgn_graders:
+            grader['team_submissions_folders'] = team_subm_folders
+
+        # extend the global graders list
+        graders.extend(asgn_graders)
 
     return graders
+
+@task
+def initialize_grader(config, course_info, grader):
+    logger = prefect.context.get("logger")
+    logger.info(f"Validating grader {grader['name']}")
+    assignment = grader['assignment']
+
+    # fail if assignment has an invalid due/unlock date
+    if assignment['unlock_at'] is None or assignment['due_at'] is None:
+         sig = signals.FAIL(f"Invalid unlock ({assignment['unlock_at']}) and/or due ({assignment['due_at']}) date for assignment {assignment['name']}")
+         sig.assignment = assignment
+         raise sig
+    if assignment['unlock_at'] < course_info['start_at'] or assignment['due_at'] < course_info['start_at']:
+        sig = signals.FAIL(f"Assignment {assignment['name']} due date {assignment['due_at']} and/or unlock date {assignment['unlock_at']} is before the course start date ({course_info['start_at']}). This can happen when courses are copied from past semesters. Please make sure all assignment unlock/due dates are updated for the present semester.")
+        sig.assignment = assignment
+        raise sig
+
+    # ensure TA user exists
+    Args = namedtuple('Args', 'directory')
+    args = Args(directory = config.grading_jupyterhub_config_dir)
+    output = get_users(args)
+    if grader['ta'] not in output:
+        raise signals.FAIL(f"Grader account {grader['ta']} does not exist! Make sure to use dictauth to create a grader account for each of the TAs listed in config.graders")
+
+
+    # initialize any values in the grader that are potential failure points here
+    # (none right now)
+ 
+
+    # skip the assignment if it isn't due yet
+    if assignment['due_at'] > plm.now():
+        raise signals.SKIP(f"Assignment {assignment['name']} due date {assignment['due_at']} is in the future. Skipping.")
+
+    return grader
 
 @task
 def initialize_volume(config, grader):
