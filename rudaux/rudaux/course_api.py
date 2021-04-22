@@ -245,7 +245,7 @@ def put_grade(config, subm):
     # check that it was posted properly
     canvas_grade = str(_canvas_get(config, 'assignments/'+assignment['id']+'/submissions/'+student['id'])[0]['score'])
     if abs(float(score) - float(canvas_grade)) > 0.01:
-        sig = signals.FAIL("grade (" + str(score) +") failed to upload for assignment " + str(assignment['name']) + "("+str(assignment['id'])+"), student " + str(student['name']) + "("+str(student['id'])+"); grade on canvas is " + str(canvas_grade))
+        sig = signals.FAIL(f"grade {score} failed to upload for submission {subm['name']} ; grade on canvas is {canvas_grade}")
         sig.assignment = assignment
         sig.student = student
         sig.score = score

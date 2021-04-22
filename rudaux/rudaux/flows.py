@@ -168,18 +168,30 @@ def build_grading_flow(_config, args):
         subm.return_solution.map(unmapped(config), unmapped(course_info), unmapped(pastdue_fracs), submissions)
 
         # collect submissions
-        submissions = grd.collect_submission.map(unmapped(config), submissions)
+        submissions = subm.collect_submission.map(unmapped(config), submissions)
 
         # clean submissions
-        submissions = grd.clean_submission.map(unmapped(config), submissions)
+        submissions = subm.clean_submission.map(unmapped(config), submissions)
 
         # Autograde submissions 
+        submissions = subm.autograde_submission.map(unmapped(config), submissions)
 
         # Wait for manual grading
+        submissions = subm.wait_for_manual_grading.map(unmapped(config), submissions)
+
+        # Skip submissions for assignments with incomplete grading
+        complete_assignments = subm.get_complete_assignments(config, assignments, submissions)
+        submissions = subm.wait_for_completion.map(unmapped(config), unmapped(complete_assignments), submissions)
+
+        # generate feedback
+        submissions = subm.generate_feedback.map(unmapped(config), submissions)
+         
+        # return feedback
+        submissions = subm.return_feedback.map(unmapped(config), unmapped(course_info), unmapped(pastdue_fracs), submissions)
 
         # Upload grades 
+        submissions = subm.upload_grade.map(unmapped(config),  submissions)
 
-        # Generate and return feedback 
 
     return flow
  

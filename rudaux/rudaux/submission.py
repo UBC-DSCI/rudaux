@@ -8,6 +8,7 @@ from .docker import DockerError
 from .canvas import GradeNotUploadedError
 import pendulum as plm
 from .course_api import put_grade
+from .container import run_container
 
 class GradingStatus(IntEnum):
     ASSIGNED = 0
@@ -15,21 +16,9 @@ class GradingStatus(IntEnum):
     MISSING = 2
     COLLECTED = 3
     PREPARED = 4
-    NEEDS_AUTOGRADE = 5
     AUTOGRADED = 6
-    AUTOGRADE_FAILED_PREVIOUSLY = 7
-    AUTOGRADE_FAILED = 8
     NEEDS_MANUAL_GRADE = 9
     DONE_GRADING = 10
-    GRADE_UPLOADED = 11
-    NEEDS_FEEDBACK = 12
-    FEEDBACK_GENERATED = 13
-    FEEDBACK_FAILED_PREVIOUSLY = 14
-    FEEDBACK_FAILED = 15
-    NEEDS_POST = 16
-    DONE = 17
-
-
 
 def _get_due_date(assignment, student):
         basic_date = assignment['due_at']
@@ -75,13 +64,12 @@ def build_submissions(assignments, students, subm_info, graders):
             # initialize values that are *not* potential failure points here
             subm['assignment'] = asgn
             subm['student'] = stu
-            subm['name'] = f"({asgn['name']}-{asgn['id']},{stu['name']}-{stu['id']})"  
 
             # search for this student in the grader folders 
             found = False
             for grader in graders:
                 collected_assignment_path = os.path.join(grader['submissions_folder'], 
-                                                         config.grading_collected_student_folder_prefix+stu['id'], 
+                                                         config.grading_student_folder_prefix+stu['id'], 
                                                          asgn['name'] + '.ipynb')
                 if os.path.exists(collected_assignment_path):
                     found = True
@@ -94,6 +82,8 @@ def build_submissions(assignments, students, subm_info, graders):
                 min_grader = sorted(graders, key = lambda g : g['workload'])[0]
                 graders[graders.index(min_grader)]['workload'] += 1
                 subm['grader'] = graders[graders.index(min_grader)]
+
+            subm['name'] = f"({asgn['name']}-{asgn['id']},{stu['name']}-{stu['id']},{subm['grader']['name']})"  
             
             subms.append(subm)
     return subms
@@ -143,7 +133,15 @@ def initialize_submission(config, course_info, subm):
     subm['posted_at'] = subm_info[assignment['id']][student['id']]['posted_at']
     subm['late'] = subm_info[assignment['id']][student['id']]['late']
     subm['missing'] = subm_info[assignment['id']][student['id']]['missing']
-    subm['collected_assignment_path'] = os.path.join(grader['submissions_folder'], asgn_subms[i]['student']['id'], asgn_subms[i]['assignment']['name'] + '.ipynb')
+    subm['collected_assignment_path'] = os.path.join(subm['grader']['submissions_folder'], 
+                                                     config.grading_student_folder_prefix+subm['student']['id'], 
+                                                     subm['assignment']['name'], subm['assignment']['name'] + '.ipynb')
+    subm['autograded_assignment_path'] = os.path.join(subm['grader']['autograded_folder'], 
+                                                     config.grading_student_folder_prefix+subm['student']['id'], 
+                                                     subm['assignment']['name'], subm['assignment']['name'] + '.ipynb')
+    subm['feedback_path'] = os.path.join(subm['grader']['feedback_folder'], 
+                                                     config.grading_student_folder_prefix+subm['student']['id'], 
+                                                     subm['assignment']['name'], subm['assignment']['name'] + '.html')
     subm['status'] = GradingStatus.ASSIGNED
 
     return subm
@@ -206,13 +204,7 @@ def collect_submission(config, subm):
             logger.info(f"Submission {subm['name']} is missing. Uploading score of 0.")
             subm['status'] = GradingStatus.MISSING
             subm['score'] = 0.
-            try:
-                put_grade(config, subm)
-            except Exception as e: 
-                sig = signals.FAIL(f"Error when uploading missing assignment grade of 0 for submission {subm['name']}")
-                sig.subm = subm
-                sig.e = e
-                raise sig 
+            put_grade(config, subm)
             raise signals.SKIP(f"Skipping the remainder of the task flow for submission {subm['name']}.")
         else:
             shutil.copy(subm['snapped_assignment_path'], subm['collected_assignment_path'])
@@ -254,88 +246,183 @@ def clean_submission(config, subm):
     json.dump(nb, f)
     f.close()
 
+    subm['status'] = GradingStatus.PREPARED
+
     return subm
 
-# TODO 
 @task
 def autograde(config, subm):
     logger = prefect.context.get("logger")
+    logger.info(f"Autograding submission {subm['name']}")
 
-    #run_container(config, command, homedir = None)
- 
-    #self.autograde_docker_job_id = docker.submit('nbgrader autograde --force --assignment=' + self.asgn.name + ' --student='+self.student_prefix+self.stu.canvas_id, self.grader_repo_path)
+    if os.path.exists(subm['autograded_assignment_path']):
+        logger.info('Assignment previously autograded & validated.')
+        subm['status'] = GradingStatus.AUTOGRADED
+        return subm
 
-
-    # create the autograded assignment file path
-    self.autograded_assignment_path = os.path.join(self.grader_repo_path, self.grader_local_autograded_folder)
-    self.autograde_fail_flag_path = os.path.join(self.grader_repo_path, 'autograde_failed_'+self.asgn.name+'-'+self.stu.canvas_id)
-
-    print('Autograding submission ' + self.asgn.name+':'+self.stu.canvas_id)
-
-    if os.path.exists(self.autograde_fail_flag_path):
-        print('Autograde failed previously. Returning')
-        return SubmissionStatus.AUTOGRADE_FAILED_PREVIOUSLY
-
-    if os.path.exists(self.autograded_assignment_path):
-        print('Assignment previously autograded & validated.')
-        return SubmissionStatus.AUTOGRADED
-    else:
-        print('Removing old autograding result from DB if it exists')
-        try:
-            gb = Gradebook('sqlite:///'+self.grader_repo_path +'/gradebook.db')
-            gb.remove_submission(self.asgn.name, self.student_prefix+self.stu.canvas_id)
-        except MissingEntry as e:
-            pass
-        finally:
-            gb.close()
-        print('Submitting job to docker pool for autograding')
-        self.autograde_docker_job_id = docker.submit('nbgrader autograde --force --assignment=' + self.asgn.name + ' --student='+self.student_prefix+self.stu.canvas_id, self.grader_repo_path)
-        return SubmissionStatus.NEEDS_AUTOGRADE
-
-def check_grading(self, canvas, docker_results):
-    if self.autograde_docker_job_id is not None:
-        print('Checking autograding for submission ' + self.asgn.name+':'+self.stu.canvas_id)
-        try:
-            self.validate_docker_result(self.autograde_docker_job_id, docker_results, self.autograded_assignment_path)
-        except DockerError as e:
-            print('Autograder failed.')
-            print(e.message)
-            print(e.docker_output)
-            self.error = e
-            #create the fail flag file
-            with open(self.autograde_fail_flag_path, 'wb') as f:
-                pass
-            jupyter_uid = pwd.getpwnam('jupyter').pw_uid
-            os.chown(self.autograde_fail_flag_path, jupyter_uid, jupyter_uid)
-            return SubmissionStatus.AUTOGRADE_FAILED
-        print('Valid autograder result.')
-        self.autograde_docker_job_id = None
-        
-    # check if the submission needs manual grading
-    print('Checking whether submission ' + self.asgn.name+':'+self.stu.canvas_id + ' needs manual grading')
+    logger.info('Removing old autograding result from DB if it exists')
     try:
-        if self.needs_manual_grading():
-            print('Still needs manual grading.') 
-            return SubmissionStatus.NEEDS_MANUAL_GRADE
-    except Exception as e:
-        print('Error when checking whether subm needs manual grading')
-        print(e)
-        self.error =e
-        return SubmissionStatus.ERROR
-        
-    print('Done grading for ' + self.asgn.name+':'+self.stu.canvas_id )
-    return SubmissionStatus.DONE_GRADING
-
-def needs_manual_grading(self):
-    try:
-        gb = Gradebook('sqlite:///'+self.grader_repo_path +'/gradebook.db')
-        subm = gb.find_submission(self.asgn.name, self.student_prefix+self.stu.canvas_id)
-        flag = subm.needs_manual_grade
+        gb = Gradebook('sqlite:///'+os.path.join(subm['grader']['folder'], 'gradebook.db'))
+        gb.remove_submission(subm['assignment']['name'], config.grading_student_folder_prefix+subm['student']['id'])
+    except MissingEntry as e:
+        pass
     finally:
         gb.close()
-    return flag
+    logger.info('Autograding...')
+    res = run_container(config, 'nbgrader autograde --force --assignment=' + subm['assignment']['name'] + ' --student='+config.grading_student_folder_prefix+subm['student']['id'], subm['grader']['folder'])
+
+    # validate the results
+    if 'ERROR' in res['log']:
+        raise signals.FAIL(f"Docker error autograding submission {subm['name']}: exited with status {res['exit_status']},  {res['log']}")
+    if not os.path.exists(subm['autograded_assignment_path']):
+        raise signals.FAIL(f"Docker error autograding submission {subm['name']}: did not generate expected file at {subm['autograded_assignment_path']}")
+
+    return subm
+
+@task
+def wait_for_manual_grading(config, subm): 
+    logger = prefect.context.get("logger")
+    logger.info(f"Checking whether submission {subm['name']} needs manual grading")
+        
+    # check if the submission needs manual grading
+    try:
+        gb = Gradebook('sqlite:///'+os.path.join(subm['grader']['folder'], 'gradebook.db'))
+        gb_subm = gb.find_submission(subm['assignment']['name'], config.grading_student_folder_prefix+subm['student']['id'])
+        flag = gb_subm.needs_manual_grade
+    except Exception as e:
+        sig = signals.FAIL(f"Error when checking whether submission {subm['name']} needs manual grading; error {str(e)}")
+        sig.e = e
+        sig.subm = subm
+        raise sig
+    finally:
+        gb.close()
+
+    if flag:
+        subm['status'] = GradingStatus.NEEDS_MANUAL_GRADE
+        raise signals.SKIP(f"Submission {subm['name']} still waiting for manual grading. Skipping the remainder of this task.")
+        
+    logger.info("Done grading for submission {subm['name']}.")
+    subm['status'] = GradingStatus.DONE_GRADING
+    return subm
+
+@task(skip_on_upstream_skip = False)
+def get_complete_assignments(config, assignments, submissions):
+    complete_tokens = []
+    for asgn in assignments:
+        if all([ (subm['status'] == GradingStatus.DONE_GRADING or subm['status'] == GradingStatus.MISSING) for subm in submissions if subm['assignment']['id'] == asgn['id']]):
+            complete_tokens.append(asgn['id'])
+    return complete_tokens
+
+@task
+def wait_for_completion(config, complete_ids, subm):
+    if subm['assignment']['id'] in complete_ids:
+        raise signals.SKIP("Submission {subm['name']} : other submissions for this assignment not done grading yet. Skipping remainder of this workflow (uploading grades / returning feedback)")
+    return subm
+
+@task
+def generate_feedback(config, subm):
+    logger = prefect.context.get("logger")
+    logger.info(f"Generating feedback for submission {subm['name']}")
+
+    if os.path.exists(subm['feedback_path']):
+        logger.info('Feedback generated previously.')
+        subm['status'] = GradingStatus.FEEDBACK_GENERATED
+        return subm
+    res = run_container(config, 'nbgrader generate_feedback --force --assignment=' + subm['assignment']['name'] + ' --student=' + config.grading_student_folder_prefix+subm['student']['id'], subm['grader']['folder'])
+
+    # validate the results
+    if 'ERROR' in res['log']:
+        raise signals.FAIL(f"Docker error generating feedback for submission {subm['name']}: exited with status {res['exit_status']},  {res['log']}")
+    if not os.path.exists(subm['feedback_path']):
+        raise signals.FAIL(f"Docker error generating feedback for submission {subm['name']}: did not generate expected file at {subm['feedback_path']}")
+
+    subm['status'] = GradingStatus.FEEDBACK_GENERATED
+    return subm
 
 
+# TODO this func still needs some work
+@task
+def return_feedback(config, course_info, assignment_fracs, subm):
+    logger = prefect.context.get("logger")
+    assignment = subm['assignment'] 
+    anm = assignment['name']
+    logger.info(f"Checking whether feedback for submission {subm['name']} can be returned")
+    if subm['due_at'] > plm.now() and assignment_fracs[anm] > config.return_solution_threshold and plm.now() > plm.parse(config.earliest_solution_return_date, tz=course_info['time_zone']):
+        logger.info(f"Returning feedback for submission {subm['name']}")
+        if not os.path.exists(fdbk_path_student):
+            if os.path.exists(fdbk_folder_student):
+                try:
+                    shutil.copy(fdbk_path_grader, fdbk_path_student) 
+                    os.chown(fdbk_path_student, subm['grader']['unix_uid'], subm['grader']['unix_uid'])
+                except Exception as e:
+                    print('Error occured when returning feedback.')
+                    print(e)
+                    self.error = e
+                    return SubmissionStatus.ERROR
+            else:
+                print('Warning: student folder ' + str(fdbk_folder_student) + ' doesnt exist. Skipping feedback return.')
+    else:
+        logger.info(f"Feedback not returnable yet. Either the threshold has not yet been reached ({assignment_fracs[anm]} <= {config.return_solution_threshold}) or not yet reached the earliest possible solution return date")
+    return subm
+
+
+def _compute_max_score(config, subm):
+  #for some incredibly annoying reason, nbgrader refuses to compute a max_score for anything (so we cannot easily convert scores to percentages)
+  #let's compute the max_score from the notebook manually then....
+  release_nb_path = os.path.join(subm['grader']['folder'], 'release', subm['assignment']['name'], subm['assignment']['name']+'.ipynb')
+  f = open(release_nb_path, 'r')
+  parsed_json = json.load(f)
+  f.close()
+  pts = 0
+  for cell in parsed_json['cells']:
+    try:
+      pts += cell['metadata']['nbgrader']['points']
+    except Exception as e:
+      #will throw exception if cells dont exist / not right type -- that's fine, it'll happen a lot.
+      pass
+  return pts
+
+@task
+def upload_grade(config, subm):
+    logger = prefect.context.get("logger")
+    logger.info(f"Uploading grade for submission {subm['name']}")
+    if subm['score'] is not None:
+        raise signals.SKIP("Grade already uploaded.")
+
+    logger.info(f"Obtaining score from the gradebook")
+    try:
+        gb = Gradebook('sqlite:///'+os.path.join(subm['grader']['folder'] , 'gradebook.db'))
+        gb_subm = gb.find_submission(subm['assignment']['name'], config.grading_student_folder_prefix+subm['student']['id'])
+        score = gb_subm.score
+    except Exception as e:
+        sig = signals.FAIL(f"Error when accessing the gradebook score for submission {subm['name']}; error {str(e)}")
+        sig.e = e
+        sig.subm = subm
+        raise sig
+    finally:
+        gb.close()
+    logger.info(f"Score: {score}")
+
+    logger.info(f"Computing the max score from the release notebook")
+    try:
+        max_score = _compute_max_score(config, subm)
+    except Exception as e:
+        sig = signals.FAIL(f"Error when trying to compute the max score for submission {subm['name']}; error {str(e)}")
+        sig.e = e
+        sig.subm = subm
+        raise sig
+    logger.info(f"Max Score: {max_score}")
+
+    self.score = score
+    self.max_score = max_score
+    pct = "{:.2f}".format(100*score/max_score)
+    logger.info(f"Percent grade: {pct}")
+
+    logger.info(f"Uploading to Canvas...")
+    subm['score'] = pct
+    put_grade(config, subm)
+    
+    return subm
 
 @task
 def get_latereg_override(config, submission):
@@ -374,425 +461,3 @@ def get_latereg_override(config, submission):
         raise signals.SKIP("Assignment {assignment['name']} unlocks after student {student['name']} registration date; no extension required.")
 
     return (assignment, to_create, to_remove)
-
-
-
-
-
-
-
-
-
-
-
-
-class Submission:
-
-    def __init__(self, asgn, stu, grade_uploaded, grade_posted, config):
-        self.asgn = asgn
-        self.stu = stu
-        self.due_date, override = asgn.get_due_date(stu)
-        self.snap_name = asgn.name if (override is None) else (asgn.name + '-override-' + override['id'])
-        self.grader_folder_root = config.user_folder_root
-        self.student_folder_root = config.student_folder_root
-        self.student_local_assignment_folder = config.student_local_assignment_folder
-        self.student_prefix = 'student_'
-        self.snapped_assignment_path = os.path.join(self.student_folder_root, self.stu.canvas_id, '.zfs', 'snapshot', self.snap_name, self.student_local_assignment_folder, self.asgn.name, self.asgn.name+'.ipynb')
-        self.grader_local_collection_folder = os.path.join('submitted', self.student_prefix + self.stu.canvas_id, self.asgn.name)
-        self.grader_local_autograded_folder = os.path.join('autograded', self.student_prefix + self.stu.canvas_id, self.asgn.name)
-        self.grader_local_feedback_folder = os.path.join('feedback', self.student_prefix + self.stu.canvas_id, self.asgn.name)
-        self.grader = self.get_grader()
-        self.grader_repo_path = None
-        self.grade_uploaded = grade_uploaded
-        self.grade_posted = grade_posted
-        self.autograde_docker_job_id = None
-        self.feedback_docker_job_id = None
-        self.score = None
-        self.max_score = None
-        self.error = None
-
-    def get_grader(self):
-        graders = [username.strip('/') for username in os.listdir(self.grader_folder_root) if self.asgn.grader_basename() in username]
-        grader = None
-        for grd in graders:
-            #check if this grader already has this submission
-            fldr = os.path.join(self.grader_folder_root, grd, self.grader_local_collection_folder)
-            if os.path.exists(fldr) and grader is None:
-                grader = grd
-            elif os.path.exists(fldr):
-                raise MultipleGraderError('Submission ' + self.asgn.name + ' -- ' + self.stu.canvas_id + ' -- has multiple graders: ' + str(grader) + ' and ' + str(grd))
-        return grader
-
-    ######################################################
-    ###    Funcs to prepare the submission for grading  ##
-    ######################################################
-
-    def prepare(self, tz):
-        fmt = 'ddd YYYY-MM-DD HH:mm:ss'
-        print('Preparing submission ' + self.asgn.name+':'+self.stu.canvas_id)
-
-        #assign the submission to a grader
-        print('Assigning submission to grader') 
-        try:
-            self.assign()
-        except Exception as e: #TODO make this exception more specific and raise if unknown type
-            print('Error when assigning')
-            print(e)
-            self.error = e
-            return SubmissionStatus.ERROR
-        print('Submission assigned to grader ' + self.grader)
-
-        #only start the process if an hour has elapsed to give time for snapshots etc
-        if self.due_date.add(hours=1) >= plm.now(): 
-            print('Submission not yet ready for collection (due+1hr). Due date: ' + self.due_date.in_timezone(tz).format(fmt) + ' Time now: ' + plm.now().in_timezone(tz).format(fmt))
-            return SubmissionStatus.NOT_DUE
-        print('Submission ready for collection (due+1hr). Due date: ' + self.due_date.in_timezone(tz).format(fmt) + ' Time now: ' + plm.now().in_timezone(tz).format(fmt))
-
-        #create the collected assignment path
-        self.collected_assignment_path = os.path.join(self.grader_repo_path, self.grader_local_collection_folder, self.asgn.name + '.ipynb')
-
-        #try to collect the assignment if not already collected
-        print('Collecting submission...')
-        try:
-            self.collect()
-        except Exception as e: #TODO make this exception more specific and raise if unknown type
-            if "No such file" in str(e):
-                print("Student did not submit on time. Assignment missing.")
-                return SubmissionStatus.MISSING
-            else:
-                print('Error when collecting')
-                print(e)
-                self.error = e
-                return SubmissionStatus.ERROR
-        else:
-            print('Submission collected.')
-
-        # the assignment was not missing.
-
-        # clean the submission
-        print('Submission is collected. Cleaning...')
-        try:
-            self.clean()
-        except Exception as e: #TODO make this exception more specific and raise if unknown type
-            print('Error when cleaning')
-            print(e)
-            self.error = e
-            return SubmissionStatus.ERROR 
-  
-        return SubmissionStatus.PREPARED
-
-    def assign(self):
-        # if the grader workload dict hasn't been created in the assignment yet, create it
-        if len(self.asgn.grader_workloads) == 0:
-            graders = [username.strip('/') for username in os.listdir(self.grader_folder_root) if self.asgn.grader_basename() in username]
-            for grd in graders:
-                self.asgn.grader_workloads[grd] = 0
-        # if unknown grader
-        if self.grader is None:
-            #assign this to the grader with the least work
-            min_ct = 1e64
-            min_grader = None
-            for grd in self.asgn.grader_workloads:
-                if self.asgn.grader_workloads[grd] <= min_ct:
-                    min_ct = self.asgn.grader_workloads[grd]
-                    min_grader = grd
-            self.grader = min_grader
-
-            #create the submission folder in the grader account and set permissions
-            jupyter_uid = pwd.getpwnam('jupyter').pw_uid
-            fldr = os.path.join(self.grader_folder_root, min_grader, self.grader_local_collection_folder)
-            os.makedirs(fldr, exist_ok=True)
-
-            #chown everything inside the grader folder root to jupyter/jupyter, moving backwards through the path hierarchy until we reach the grader root folder
-            while not os.path.samefile(fldr, os.path.join(self.grader_folder_root, min_grader)):
-                os.chown(fldr, jupyter_uid, jupyter_uid)
-                fldr = os.path.dirname(fldr)
-
-        #increment the known grader workload by 1
-        self.asgn.grader_workloads[self.grader] += 1
-        
-        #setup convenience path
-        self.grader_repo_path = os.path.join(self.grader_folder_root, self.grader)
-            
-    def collect(self):
-        jupyter_uid = pwd.getpwnam('jupyter').pw_uid
-        if not os.path.exists(self.collected_assignment_path):
-            shutil.copy(self.snapped_assignment_path, self.collected_assignment_path)
-            os.chown(self.collected_assignment_path, jupyter_uid, jupyter_uid)
-        
-    def clean(self):
-        #need to check for duplicate cell ids, see
-        #https://github.com/jupyter/nbgrader/issues/1083
-        
-        #open the student's notebook
-        f = open(self.collected_assignment_path, 'r')
-        nb = json.load(f)
-        f.close()
-    
-        #go through and delete the nbgrader metadata from any duplicated cells
-        cell_ids = set()
-        for cell in nb['cells']:
-          try:
-            cell_id = cell['metadata']['nbgrader']['grade_id']
-          except:
-            continue
-          if cell_id in cell_ids:
-            print('Student ' + self.stu.canvas_id + ' assignment ' + self.asgn.name + ' grader ' + self.grader + ' had a duplicate cell! ID = ' + str(cell_id))
-            print('Removing the nbgrader metainfo from that cell to avoid bugs in autograde')
-            cell['metadata'].pop('nbgrader', None)
-          else:
-            cell_ids.add(cell_id)
-    
-        #write the sanitized notebook back to the submitted folder
-        f = open(self.collected_assignment_path, 'w')
-        json.dump(nb, f)
-        f.close()
-
-    ######################################################
-    ###    Funcs to grade the submission for grading    ##
-    ######################################################
-
-    def submit_autograding(self, docker):
-        # create the autograded assignment file path
-        self.autograded_assignment_path = os.path.join(self.grader_repo_path, self.grader_local_autograded_folder)
-        self.autograde_fail_flag_path = os.path.join(self.grader_repo_path, 'autograde_failed_'+self.asgn.name+'-'+self.stu.canvas_id)
-
-        print('Autograding submission ' + self.asgn.name+':'+self.stu.canvas_id)
-
-        if os.path.exists(self.autograde_fail_flag_path):
-            print('Autograde failed previously. Returning')
-            return SubmissionStatus.AUTOGRADE_FAILED_PREVIOUSLY
-
-        if os.path.exists(self.autograded_assignment_path):
-            print('Assignment previously autograded & validated.')
-            return SubmissionStatus.AUTOGRADED
-        else:
-            print('Removing old autograding result from DB if it exists')
-            try:
-                gb = Gradebook('sqlite:///'+self.grader_repo_path +'/gradebook.db')
-                gb.remove_submission(self.asgn.name, self.student_prefix+self.stu.canvas_id)
-            except MissingEntry as e:
-                pass
-            finally:
-                gb.close()
-            print('Submitting job to docker pool for autograding')
-            self.autograde_docker_job_id = docker.submit('nbgrader autograde --force --assignment=' + self.asgn.name + ' --student='+self.student_prefix+self.stu.canvas_id, self.grader_repo_path)
-            return SubmissionStatus.NEEDS_AUTOGRADE
-
-    def check_grading(self, canvas, docker_results):
-        if self.autograde_docker_job_id is not None:
-            print('Checking autograding for submission ' + self.asgn.name+':'+self.stu.canvas_id)
-            try:
-                self.validate_docker_result(self.autograde_docker_job_id, docker_results, self.autograded_assignment_path)
-            except DockerError as e:
-                print('Autograder failed.')
-                print(e.message)
-                print(e.docker_output)
-                self.error = e
-                #create the fail flag file
-                with open(self.autograde_fail_flag_path, 'wb') as f:
-                    pass
-                jupyter_uid = pwd.getpwnam('jupyter').pw_uid
-                os.chown(self.autograde_fail_flag_path, jupyter_uid, jupyter_uid)
-                return SubmissionStatus.AUTOGRADE_FAILED
-            print('Valid autograder result.')
-            self.autograde_docker_job_id = None
-            
-        # check if the submission needs manual grading
-        print('Checking whether submission ' + self.asgn.name+':'+self.stu.canvas_id + ' needs manual grading')
-        try:
-            if self.needs_manual_grading():
-                print('Still needs manual grading.') 
-                return SubmissionStatus.NEEDS_MANUAL_GRADE
-        except Exception as e:
-            print('Error when checking whether subm needs manual grading')
-            print(e)
-            self.error =e
-            return SubmissionStatus.ERROR
-            
-        print('Done grading for ' + self.asgn.name+':'+self.stu.canvas_id )
-        return SubmissionStatus.DONE_GRADING
-
-    def needs_manual_grading(self):
-        try:
-            gb = Gradebook('sqlite:///'+self.grader_repo_path +'/gradebook.db')
-            subm = gb.find_submission(self.asgn.name, self.student_prefix+self.stu.canvas_id)
-            flag = subm.needs_manual_grade
-        finally:
-            gb.close()
-        return flag
-
-    ######################################################
-    ###    Functions to upload grades to canvas         ##
-    ######################################################
-
-    def upload_grade(self, canvas, failed = False):
-
-        if self.grade_uploaded:
-            print('Grade already uploaded. Returning')
-            return SubmissionStatus.GRADE_UPLOADED
-
-        print('Uploading grade for submission ' + self.asgn.name+':'+self.stu.canvas_id)
-        if failed:
-            score = 0
-        else:
-            try:
-                gb = Gradebook('sqlite:///'+self.grader_repo_path +'/gradebook.db')
-                subm = gb.find_submission(self.asgn.name, self.student_prefix+self.stu.canvas_id)
-                score = subm.score
-            except Exception as e:
-                print('Error when accessing grade from gradebook db')
-                print(e)
-                self.error = e
-                return SubmissionStatus.ERROR
-            finally:
-                gb.close()
-
-        try:
-            max_score = self.compute_max_score()
-        except Exception as e:
-            print('Error when trying to compute max score from release notebook')
-            print(e)
-            self.error = e
-            return SubmissionStatus.ERROR
-
-        self.score = score
-        self.max_score = max_score
-        pct = "{:.2f}".format(100*score/max_score)
-    
-        print('Student ' + self.stu.canvas_id + ' assignment ' + self.asgn.name + ' score: ' + str(score) + (' [HARDFAIL]' if failed else ''))
-        print('Assignment ' + self.asgn.name + ' max score: ' + str(max_score))
-        print('Pct Score: ' + pct)
-        print('Posting to canvas...')
-        try:
-            canvas.put_grade(self.asgn.canvas_id, self.stu.canvas_id, pct)
-        except GradeNotUploadedError as e: 
-            print('Error when uploading grade')
-            print(e.message)
-            self.error = e
-            return SubmissionStatus.ERROR
-        self.grade_uploaded = True
-        return SubmissionStatus.GRADE_UPLOADED
-
-    def compute_max_score(self):
-      #for some incredibly annoying reason, nbgrader refuses to compute a max_score for anything (so we cannot easily convert scores to percentages)
-      #let's compute the max_score from the notebook manually then....
-      release_nb_path = os.path.join(self.grader_repo_path, 'release', self.asgn.name, self.asgn.name+'.ipynb')
-      f = open(release_nb_path, 'r')
-      parsed_json = json.load(f)
-      f.close()
-      pts = 0
-      for cell in parsed_json['cells']:
-        try:
-          pts += cell['metadata']['nbgrader']['points']
-        except Exception as e:
-          #will throw exception if cells dont exist / not right type -- that's fine, it'll happen a lot.
-          pass
-      return pts
-
-    def finalize_failed_submission(self, canvas):
-        print('Uploading 0 for missing submission ' + self.asgn.name+':'+self.stu.canvas_id)
-        ret = self.upload_grade(canvas, failed=True)
-        if ret == SubmissionStatus.GRADE_UPLOADED:
-            self.grade_uploaded = True
-        return ret
-        
-    ######################################################
-    ###        Functions to generate feedback           ##
-    ######################################################
-
-    def submit_genfeedback(self, docker):
-        # create the autograded assignment file path
-        self.feedback_path = os.path.join(self.grader_repo_path, self.grader_local_feedback_folder)
-        self.feedback_fail_flag_path = os.path.join(self.grader_repo_path, 'feedback_failed_'+self.asgn.name+'-'+self.stu.canvas_id)
-
-        print('Generating feedback for submission ' + self.asgn.name+':'+self.stu.canvas_id)
-
-        if os.path.exists(self.feedback_fail_flag_path):
-            print('Feedback failed previously. Returning')
-            return SubmissionStatus.FEEDBACK_FAILED_PREVIOUSLY
-
-        if os.path.exists(self.feedback_path):
-            print('Feedback previously generated and validated.')
-            return SubmissionStatus.FEEDBACK_GENERATED
-        else:
-            print('Submitting job to docker pool for feedback gen')
-            self.feedback_docker_job_id = docker.submit('nbgrader generate_feedback --force --assignment=' + self.asgn.name + ' --student=' + self.student_prefix+self.stu.canvas_id, self.grader_repo_path)
-            return SubmissionStatus.NEEDS_FEEDBACK
-
-    def check_feedback(self, docker_results):
-        if self.feedback_docker_job_id is not None:
-            print('Checking feedback for submission ' + self.asgn.name+':'+self.stu.canvas_id)
-            try:
-                self.validate_docker_result(self.feedback_docker_job_id, docker_results, self.feedback_path)
-            except DockerError as e:
-                print('Feedback generation failed.')
-                print(e.message)
-                print(e.docker_output)
-                self.error = e
-                #create the fail flag file
-                with open(self.feedback_fail_flag_path, 'wb') as f:
-                    pass
-                jupyter_uid = pwd.getpwnam('jupyter').pw_uid
-                os.chown(self.feedback_fail_flag_path, jupyter_uid, jupyter_uid)
-                return SubmissionStatus.FEEDBACK_FAILED
-            print('Valid feedback generated.')
-            self.feedback_docker_job_id = None
-
-        return SubmissionStatus.FEEDBACK_GENERATED
-
-    ######################################################
-    ###            Miscellaneous functions              ##
-    ######################################################
-            
-    def validate_docker_result(self, job_id, results, check_path):
-        res = results[job_id]
-        if 'ERROR' in res['log']:
-            raise DockerError('Docker error processing assignment ' + self.asgn.name + ' for student ' + self.stu.canvas_id + ' in grader folder ' + self.grader +'. Exit status ' + res['exit_status'], res['log'])
-        if not os.path.exists(check_path):
-            raise DockerError('Docker error processing assignment ' + self.asgn.name + ' for student ' + self.stu.canvas_id + ' in grader folder ' + self.grader +'. Docker did not generate expected file at ' + check_path, res['log'])
-
-    def return_feedback(self):
-        print('Returning feedback for submission ' + self.asgn.name+':'+self.stu.canvas_id)
-        fdbk_path_grader = os.path.join(self.feedback_path, self.asgn.name + '.html')
-        fdbk_folder_student = os.path.join(self.student_folder_root, self.stu.canvas_id)
-        fdbk_path_student = os.path.join(fdbk_folder_student, self.asgn.name + '_feedback.html')
-        if not os.path.exists(fdbk_path_student):
-            if os.path.exists(fdbk_folder_student):
-                try:
-                    shutil.copy(fdbk_path_grader, fdbk_path_student) 
-                    jupyter_uid = pwd.getpwnam('jupyter').pw_uid
-                    os.chown(fdbk_path_student, jupyter_uid, jupyter_uid)
-                except Exception as e:
-                    print('Error occured when returning feedback.')
-                    print(e)
-                    self.error = e
-                    return SubmissionStatus.ERROR
-            else:
-                print('Warning: student folder ' + str(fdbk_folder_student) + ' doesnt exist. Skipping feedback return.')
-
-    def return_solution(self):
-        print('Returning solution for submission ' + self.asgn.name+':'+self.stu.canvas_id)
-        soln_path_grader = os.path.join(self.grader_repo_path, self.asgn.name + '_solution.html')
-        soln_folder_student = os.path.join(self.student_folder_root, self.stu.canvas_id)
-        soln_path_student = os.path.join(soln_folder_student, self.asgn.name + '_solution.html')
-        if not os.path.exists(soln_path_student):
-            if os.path.exists(soln_folder_student):
-                try:
-                    shutil.copy(soln_path_grader, soln_path_student) 
-                    jupyter_uid = pwd.getpwnam('jupyter').pw_uid
-                    os.chown(soln_path_student, jupyter_uid, jupyter_uid)
-                except Exception as e:
-                    print('Error occurred when returning soln.')
-                    print(e)
-                    self.error = e
-                    return SubmissionStatus.ERROR
-            else:
-                print('Warning: student folder ' + str(soln_folder_student) + ' doesnt exist. Skipping solution return.')
-
-
-
-class MultipleGraderError(Exception):
-    def __init__(self, message):
-        self.message = message
-

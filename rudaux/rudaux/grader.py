@@ -82,7 +82,9 @@ def build_grading_team(config, assignment):
         grader['unix_quota'] = config.grading_user_quota
         grader['folder'] = os.path.join(config.grading_dataset_root, grader['name']).rstrip('/')
         grader['local_source_path'] = os.path.join('source', assignment['name'], assignment['name']+'.ipynb')
-        grader['submissions_folder'] = os.path.join(grader['folder'], config.grading_local_collection_folder)
+        grader['submissions_folder'] = os.path.join(grader['folder'], config.grading_submissions_folder)
+        grader['autograded_folder'] = os.path.join(grader['folder'], config.grading_autograded_folder)
+        grader['feedback_folder'] = os.path.join(grader['folder'], config.grading_feedback_folder)
         grader['workload'] = len([f for f in os.listdir(grader['submissions_folder']) if os.path.isdir(f)])
         grader['soln_name'] = assignment['name'] + '_solution.html'
         grader['soln_path'] = os.path.join(grader['folder'], grader['soln_name'])
