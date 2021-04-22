@@ -38,6 +38,7 @@ class Submission:
         self.stu = stu
         self.due_date, override = asgn.get_due_date(stu)
         self.snap_name = (config.course_slug + asgn.name) if (override is None) else (config.course_slug + asgn.name + '-override-' + override['id'])
+        self.course_slug = config.course_slug
         self.grader_folder_root = config.user_folder_root
         self.student_folder_root = config.student_folder_root
         self.student_local_assignment_folder = config.student_local_assignment_folder
@@ -401,7 +402,7 @@ class Submission:
         print('Returning feedback for submission ' + self.asgn.name+':'+self.stu.canvas_id)
         fdbk_path_grader = os.path.join(self.feedback_path, self.asgn.name + '.html')
         fdbk_folder_student = os.path.join(self.student_folder_root, self.stu.canvas_id)
-        fdbk_path_student = os.path.join(fdbk_folder_student, self.asgn.name + '_feedback.html')
+        fdbk_path_student = os.path.join(fdbk_folder_student,  self.course_slug + '_' + self.asgn.name + '_feedback.html')
         if not os.path.exists(fdbk_path_student):
             if os.path.exists(fdbk_folder_student):
                 try:
@@ -420,7 +421,7 @@ class Submission:
         print('Returning solution for submission ' + self.asgn.name+':'+self.stu.canvas_id)
         soln_path_grader = os.path.join(self.grader_repo_path, self.asgn.name + '_solution.html')
         soln_folder_student = os.path.join(self.student_folder_root, self.stu.canvas_id)
-        soln_path_student = os.path.join(soln_folder_student, self.asgn.name + '_solution.html')
+        soln_path_student = os.path.join(soln_folder_student, self.course_slug + '_' + self.asgn.name + '_solution.html')
         if not os.path.exists(soln_path_student):
             if os.path.exists(soln_folder_student):
                 try:
