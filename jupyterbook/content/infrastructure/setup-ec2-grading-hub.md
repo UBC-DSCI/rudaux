@@ -75,7 +75,7 @@ Follow the instructions below to setup an AWS EC2 instance which will be used to
     
     <br>  
 
-1. Click the "Add New Volume" button to add an additional EBS volume for Docker. Edit the sizes to both be 30. Click the "Next: Add Tags" button:
+1. Click the "Add New Volume" button twice to add two additional EBS volumes, one for users and one for Docker. Edit the sizes as you need them. We suggest to use at least 30gb. Click the "Next: Add Tags" button:
 
     <br>  
     
