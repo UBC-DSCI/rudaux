@@ -28,7 +28,7 @@ Follow the instructions below to setup an AWS EC2 instance which will be used to
 
     <br>
     
-1. Search for the Centos 7.8 Community Amazon machine image (AMI) that has the id `ami-0252eebc56636a56b`:
+1. Search for the Centos 7.8.2003 x86_64 Community Amazon machine image (AMI):
 
     <br>
 
