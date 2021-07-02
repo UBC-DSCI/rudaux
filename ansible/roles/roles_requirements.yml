@@ -20,3 +20,7 @@
 - name: sudo
   src:  https://github.com/weareinteractive/ansible-sudo
   version: 1.7.1
+
+- name: nodejs
+  src: https://github.com/geerlingguy/ansible-role-nodejs
+  version: 5.1.1 

@@ -55,10 +55,9 @@
     name: jupyterhub
     executable: pip3.6
 
-- name: Install node packages
-  yum:
+- name: Install NodeJS
+  include_role:
     name: nodejs
-    state: present
 
 - name: Install configurable-http-proxy
   npm:
