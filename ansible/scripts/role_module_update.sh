@@ -52,25 +52,4 @@ fi
 # Install roles
 ansible-galaxy install -r "$ROLES_REQUIREMENTS_FILE" --force --no-deps -p "$EXTERNAL_ROLE_DIR"
 
-## Libraries
-
-# Check library req file
-[[ ! -f "$LIBRARY_REQUIREMENTS_FILE" ]]  && msg_exit "library_requirements '$LIBRARY_REQUIREMENTS_FILE' does not exist or permssion issue.\nPlease check and rerun."
-
-# Remove existing libraries
-if [ -d "$EXTERNAL_LIBRARY_DIR" ]; then
-    cd "$EXTERNAL_LIBRARY_DIR"
-    if [ "$(pwd)" == "$EXTERNAL_LIBRARY_DIR" ];then
-      echo "Removing current roles in '$EXTERNAL_LIBRARY_DIR/*'"
-      rm -rf *
-    else
-      msg_exit "Path error could not change dir to $EXTERNAL_LIBRARY_DIR"
-    fi
-fi
-
-
-
-# Install libraries
-ansible-galaxy install -r "$LIBRARY_REQUIREMENTS_FILE" --force --no-deps -p "$EXTERNAL_LIBRARY_DIR"
-
 exit 0
