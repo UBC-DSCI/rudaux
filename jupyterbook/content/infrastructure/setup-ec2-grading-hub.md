@@ -51,7 +51,7 @@ Follow the instructions below to setup an AWS EC2 instance which will be used to
     ```
     <br>    
     
-1. Select an instance type (we use a t2.large) and click "Next: Configure Instance Details":
+1. Select an instance type (we use a m5.large) and click "Next: Configure Instance Details":
     
     <br>
     
