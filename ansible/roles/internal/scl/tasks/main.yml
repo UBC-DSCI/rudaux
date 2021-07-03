@@ -1,0 +1,7 @@
+---
+- name: Install Software Collections Repository
+  yum:
+    name: centos-release-scl
+    state: present
+  when:
+    - ansible_distribution == "CentOS"

@@ -1,0 +1,7 @@
+python3_root: /opt/rh/rh-python38/root
+python3_bin: '{{ python3_root }}/bin'
+
+python3_packages:
+  - { name: 'rh-python38', state: 'present' }
+  - { name: 'rh-python38-python-pip', state: 'present' }
+  - { name: 'rh-python38-python-devel', state: 'present' }

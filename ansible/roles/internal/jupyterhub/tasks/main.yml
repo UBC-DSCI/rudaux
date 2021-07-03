@@ -9,7 +9,7 @@
     name: dockerspawner
 
 - name: Install  Jupyterhub-idle-culler script
-  pip: name='jupyterhub-idle-culler' executable='pip3.6'
+  pip: name='jupyterhub-idle-culler' executable='{{ python3_pip_executable }}'
 
 - name: Get Docker image for JupyterHub containers
   docker_image:
@@ -21,7 +21,7 @@
     name: syzygyauthenticator
 
 - name: Install OAuthenticator
-  pip: name='oauthenticator' executable='pip3.6'
+  pip: name='oauthenticator' executable='{{ python3_pip_executable }}'
   when: jupyterhub_authenticator == 'google'
 
 - name: Manage Shibboleth SP
@@ -46,14 +46,14 @@
 - name: Install pycurl
   pip:
     name: pycurl
-    executable: pip3.6
+    executable: '{{ python3_pip_executable }}'
   environment:
     PYCURL_SSL_LIBRARY: nss
 
 - name: Install Jupyterhub
   pip:
     name: jupyterhub
-    executable: pip3.6
+    executable: '{{ python3_pip_executable }}'
 
 - name: Install node packages
   yum:

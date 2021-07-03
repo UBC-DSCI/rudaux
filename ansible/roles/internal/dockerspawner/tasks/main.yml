@@ -1,9 +1,9 @@
 ---
 - name: Install escapism
-  pip: name=escapism executable=pip3.6
+  pip: name=escapism executable='{{ python3_pip_executable }}'
 
 - name: Install docker python library
-  pip: name=docker executable=pip3.6
+  pip: name=docker executable='{{ python3_pip_executable }}'
 
 - name: Install dockerspawner
-  pip: name=dockerspawner executable=pip3.6
+  pip: name=dockerspawner executable='{{ python3_pip_executable }}'

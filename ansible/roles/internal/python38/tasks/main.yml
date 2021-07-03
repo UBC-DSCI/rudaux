@@ -1,0 +1,17 @@
+---
+- name: Install python3
+  yum:
+    name: '{{ item.name }}'
+    state: '{{ item.state }}'
+    update_cache: yes
+  with_items: '{{ python3_packages }}'
+
+# Make this the default python3
+- name: Set python3 default
+  copy:
+    dest: /etc/profile.d/python3.sh
+    content: 'PATH={{ python3_bin }}:$PATH'
+
+- name: Set pip exe fact explicitly
+  set_fact:
+    python3_pip_executable: "{{ python3_bin }}/pip3"

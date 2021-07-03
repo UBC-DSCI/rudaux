@@ -8,4 +8,4 @@
 - name: Install the syzygyauthenticator
   pip:
     name: '{{ syzygyauthenticator_dir }}'
-    executable: pip3.6
+    executable: '{{ python3_pip_executable }}'

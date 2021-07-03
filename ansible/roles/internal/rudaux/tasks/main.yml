@@ -2,5 +2,5 @@
 - name: Install the syzygyauthenticator
   pip:
     name: 'git+https://github.com/ianabc/rudaux'
-    executable: pip3.6
+    executable: '{{ python3_pip_executable }}'
 

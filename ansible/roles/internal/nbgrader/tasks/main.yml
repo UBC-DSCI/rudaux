@@ -1,5 +1,5 @@
 - name: Install nbgrader
-  pip: name=nbgrader executable=pip3.6
+  pip: name=nbgrader executable='{{ python3_pip_executable }}'
   notify:
     - Install nbgrader Jupyter extension
     - Enable nbgrader Jupyter extension

@@ -79,10 +79,10 @@
       include_role:
         name: dehydrate-letsencrypt
 
-    # - name: Manage Python3
-    #   tags: ['python', 'python3']
-    #   include_role:
-    #     name: ius-python3
+    - name: Manage Python3
+      tags: ['python', 'python3']
+      include_role:
+        name: python38
 
     # Manage Docker
     - name: Manage Docker
