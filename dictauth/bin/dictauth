@@ -82,7 +82,7 @@ remove_user_parser.add_argument(
   help="The name of the user to remove."
 )
 
-clear_users_parser = subparsers.add_parser('clear_users', help='Remove a user from the dictionary.')
+clear_users_parser = subparsers.add_parser('clear_users', help='Remove *all* users from the dictionary.')
 clear_users_parser.set_defaults(func=clear_users)
 clear_users_parser.add_argument(
   '--dir',
