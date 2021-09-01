@@ -130,6 +130,16 @@ def remove_user(args):
 
     _save_dict(epwrds, directory)
 
+
+def clear_users(args):
+    directory = args.directory
+
+    epwrds = {}
+
+    _save_dict(epwrds, directory)
+
+
+
 def rename_user(args):
     username = args.username
     new_username = args.new_username
