@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 from argparse import ArgumentParser
-from dictauth import encrypt_password, add_user, remove_user, list_users, rename_user
+from dictauth import encrypt_password, add_user, remove_user, list_users, rename_user, make_admin, un_admin
 
 parser = ArgumentParser(
   description='Manage dictionary-authenticated usernames/passwords in your JupyterHub.'
