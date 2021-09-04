@@ -11,7 +11,7 @@ class DictionaryAuthenticator(Authenticator):
     admins = List(config=True,
         help="""list of usernames that can use their own password to authenticate into any other user's account"""
     )
-     
+
 
     def _password_valid(self, username, password):
         #get digest/salt for that username
@@ -32,5 +32,5 @@ class DictionaryAuthenticator(Authenticator):
                 return data['username']
             # if not, see if the password matches the pword of any of the admin users
             for admin_user in self.admins:
-                if _password_valid(admin_user, data['password'])
+                if _password_valid(admin_user, data['password']):
                     return data['username']
