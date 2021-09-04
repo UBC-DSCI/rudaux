@@ -82,7 +82,7 @@ def _load_admin_list(directory):
         admins = config.DictionaryAuthenticator.admins
         if not isinstance(admins, list):
             admins = list(admins)
-    except KeyError as e:
+    except TypeError as e:
         print('jupyterhub_config.py does not have an entry for c.DictionaryAuthenticator.admins; continuing with empty list')
         admins = []
     return admins
@@ -234,7 +234,7 @@ def un_admin(args):
     directory = args.directory
     admins = _load_admin_list(directory)
 
-    if not admins.find(username):
+    if username not in admins:
         sys.exit(
              f"""
              There is no user named {username} in the list of admins.
