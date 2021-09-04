@@ -8,4 +8,5 @@ urllib3>=1.25.9
 prefect>=0.14.16
 pyfiglet>=0.8.post1
 termcolor>=1.1.0
-
+paramiko>=2.7.2
+docker-compose>=1.29.2
