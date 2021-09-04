@@ -16,12 +16,12 @@ def _save_user_dict(epwrds, directory):
     for i in range(len(lines)):
         if 'c.DictionaryAuthenticator.encrypted_passwords' == lines[i][:45]:
             found_line = True
-            lines[i] = 'c.DictionaryAuthenticator.encrypted_passwords = ' + str(epwrds) 
+            lines[i] = 'c.DictionaryAuthenticator.encrypted_passwords = ' + str(epwrds)
             break
     #if no line starting with this found, append a new one
     if not found_line:
         lines.append('c.DictionaryAuthenticator.encrypted_passwords = ' + str(epwrds) )
-       
+
     #save the file
     with open(os.path.join(directory, 'jupyterhub_config.py'), 'w') as f:
         f.writelines(lines)
@@ -31,8 +31,8 @@ def _load_user_dict(directory):
     if not os.path.exists(os.path.join(directory, 'jupyterhub_config.py')):
         sys.exit(
              f"""
-             There is no jupyterhub_config.py in the specified directory ({directory}). 
-             Please specify a directory with a valid jupyterhub_config.py file. 
+             There is no jupyterhub_config.py in the specified directory ({directory}).
+             Please specify a directory with a valid jupyterhub_config.py file.
              """
            )
     #load the config
@@ -56,12 +56,12 @@ def _save_admin_list(admins, directory):
     for i in range(len(lines)):
         if 'c.DictionaryAuthenticator.admins' == lines[i][:32]:
             found_line = True
-            lines[i] = 'c.DictionaryAuthenticator.admins = ' + str(admins) 
+            lines[i] = 'c.DictionaryAuthenticator.admins = ' + str(admins)
             break
     #if no line starting with this found, append a new one
     if not found_line:
         lines.append('c.DictionaryAuthenticator.admins = ' + str(admins) )
-       
+
     #save the file
     with open(os.path.join(directory, 'jupyterhub_config.py'), 'w') as f:
         f.writelines(lines)
@@ -71,8 +71,8 @@ def _load_admin_list(directory):
     if not os.path.exists(os.path.join(directory, 'jupyterhub_config.py')):
         sys.exit(
              f"""
-             There is no jupyterhub_config.py in the specified directory ({directory}). 
-             Please specify a directory with a valid jupyterhub_config.py file. 
+             There is no jupyterhub_config.py in the specified directory ({directory}).
+             Please specify a directory with a valid jupyterhub_config.py file.
              """
            )
     #load the config
@@ -92,15 +92,17 @@ def get_users(args):
     if not os.path.exists(os.path.join(directory, 'jupyterhub_config.py')):
         sys.exit(
              f"""
-             There is no jupyterhub_config.py in the specified directory ({directory}). 
-             Please specify a directory with a valid jupyterhub_config.py file. 
+             There is no jupyterhub_config.py in the specified directory ({directory}).
+             Please specify a directory with a valid jupyterhub_config.py file.
              """
            )
+    admins = _load_admin_list(directory)
     epwrds = _load_user_dict(directory)
-    return list(epwrds.keys())
+    return [(unm, 'admin' if unm in admins else 'user') for unm in epwrds.keys()]
 
 def list_users(args):
-    print(get_users(args))
+    for user in get_users(args):
+        print(user)
 
 def add_user(args):
     username = args.username
@@ -140,13 +142,13 @@ def add_user(args):
             sys.exit(
                  f"""
                  There is already a user named {username} in the dictionary. Please
-                 remove them before creating a new user with this same username.  
+                 remove them before creating a new user with this same username.
                  """
                )
         epwrds[username] = {'salt' : salt, 'digest' : digest}
     else:
         epwrds = _load_user_dict(directory)
-        if not epwrds.get(user_creds_to_copy): 
+        if not epwrds.get(user_creds_to_copy):
             sys.exit(
                 f"""
                 User {user_creds_to_copy} does not exist in the list of users.
@@ -157,25 +159,25 @@ def add_user(args):
             sys.exit(
                  f"""
                  There is already a user named {username} in the dictionary. Please
-                 remove them before creating a new user with this same username.  
+                 remove them before creating a new user with this same username.
                  """
                )
         epwrds[username] = {'salt' : epwrds[user_creds_to_copy]['salt'], 'digest' : epwrds[user_creds_to_copy]['digest']}
 
     _save_user_dict(epwrds, directory)
-        
-        
+
+
 
 def remove_user(args):
     username = args.username
     directory = args.directory
- 
+
     epwrds = _load_user_dict(directory)
-    
+
     if not epwrds.get(username):
         sys.exit(
              f"""
-             There is no user named {username} in the dictionary.   
+             There is no user named {username} in the dictionary.
              """
            )
     epwrds.pop(username, None)
@@ -186,13 +188,13 @@ def rename_user(args):
     username = args.username
     new_username = args.new_username
     directory = args.directory
-    
+
     #first make sure the user exists and extract the salt/digest
     epwrds = _load_user_dict(directory)
     if not epwrds.get(username):
         sys.exit(
              f"""
-             There is no user named {username} in the dictionary.   
+             There is no user named {username} in the dictionary.
              """
            )
     tmp = epwrds[username]
@@ -209,11 +211,11 @@ def make_admin(args):
     directory = args.directory
     admins = _load_admin_list(directory)
     epwrds = _load_user_dict(directory)
-    
+
     if not epwrds.get(username):
         sys.exit(
              f"""
-             There is no user named {username} in the dictionary.   
+             There is no user named {username} in the dictionary.
              """
            )
 
