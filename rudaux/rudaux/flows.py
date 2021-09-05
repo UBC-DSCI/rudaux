@@ -6,7 +6,7 @@ from prefect.schedules import IntervalSchedule
 from prefect.executors import DaskExecutor, LocalDaskExecutor
 from prefect.utilities.logging import get_logger
 from prefect.utilities.graphql import with_args
-from prefect.backend.flow import FlowView
+from prefect.backend.flow import FlowView, FlowRunView
 from traitlets.config import Config
 from traitlets.config.loader import PyFileConfigLoader
 import pendulum as plm
@@ -71,7 +71,6 @@ def status(args):
     flow_query = {
         "query": {
             "flow" : {
-            #with_args("flow", query_args): {
                 "id": True,
                 "settings": True,
                 "run_config": True,
@@ -86,11 +85,33 @@ def status(args):
         }
     }
     result = client.graphql(flow_query)
-    print(result)
     flows = result.get("data", {}).get("flow", None)
-    print(flows)
 
-    #FlowView.from_flow_id(
+    fv = FlowView.from_flow_id(flows[0]['id'])
+    print(fv)
+
+    flow_run_query = {
+        "query": {
+             "flow_run" : {
+                "id": True,
+                "name": True,
+                "flow_id": True,
+                "serialized_state": True,
+                "states": {"timestamp", "serialized_state"},
+                "labels": True,
+                "parameters": True,
+                "context": True,
+                "updated": True,
+                "run_config": True,
+            }
+        }
+    }
+    result = client.graphql(flow_run_query)
+    flowruns = result.get("data", {}).get("flow_run", None)
+    print(flowruns)
+
+    frv = FlowRunView.from_flow_run_id(flowruns[0]['id'])
+    print(frv)
 
     #client.get_flow_run_info(flow_run_id)
     #client.get_task_run_info(flow_run_id, task_id, map_index = ...)
