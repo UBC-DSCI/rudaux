@@ -5,6 +5,8 @@ from prefect.engine import signals
 from prefect.schedules import IntervalSchedule
 from prefect.executors import DaskExecutor, LocalDaskExecutor
 from prefect.utilities.logging import get_logger
+from prefect.utilities.graphql import with_args
+from prefect.backend.flow import FlowView
 from traitlets.config import Config
 from traitlets.config.loader import PyFileConfigLoader
 import pendulum as plm
@@ -18,7 +20,9 @@ from . import grader as grd
 def combine_dictionaries(dicts):
     return {k : v for d in dicts for k, v in d.items()}
 
-def run(args): 
+__PROJECT_NAME = "rudaux"
+
+def register(args): 
     print("Loading the rudaux_config.py file...")
     if not os.path.exists(os.path.join(args.directory, 'rudaux_config.py')):
             sys.exit(
@@ -31,60 +35,140 @@ def run(args):
     _config = Config()
     _config.merge(PyFileConfigLoader('rudaux_config.py', path=args.directory).load_config())
 
-    project_name = "rudaux"
-
-    print(f"Creating the {project_name} project...")
-    prefect.client.client.Client().create_project(project_name)
+    print(f"Creating the {__PROJECT_NAME} project...")
+    prefect.client.client.Client().create_project(__PROJECT_NAME)
 
     print("Creating the local Dask executor")
     executor = LocalDaskExecutor(num_workers = args.dask_threads)   # for DaskExecutor: cluster_kwargs = {'n_workers': 8}) #address="tcp://localhost:8786")
 
 
-    #flow = build_test_flow()
+    flow = build_test_flow()
     #flow.executor = executor
-    #flow.schedule = IntervalSchedule(start_date = plm.now('UTC').add(seconds=1),
-    #                           interval = plm.duration(minutes=1))
-    #flow.register(project_name)
+    flow.schedule = IntervalSchedule(start_date = plm.now('UTC').add(seconds=1),
+                               interval = plm.duration(minutes=1))
+    flow_id = flow.register(__PROJECT_NAME)
 
-    flows = [ (build_snapshot_flow, 'snapshot', args.snapshot_interval),
-              (build_autoext_flow, 'autoextension', args.autoext_interval),
-              (build_snapshot_flow, 'grading', args.grading_interval)]
+    if os.path.exists(os.path.join(args.directory, '.flow_store.pk'
+    f = 
 
-    for build_func, flow_name, interval in flows:
-        print(f"Building/registering the {flow_name} flow...")
-        flow = build_func(_config, args)
-        flow.executor = executor
-        flow.schedule = IntervalSchedule(start_date = plm.now('UTC').add(seconds=1),
-                               interval = plm.duration(minutes=interval))
-        flow.register(project_name)
+    #flows = [ (build_snapshot_flow, 'snapshot', args.snapshot_interval),
+    #          (build_autoext_flow, 'autoextension', args.autoext_interval),
+    #          (build_snapshot_flow, 'grading', args.grading_interval)]
 
+    #for build_func, flow_name, interval in flows:
+    #    print(f"Building/registering the {flow_name} flow...")
+    #    flow = build_func(_config, args)
+    #    flow.executor = executor
+    #    flow.schedule = IntervalSchedule(start_date = plm.now('UTC').add(seconds=1),
+    #                           interval = plm.duration(minutes=interval))
+    #    flow.register(__PROJECT_NAME)
+
+
+def status(args):
+    print(f"Creating the {__PROJECT_NAME} client...")
+    client = prefect.client.client.Client()
+    query_args = {}
+    flow_query = {
+        "query": {
+            with_args("flow", query_args): {
+                "id": True,
+                "settings": True,
+                "run_config": True,
+                "serialized_flow": True,
+                "name": True,
+                "archived": True,
+                "project": {"name"},
+                "core_version": True,
+                "storage": True,
+                "flow_group": {"labels"},
+            }
+        }
+    }
+    result = client.graphql(flow_query)
+    print(result)
+    flows = result.get("data", {}).get("flow", None)
+    print(flows)
+
+    #FlowView.from_flow_id(
+
+    #client.get_flow_run_info(flow_run_id)
+    #client.get_task_run_info(flow_run_id, task_id, map_index = ...)
+    #client.get_flow_run_state(flow_run_id)
+    #client.get_task_run_state(task_run_id)
+
+
+def run(args):
     print("Running the local agent...")
     agent = prefect.agent.local.agent.LocalAgent()
     agent.start()
 
+@task
+def get_list():
+    return [1, 2, 3, 4]
 
-#@task
-#def get_list():
-#    return [1, 2, 3, 4]
+@task
+def skip_some(num):
+    if num % 2 == 0:
+        raise signals.SKIP(f"skipped this one {num}")
+    return num
+
+@task
+def mergeli(nums):
+    logger = prefect.context.get("logger")
+    logger.info(f"this is nums: {nums}")
+    return nums[0]
+
+def build_test_flow():
+    with Flow("test") as flow:
+        li = get_list()
+        li2 = skip_some.map(li)
+        li3 = mergeli(li2)
+    return flow
+
+
+
+#def run(args): 
+#    print("Loading the rudaux_config.py file...")
+#    if not os.path.exists(os.path.join(args.directory, 'rudaux_config.py')):
+#            sys.exit(
+#              f"""
+#              There is no rudaux_config.py in the directory {args.directory},
+#              and no course directory was specified on the command line. Please
+#              specify a directory with a valid rudaux_config.py file. 
+#              """
+#            )
+#    _config = Config()
+#    _config.merge(PyFileConfigLoader('rudaux_config.py', path=args.directory).load_config())
 #
-#@task
-#def skip_some(num):
-#    if num % 2 == 0:
-#        raise signals.SKIP(f"skipped this one {num}")
-#    return num
+#    print(f"Creating the {__PROJECT_NAME} project...")
+#    prefect.client.client.Client().create_project(__PROJECT_NAME)
 #
-#@task
-#def mergeli(nums):
-#    logger = prefect.context.get("logger")
-#    logger.info(f"this is nums: {nums}")
-#    return nums[0]
+#    print("Creating the local Dask executor")
+#    executor = LocalDaskExecutor(num_workers = args.dask_threads)   # for DaskExecutor: cluster_kwargs = {'n_workers': 8}) #address="tcp://localhost:8786")
 #
-#def build_test_flow():
-#    with Flow("test") as flow:
-#        li = get_list()
-#        li2 = skip_some.map(li)
-#        li3 = mergeli(li2)
-#    return flow
+#
+#    #flow = build_test_flow()
+#    #flow.executor = executor
+#    #flow.schedule = IntervalSchedule(start_date = plm.now('UTC').add(seconds=1),
+#    #                           interval = plm.duration(minutes=1))
+#    #flow.register(__PROJECT_NAME)
+#
+#    flows = [ (build_snapshot_flow, 'snapshot', args.snapshot_interval),
+#              (build_autoext_flow, 'autoextension', args.autoext_interval),
+#              (build_snapshot_flow, 'grading', args.grading_interval)]
+#
+#    for build_func, flow_name, interval in flows:
+#        print(f"Building/registering the {flow_name} flow...")
+#        flow = build_func(_config, args)
+#        flow.executor = executor
+#        flow.schedule = IntervalSchedule(start_date = plm.now('UTC').add(seconds=1),
+#                               interval = plm.duration(minutes=interval))
+#        flow.register(__PROJECT_NAME)
+#
+#    print("Running the local agent...")
+#    agent = prefect.agent.local.agent.LocalAgent()
+#    agent.start()
+
 
 
 def build_snapshot_flow(_config, args):
