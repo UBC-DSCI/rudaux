@@ -48,8 +48,7 @@ def register(args):
                                interval = plm.duration(minutes=1))
     flow_id = flow.register(__PROJECT_NAME)
 
-    if os.path.exists(os.path.join(args.directory, '.flow_store.pk'
-    f = 
+    #if os.path.exists(os.path.join(args.directory, '.flow_store.pk'
 
     #flows = [ (build_snapshot_flow, 'snapshot', args.snapshot_interval),
     #          (build_autoext_flow, 'autoextension', args.autoext_interval),
