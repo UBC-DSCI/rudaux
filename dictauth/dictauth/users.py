@@ -2,6 +2,7 @@ import os, sys
 from traitlets.config import Config
 from traitlets.config.loader import PyFileConfigLoader
 from tabulate import tabulate
+import re
 
 
 # TODO the _save and _load code here is largely repeated for user dict and admin list.
