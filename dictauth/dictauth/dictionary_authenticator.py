@@ -28,9 +28,9 @@ class DictionaryAuthenticator(Authenticator,HasTraits):
         #check if username is in whitelist
         if self.encrypted_passwords.get(data['username']):
             # if the password matches the username, authenticate
-            if _password_valid(data['username'], data['password']):
+            if self._password_valid(data['username'], data['password']):
                 return data['username']
             # if not, see if the password matches the pword of any of the admin users
             for admin_user in self.admins:
-                if _password_valid(admin_user, data['password']):
+                if self._password_valid(admin_user, data['password']):
                     return data['username']
