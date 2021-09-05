@@ -5,8 +5,7 @@ from prefect.engine import signals
 from prefect.schedules import IntervalSchedule
 from prefect.executors import DaskExecutor, LocalDaskExecutor
 from prefect.utilities.logging import get_logger
-from prefect.utilities.graphql import with_args
-from prefect.backend.flow import FlowView, FlowRunView
+from prefect.backend import FlowView, FlowRunView
 from traitlets.config import Config
 from traitlets.config.loader import PyFileConfigLoader
 import pendulum as plm
