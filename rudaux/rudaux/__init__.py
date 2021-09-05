@@ -1,1 +1,1 @@
-from . import flows, course_api, snapshot, auto_extension, grader
+from . import flows, course_api, snapshot, autoext, grader
