@@ -1,8 +1,8 @@
 from jupyterhub.auth import Authenticator
 import hashlib
-from traitlets import Dict, List
+from traitlets import Dict, List, HasTraits
 
-class DictionaryAuthenticator(Authenticator):
+class DictionaryAuthenticator(Authenticator,HasTraits):
 
     encrypted_passwords = Dict(config=True,
         help="""dict of username -> {digest -> hashval, salt -> saltval} for authentication with SHA512"""
