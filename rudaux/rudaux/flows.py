@@ -70,7 +70,8 @@ def status(args):
     query_args = {}
     flow_query = {
         "query": {
-            with_args("flow", query_args): {
+            "flow" : {
+            #with_args("flow", query_args): {
                 "id": True,
                 "settings": True,
                 "run_config": True,
