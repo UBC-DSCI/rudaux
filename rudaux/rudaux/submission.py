@@ -5,7 +5,7 @@ import os, shutil, pwd
 import json
 from nbgrader.api import Gradebook, MissingEntry
 from .docker import DockerError
-from .course_api import GradeNotUploadedError
+#from .course_api import GradeNotUploadedError
 import pendulum as plm
 from .course_api import put_grade
 from .container import run_container
