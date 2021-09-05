@@ -38,8 +38,8 @@ def register(args):
     print(f"Creating the {__PROJECT_NAME} project...")
     prefect.client.client.Client().create_project(__PROJECT_NAME)
 
-    print("Creating the local Dask executor")
-    executor = LocalDaskExecutor(num_workers = args.dask_threads)   # for DaskExecutor: cluster_kwargs = {'n_workers': 8}) #address="tcp://localhost:8786")
+    #print("Creating the local Dask executor")
+    #executor = LocalDaskExecutor(num_workers = args.dask_threads)   # for DaskExecutor: cluster_kwargs = {'n_workers': 8}) #address="tcp://localhost:8786")
 
 
     flow = build_test_flow()
