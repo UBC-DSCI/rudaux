@@ -65,7 +65,8 @@ def register(args):
 
 def status(args):
     print(f"Creating the {__PROJECT_NAME} client...")
-    client = prefect.client.client.Client('https://localhost')
+    client = prefect.client.client.Client('127.0.0.1')
+    print("Querying for flows...")
     query_args = {}
     flow_query = {
         "query": {
