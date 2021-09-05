@@ -8,7 +8,7 @@ from dictauth.users import add_user, remove_user, get_users
 from collections import namedtuple
 import git
 import shutil
-from .docker import _run_docker
+#from .docker import _run_docker
 
 def _recursive_chown(path, uid):
     for root, dirs, files in os.walk(path):  
