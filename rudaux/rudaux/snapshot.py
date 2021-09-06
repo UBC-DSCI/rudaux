@@ -20,7 +20,10 @@ def _parse_zfs_snap_paths(stdout):
     return snap_paths
 
 def _parse_zfs_snap_names(stdout):
+    logger = prefect.context.get("logger")
+    logger.info(f"Parsing ZFS snapshots.\nstdout\n{stdout}")
     paths = _parse_zfs_snap_paths(stdout)
+    logger.info(f"Parsing ZFS snapshots.\npaths\n{paths}")
     names = []
     for path in paths:
         lidx = path.find('@')+1
@@ -80,22 +83,16 @@ def _ssh_snapshot(config, course_id, snap_path):
     client.close()
 
 def _ssh_list_snapshot_names(config, course_id):
-    logger = prefect.context.get("logger")
-    logger.info(f"Listing existing snapshot names for course {course_id}")
-
     # open the connection
-    logger.info(f"Opening ssh connection")
     client = _ssh_open(config, course_id)
 
     # list snapshots
-    logger.info(f"Listing snapshots")
     stdout, stderr = _ssh_command(client, config.student_ssh[course_id]['zfs_path'] + ' list -t snapshot')
 
     # close the connection
     logger.info(f"Closing ssh connection")
     client.close()
 
-    logger.info(f"Parsing snapshot names")
     snapnames = _parse_zfs_snap_names(stdout)
 
     return snapnames
@@ -111,7 +108,7 @@ def validate_config(config):
     #config.course_start_date
 
 def get_snap_name(config, course_id, assignment, override):
-    return config.course_names[course_id]+'-'+assignment['name']+'-' + assignment['id'] + '-' + ('' if override is None else override['id'])
+    return config.course_names[course_id]+'-'+assignment['name']+'-' + assignment['id'] + ('' if override is None else '-'+ override['id'])
 
 @task
 def get_all_snapshots(config, course_id, assignments):
@@ -127,7 +124,7 @@ def get_all_snapshots(config, course_id, assignments):
                               'student_id' : student_id})
     logger = prefect.context.get("logger")
     logger.info(f"Found {len(snaps)} snapshots to take.")
-    logger.info(f"Snapshots: {snaps}")
+    logger.info(f"Snapshots: {'\n'.join(snaps)}")
     return snaps
 
 @task
