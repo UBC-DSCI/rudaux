@@ -7,8 +7,8 @@ from prefect.engine import signals
 
 def _canvas_get(config, course_id, path_suffix, use_group_base=False):
     group_url = urllib.parse.urljoin(config.canvas_domain, 'api/v1/groups/')
-    base_url = urllib.parse.urljoin(config.canvas_domain, 'api/v1/courses/'+config.canvas_id+'/')
-    token = config.canvas_token
+    base_url = urllib.parse.urljoin(config.canvas_domain, 'api/v1/courses/'+course_id+'/')
+    token = config.course_tokens[course_id]
 
     if use_group_base:
         url = urllib.parse.urljoin(group_url, path_suffix)
@@ -23,7 +23,7 @@ def _canvas_get(config, course_id, path_suffix, use_group_base=False):
         resp = requests.get(
             url = url if resp is None else resp.links['next']['url'],
             headers = {
-                'Authorization': f'Bearer {config.canvas_token}',
+                'Authorization': f'Bearer {token}',
                 'Accept': 'application/json'
                 },
             json = {'per_page' : 100},
@@ -33,7 +33,7 @@ def _canvas_get(config, course_id, path_suffix, use_group_base=False):
         if resp.status_code < 200 or resp.status_code > 299:
             sig = signals.FAIL("failed GET response status code " + str(resp.status_code) + " for URL: " + str(url))
             sig.url = url
-            sig.resp = resp            
+            sig.resp = resp
             raise sig
 
         json_data = resp.json()
@@ -43,7 +43,8 @@ def _canvas_get(config, course_id, path_suffix, use_group_base=False):
             resp_items.append(resp.json())
     return resp_items
 
-def _canvas_upload(config, path_suffix, json_data, typ):
+def _canvas_upload(config, course_id, path_suffix, json_data, typ):
+    token = config.course_tokens[course_id]
     rfuncs = {'put' : requests.put,
              'post': requests.post,
              'delete': requests.delete}
@@ -51,7 +52,7 @@ def _canvas_upload(config, path_suffix, json_data, typ):
     resp = rfuncs[typ](
         url = url,
         headers = {
-            'Authorization': f'Bearer {config.canvas_token}',
+            'Authorization': f'Bearer {token}',
             'Accept': 'application/json'
             },
         json=json_data
@@ -59,21 +60,21 @@ def _canvas_upload(config, path_suffix, json_data, typ):
     if resp.status_code < 200 or resp.status_code > 299:
         sig = signals.FAIL("failed upload (" + typ + ")  response status code " + str(resp.status_code) + " for URL: " + str(url))
         sig.url = url
-        sig.resp = resp            
+        sig.resp = resp
         raise sig
     return
-     
-def _canvas_put(config, path_suffix, json_data):
-    _canvas_upload(config, path_suffix, json_data, 'put')
 
-def _canvas_post(config, path_suffix, json_data):
-    _canvas_upload(config, path_suffix, json_data, 'post')
+def _canvas_put(config, course_id, path_suffix, json_data):
+    _canvas_upload(config, course_id, path_suffix, json_data, 'put')
 
-def _canvas_delete(config, path_suffix):
-    _canvas_upload(config, path_suffix, None, 'delete')
+def _canvas_post(config, course_id, path_suffix, json_data):
+    _canvas_upload(config, course_id, path_suffix, json_data, 'post')
 
-def _canvas_get_people_by_type(config, typ):
-    people = _canvas_get(config, 'enrollments')
+def _canvas_delete(config, course_id, path_suffix):
+    _canvas_upload(config, course_id, path_suffix, None, 'delete')
+
+def _canvas_get_people_by_type(config, course_id, typ):
+    people = _canvas_get(config, course_id, 'enrollments')
     ppl_typ = [p for p in people if p['type'] == typ]
     prefect.context.get("logger").info(str(ppl_typ))
     return [ { 'id' : str(p['user']['id']),
@@ -83,10 +84,10 @@ def _canvas_get_people_by_type(config, typ):
                'reg_date' : plm.parse(p['updated_at']) if (plm.parse(p['updated_at']) is not None) else plm.parse(p['created_at']),
                'status' : p['enrollment_state']
               } for p in ppl_typ
-           ] 
+           ]
 
-def _canvas_get_overrides(config, assignment):
-    overs = _canvas_get(config, 'assignments/'+assignment['id']+'/overrides')
+def _canvas_get_overrides(config, course_id, assignment):
+    overs = _canvas_get(config, course_id, 'assignments/'+assignment['id']+'/overrides')
     for over in overs:
         over['id'] = str(over['id'])
         over['student_ids'] = list(map(str, over['student_ids']))
@@ -97,7 +98,7 @@ def _canvas_get_overrides(config, assignment):
                 over[key] = None
     return overs
 
-def _create_override(config, assignment, override):
+def _create_override(config, course_id, assignment, override):
     #check all required keys
     required_keys = ['student_ids', 'unlock_at', 'due_at', 'lock_at', 'title']
     for rk in required_keys:
@@ -117,10 +118,10 @@ def _create_override(config, assignment, override):
 
     #post the override
     post_json = {'assignment_override' : override}
-    _canvas_post(config, 'assignments/'+assignment['id']+'/overrides', post_json)
+    _canvas_post(config, course_id, 'assignments/'+assignment['id']+'/overrides', post_json)
 
-    #check that it posted properly 
-    overs = _canvas_get_overrides(config, assignment)
+    #check that it posted properly
+    overs = _canvas_get_overrides(config, course_id, assignment)
     n_match = len([over for over in overs if over['title'] == override['title']])
     if n_match != 1:
         sig = signals.FAIL("override for assignment " + str(assignment['name']) +"("+str(assignment['id'])+") failed to upload to Canvas")
@@ -129,11 +130,11 @@ def _create_override(config, assignment, override):
         sig.overrides = overs
         raise sig
 
-def _remove_override(config, assignment, override):
-    _canvas_delete(config, 'assignments/'+assignment['id']+'/overrides/'+override['id'])
+def _remove_override(config, course_id, assignment, override):
+    _canvas_delete(config, course_id, 'assignments/'+assignment['id']+'/overrides/'+override['id'])
 
-    #check that it was removed properly 
-    overs = _canvas_get_overrides(config, assignment)
+    #check that it was removed properly
+    overs = _canvas_get_overrides(config, course_id, assignment)
     n_match = len([over for over in overs if over['id'] == override['id']])
     if n_match != 0:
         sig = signals.FAIL("override " + str(override['title']) + " for assignment " + str(assignment['name']) + "("+str(assignment['id'])+") failed to be removed from Canvas")
@@ -143,18 +144,17 @@ def _remove_override(config, assignment, override):
         raise sig
 
 
-
-@task
 def validate_config(config):
     #TODO validate these all strings, format, etc
     #config.canvas_domain
-    #config.canvas_token 
-    #config.canvas_id 
+    #config.canvas_token
+    #config.canvas_id
     #config.ignored_assignments
+    # duplicate assignment names, etc
 
 @task
 def get_course_info(config, course_id):
-    info = _canvas_get(config,course_id, '')[0]
+    info = _canvas_get(config, course_id, '')[0]
     processed_info = {
              "id" : info['id'],
              "name" : info['name'],
@@ -166,30 +166,30 @@ def get_course_info(config, course_id):
     return processed_info
 
 @task
-def get_students(config):
-    return _canvas_get_people_by_type(config,'StudentEnrollment')
+def get_students(config, course_id):
+    return _canvas_get_people_by_type(config, course_id, 'StudentEnrollment')
 
 @task
-def get_instructors(config):
-    return _canvas_get_people_by_type(config,'TeacherEnrollment')
+def get_instructors(config, course_id):
+    return _canvas_get_people_by_type(config, course_id, 'TeacherEnrollment')
 
 @task
-def get_tas(config):
-    return _canvas_get_people_by_type(config,'TaEnrollment')
+def get_tas(config, course_id):
+    return _canvas_get_people_by_type(config, course_id, 'TaEnrollment')
 
 @task
-def get_groups(config):
-    grps = _canvas_get(config,'groups')
+def get_groups(config, course_id):
+    grps = _canvas_get(config, course_id,'groups')
     return [{
              'name' : g['name'],
              'id' : str(g['id']),
-             'members' : [str(m['user_id']) for m in _canvas_get(config, str(g['id'])+'/memberships', use_group_base=True)]
+             'members' : [str(m['user_id']) for m in _canvas_get(config, course_id, str(g['id'])+'/memberships', use_group_base=True)]
             } for g in grps]
 
 @task
-def get_assignments(config):
-    asgns = _canvas_get(config, 'assignments')
-    processed_asgns = [ {  
+def get_assignments(config, course_id, assignment_names):
+    asgns = _canvas_get(config, course_id, 'assignments')
+    processed_asgns = [ {
                'id' : str(a['id']),
                'name' : a['name'],
                'due_at' : None if a['due_at'] is None else plm.parse(a['due_at']),
@@ -198,19 +198,30 @@ def get_assignments(config):
                'has_overrides' : a['has_overrides'],
                'overrides' : [],
                'published' : a['published']
-             } for a in asgns if str(a['id']) not in config.ignored_assignments]
+             } for a in asgns if a['name'] in assignment_names]
 
+    # fill out overrides
     for a in processed_asgns:
         if a['has_overrides']:
-            a['overrides'] = _canvas_get_overrides(config, a)
-    
+            a['overrides'] = _canvas_get_overrides(config, course_id, a)
+
+
+    # check for duplicate IDs and names
+    # we require both of these to be unique (snapshots, grader accounts, etc all depend on unique human-readable names)
+    ids = [a['id'] for a in processed_asgns]
+    names = [a['name'] for a in processed_asgns]
+    if len(set(ids)) != len(ids):
+        signals.FAIL(f"Course ID {course_id}: Two assignments detected with the same ID. IDs: {ids}")
+    if len(set(names)) != len(names):
+        signals.FAIL(f"Course ID {course_id}: Two assignments detected with the same name. Names: {names}")
+
     return processed_asgns
 
 @task
-def get_submissions(config, assignment):
-    subms = _canvas_get(config, 'assignments/'+assignment['id']+'/submissions')
+def get_submissions(config, course_id, assignment):
+    subms = _canvas_get(config, course_id, 'assignments/'+assignment['id']+'/submissions')
     processed_subms =  [ {
-                   'student_id' : str(subm['user_id']), 
+                   'student_id' : str(subm['user_id']),
                    'assignment_id' : assignment['id'],
                    'score' : subm['score'],
                    'posted_at' : None if subm['posted_at'] is None else plm.parse(subm['posted_at']),
@@ -225,23 +236,23 @@ def get_submissions(config, assignment):
     return subms_map
 
 @task
-def update_overrides(config, override_update_tuple):
-    assignment, to_create, to_remove = override_update_tuple 
+def update_overrides(config, course_id, override_update_tuple):
+    assignment, to_create, to_remove = override_update_tuple
     if to_remove is not None:
-        _remove_override(config, assignment, to_remove)
+        _remove_override(config, course_id, assignment, to_remove)
     if to_create is not None:
-        _create_override(config, assignment, to_create)
+        _create_override(config, course_id, assignment, to_create)
 
-def put_grade(config, subm):
+def put_grade(config, course_id, subm):
     assignment = subm['assignment']
     student = subm['student']
     score = subm['score']
 
     # post the grade
-    _canvas_put(config, 'assignments/'+assignment['id']+'/submissions/'+student['id'], {'submission' : {'posted_grade' : score}})
+    _canvas_put(config, course_id, 'assignments/'+assignment['id']+'/submissions/'+student['id'], {'submission' : {'posted_grade' : score}})
 
     # check that it was posted properly
-    canvas_grade = str(_canvas_get(config, 'assignments/'+assignment['id']+'/submissions/'+student['id'])[0]['score'])
+    canvas_grade = str(_canvas_get(config, course_id, 'assignments/'+assignment['id']+'/submissions/'+student['id'])[0]['score'])
     if abs(float(score) - float(canvas_grade)) > 0.01:
         sig = signals.FAIL(f"grade {score} failed to upload for submission {subm['name']} ; grade on canvas is {canvas_grade}")
         sig.assignment = assignment
@@ -253,7 +264,7 @@ def put_grade(config, subm):
 # TODO add these in???
 #def get_grades(course, assignment): #???
 #    '''Takes a course object, an assignment name, and get the grades for that assignment from Canvas.
-#    
+#
 #    Example:
 #    course.get_grades(course, 'worksheet_01')'''
 #    assignment_id = get_assignment_id(course, assignment)
