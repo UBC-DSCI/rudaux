@@ -19,7 +19,7 @@ def nice_help(parser):
     parser.print_help()
 
 parser = ArgumentParser()
-parser.add_argument('-h', '--help', action = nice_help)
+parser.add_argument('-h', '--help', action = nice_help, nargs=0)
 
 subparsers = parser.add_subparsers(
   title='Subcommands', dest="subparser", help='Commands that rudaux can process.'
