@@ -83,6 +83,7 @@ def _ssh_snapshot(config, course_id, snap_path):
     client.close()
 
 def _ssh_list_snapshot_names(config, course_id):
+    logger = prefect.context.get("logger")
     # open the connection
     client = _ssh_open(config, course_id)
 
