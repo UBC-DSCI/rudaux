@@ -65,6 +65,12 @@ def register(args):
 def status(args):
     print(f"Creating the {__PROJECT_NAME} client...")
     client = prefect.client.client.Client()
+
+    #client.get_flow_run_info(flow_run_id)
+    #client.get_task_run_info(flow_run_id, task_id, map_index = ...)
+    #client.get_flow_run_state(flow_run_id)
+    #client.get_task_run_state(task_run_id)
+
     print("Querying for flows...")
     query_args = {}
     flow_query = {
@@ -112,10 +118,7 @@ def status(args):
     frv = FlowRunView.from_flow_run_id(flowruns[0]['id'])
     print(frv)
 
-    #client.get_flow_run_info(flow_run_id)
-    #client.get_task_run_info(flow_run_id, task_id, map_index = ...)
-    #client.get_flow_run_state(flow_run_id)
-    #client.get_task_run_state(task_run_id)
+    
 
 
 def run(args):
