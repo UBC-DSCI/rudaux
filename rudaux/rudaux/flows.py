@@ -40,28 +40,18 @@ def register(args):
     grd.validate_config(config)
 
     try:
-        print(f"Deleting the {__PROJECT_NAME} prefect project if it exists...")
-        prefect.client.client.Client().delete_project(__PROJECT_NAME)
-    except ConnectionError as e:
-        print(e)
-        sys.exit(
-              f"""
-              Could not create/delete projects on the prefect server. Is the server running?
-              Make sure to start the server before trying to register flows (prefect server start).
-              """
-            )
-    except ValueError as e:
-        print(f"Project {__PROJECT_NAME} not found on prefect server. Continuing...")
-
-    try:
         print(f"Creating the {__PROJECT_NAME} prefect project...")
         prefect.client.client.Client().create_project(__PROJECT_NAME)
     except ConnectionError as e:
         print(e)
         sys.exit(
               f"""
-              Could not create/delete projects on the prefect server. Is the server running?
-              Make sure to start the server before trying to register flows (prefect server start).
+              Could not connect to the prefect server. Is the server running?
+              Make sure to start the server before trying to register flows.
+              To start the prefect server, run the command:
+
+              prefect server start
+
               """
             )
 
