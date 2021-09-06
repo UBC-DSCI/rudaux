@@ -20,10 +20,9 @@ def _parse_zfs_snap_paths(stdout):
     return snap_paths
 
 def _parse_zfs_snap_names(stdout):
-    logger = prefect.context.get("logger")
-    logger.info(f"Parsing ZFS snapshots.\nstdout\n{stdout}")
     paths = _parse_zfs_snap_paths(stdout)
-    logger.info(f"Parsing ZFS snapshots.\npaths\n{paths}")
+    logger = prefect.context.get("logger")
+    logger.info(f"Parsing ZFS snapshots:\n{paths}")
     names = []
     for path in paths:
         lidx = path.find('@')+1

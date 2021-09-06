@@ -58,8 +58,8 @@ def register(args):
     print("Creating the local dask executor")
     executor = LocalDaskExecutor(num_workers = args.dask_threads)   # for DaskExecutor: cluster_kwargs = {'n_workers': 8}) #address="tcp://localhost:8786")
 
-    flow_builders = [ (build_snapshot_flows, 'snapshot', args.snapshot_interval),
-                      (build_autoext_flows, 'autoextension', args.autoext_interval),
+    flow_builders = [ (build_snapshot_flows, 'snapshot', args.snapshot_interval)]#,
+                      #(build_autoext_flows, 'autoextension', args.autoext_interval),
     ]
     for build_func, flow_name, interval in flow_builders:
         print(f"Building/registering the {flow_name} flow...")
