@@ -5,7 +5,7 @@ import prefect
 from prefect import task
 from prefect.engine import signals
 
-def _canvas_get(config, path_suffix, use_group_base=False):
+def _canvas_get(config, course_id, path_suffix, use_group_base=False):
     group_url = urllib.parse.urljoin(config.canvas_domain, 'api/v1/groups/')
     base_url = urllib.parse.urljoin(config.canvas_domain, 'api/v1/courses/'+config.canvas_id+'/')
     token = config.canvas_token
@@ -151,12 +151,10 @@ def validate_config(config):
     #config.canvas_token 
     #config.canvas_id 
     #config.ignored_assignments
-    logger = prefect.context.get("logger").info("rudaux_config.py valid for CanvasAPI")
-    return config
 
 @task
-def get_course_info(config):
-    info = _canvas_get(config,'')[0]
+def get_course_info(config, course_id):
+    info = _canvas_get(config,course_id, '')[0]
     processed_info = {
              "id" : info['id'],
              "name" : info['name'],

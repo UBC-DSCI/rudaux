@@ -85,8 +85,6 @@ def validate_config(config):
     #config.student_zfs_path #usually /usr/sbin/zfs
     #config.student_dataset_root 
     #config.course_start_date
-    logger = prefect.context.get("logger").info("rudaux_config.py valid for ZFS snapshots over SSH")
-    return config
 
 @task
 def extract_snapshots(config, assignments):

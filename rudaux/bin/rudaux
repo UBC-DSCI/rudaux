@@ -11,6 +11,88 @@ subparsers = parser.add_subparsers(
   title='Subcommands', dest="subparser", help='Commands that rudaux can process.'
 )
 
+#---------------------------------------------
+#           Register workflows
+#---------------------------------------------
+reg_parser = subparsers.add_parser('register', help='Register course management workflows')
+reg_parser.set_defaults(func=flows.register)
+reg_parser.add_argument(
+  '--dir',
+  dest='directory',
+  action='store',
+  default=os.getcwd(),
+  help="the directory containing the rudaux configuration file."
+)
+reg_parser.add_argument(
+  '--course_api_module',
+  dest='course_api_module',
+  action='store',
+  default='canvas',
+  help="The name of the course API module."
+)
+reg_parser.add_argument(
+  '--snapshot_module',
+  dest='snapshot_module',
+  action='store',
+  default='zfs_over_ssh',
+  help="The name of the snapshot module."
+)
+reg_parser.add_argument(
+  '--auto_extension_module',
+  dest='autoext_module',
+  action='store',
+  default='latereg',
+  help="The name of the automatic extensions module."
+)
+reg_parser.add_argument(
+  '--grader_module',
+  dest='grader_module',
+  action='store',
+  default='git_nbgrader',
+  help="The name of the grader module."
+)
+reg_parser.add_argument(
+  '--grading_interval',
+  dest='grading_interval',
+  action='store',
+  default=1,
+  help="The interval (minutes) to reg the Rudaux flow"
+)
+reg_parser.add_argument(
+  '--autoext_interval',
+  dest='autoext_interval',
+  action='store',
+  default=1,
+  help="The interval (minutes) to reg the autoextension flow"
+)
+reg_parser.add_argument(
+  '--snapshot_interval',
+  dest='snapshot_interval',
+  action='store',
+  default=1,
+  help="The interval (minutes) to take snapshots" 
+)
+reg_parser.add_argument(
+  '--dask_threads',
+  dest='dask_threads',
+  action='store',
+  default=8,
+  help="The number of local dask executor threads"
+)
+
+#---------------------------------------------
+#           List workflows/runs and status
+#---------------------------------------------
+status_parser = subparsers.add_parser('status', help='Print workflow status')
+status_parser.set_defaults(func=flows.status)
+
+#---------------------------------------------
+#           Run the local agent
+#---------------------------------------------
+
+run_parser = subparsers.add_parser('run', help='Run the workflow execution agent')
+run_parser.set_defaults(func=flows.run)
+
 ##------------------------------------
 ##          Snapshot 
 ##------------------------------------
@@ -106,112 +188,6 @@ subparsers = parser.add_subparsers(
 #  default=False,
 #  help="Specify that late registrations should not actually be provided canvas extensions and print the canvas api calls instead."
 #)
-
-#---------------------------------------------
-#           Register workflows
-#---------------------------------------------
-
-reg_parser = subparsers.add_parser('register', help='register course management workflows')
-reg_parser.set_defaults(func=flows.register)
-reg_parser.add_argument(
-  '--dir',
-  dest='directory',
-  action='store',
-  default=os.getcwd(),
-  help="the directory containing the rudaux configuration file."
-)
-reg_parser.add_argument(
-  '--dask_threads',
-  dest='dask_threads',
-  action='store',
-  default=8,
-  help="The number of local dask executor threads"
-)
-
-#---------------------------------------------
-#           List workflows and status
-#---------------------------------------------
-
-status_parser = subparsers.add_parser('status', help='list course management workflows')
-status_parser.set_defaults(func=flows.status)
-status_parser.add_argument(
-  '--dir',
-  dest='directory',
-  action='store',
-  default=os.getcwd(),
-  help="the directory containing the rudaux configuration file."
-)
-
-
-#---------------------------------------------
-#           Run workflow
-#---------------------------------------------
-
-run_parser = subparsers.add_parser('run', help='Run the course management workflow')
-run_parser.set_defaults(func=flows.run)
-run_parser.add_argument(
-  '--course_api_module',
-  dest='course_api_module',
-  action='store',
-  default='canvas',
-  help="The name of the course API module."
-)
-run_parser.add_argument(
-  '--snapshot_module',
-  dest='snapshot_module',
-  action='store',
-  default='zfs_over_ssh',
-  help="The name of the snapshot module."
-)
-run_parser.add_argument(
-  '--auto_extension_module',
-  dest='autoext_module',
-  action='store',
-  default='latereg',
-  help="The name of the automatic extensions module."
-)
-run_parser.add_argument(
-  '--grader_module',
-  dest='grader_module',
-  action='store',
-  default='git_nbgrader',
-  help="The name of the grader module."
-)
-run_parser.add_argument(
-  '--dir',
-  dest='directory',
-  action='store',
-  default=os.getcwd(),
-  help="The directory containing the rudaux configuration file."
-)
-run_parser.add_argument(
-  '--grading_interval',
-  dest='grading_interval',
-  action='store',
-  default=1,
-  help="The interval (minutes) to run the Rudaux flow"
-)
-run_parser.add_argument(
-  '--autoext_interval',
-  dest='autoext_interval',
-  action='store',
-  default=1,
-  help="The interval (minutes) to run the autoextension flow"
-)
-run_parser.add_argument(
-  '--snapshot_interval',
-  dest='snapshot_interval',
-  action='store',
-  default=1,
-  help="The interval (minutes) to take snapshots" 
-)
-run_parser.add_argument(
-  '--dask_threads',
-  dest='dask_threads',
-  action='store',
-  default=8,
-  help="The number of local dask executor threads"
-)
 
 
 # Parse the arguments!
