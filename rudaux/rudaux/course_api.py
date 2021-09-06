@@ -236,14 +236,14 @@ def get_assignments(config, course_id, assignment_names):
     ids = [a['id'] for a in processed_asgns]
     names = [a['name'] for a in processed_asgns]
     if len(set(ids)) != len(ids):
-        signals.FAIL(f"Course ID {course_id}: Two assignments detected with the same ID. IDs:\n{'\n'.join(ids)}")
+        signals.FAIL(f"Course ID {course_id}: Two assignments detected with the same ID. IDs: {ids}")
     if len(set(names)) != len(names):
-        signals.FAIL(f"Course ID {course_id}: Two assignments detected with the same name. Names:\n{'\n'.join(names)}")
+        signals.FAIL(f"Course ID {course_id}: Two assignments detected with the same name. Names: {names}")
 
     # check to make sure the full list of assignment_names was obtained
     # not mandatory, so just print a warning
     if len(assignment_names) != len(names):
-        logger.warning(f"Assignments in config do not match assignments on course LMS.\nConfig:\n{'\n'.join(assignment_names)}\nLMS:\n{'\n'.join(names)}")
+        logger.warning(f"Assignments in config do not match assignments on course LMS.\nConfig: {assignment_names}\nLMS: {names}")
 
     return processed_asgns
 

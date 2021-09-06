@@ -124,7 +124,7 @@ def get_all_snapshots(config, course_id, assignments):
                               'student_id' : student_id})
     logger = prefect.context.get("logger")
     logger.info(f"Found {len(snaps)} snapshots to take.")
-    logger.info(f"Snapshots: {'\n'.join(snaps)}")
+    logger.info(f"Snapshots: {snaps}")
     return snaps
 
 @task
