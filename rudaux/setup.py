@@ -1,4 +1,5 @@
 from setuptools import setup, find_packages
+from rudaux import __version__
 
 requirements = []
 with open('requirements.txt', 'r') as in_:
@@ -6,7 +7,7 @@ with open('requirements.txt', 'r') as in_:
 
 setup(
   name='rudaux',
-  version='0.2.0',
+  version=__version__,
   description='Course management with Canvas and Jupyterhub.',
   author='Trevor Campbell',
   author_email='trevor.d.campbell@gmail.com',
