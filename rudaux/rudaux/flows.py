@@ -60,7 +60,7 @@ def register(args):
 
     flow_builders = [ (build_snapshot_flows, 'snapshot', args.snapshot_interval)]#,
                       #(build_autoext_flows, 'autoextension', args.autoext_interval),
-    ]
+    #]
     for build_func, flow_name, interval in flow_builders:
         print(f"Building/registering the {flow_name} flow...")
         flows = build_func(config, args)
