@@ -5,6 +5,8 @@ import prefect
 from prefect import task
 from prefect.engine import signals
 
+# TODO replace "course api" with "LMS"
+
 def _canvas_get(config, course_id, path_suffix, use_group_base=False):
     group_url = urllib.parse.urljoin(config.canvas_domain, 'api/v1/groups/')
     base_url = urllib.parse.urljoin(config.canvas_domain, 'api/v1/courses/'+course_id+'/')
@@ -31,7 +33,7 @@ def _canvas_get(config, course_id, path_suffix, use_group_base=False):
         )
 
         if resp.status_code < 200 or resp.status_code > 299:
-            sig = signals.FAIL("failed GET response status code " + str(resp.status_code) + " for URL: " + str(url))
+            sig = signals.FAIL(f"failed GET response status code {resp.status_code} for URL {url}\nText:{resp.text}")
             sig.url = url
             sig.resp = resp
             raise sig
@@ -58,7 +60,7 @@ def _canvas_upload(config, course_id, path_suffix, json_data, typ):
         json=json_data
     )
     if resp.status_code < 200 or resp.status_code > 299:
-        sig = signals.FAIL("failed upload (" + typ + ")  response status code " + str(resp.status_code) + " for URL: " + str(url))
+        sig = signals.FAIL(f"failed upload ({typ}) response status code {resp.status_code} for URL {url}\nText:{resp.text}")
         sig.url = url
         sig.resp = resp
         raise sig
@@ -76,7 +78,6 @@ def _canvas_delete(config, course_id, path_suffix):
 def _canvas_get_people_by_type(config, course_id, typ):
     people = _canvas_get(config, course_id, 'enrollments')
     ppl_typ = [p for p in people if p['type'] == typ]
-    prefect.context.get("logger").info(str(ppl_typ))
     return [ { 'id' : str(p['user']['id']),
                'name' : p['user']['name'],
                'sortable_name' : p['user']['sortable_name'],
@@ -103,7 +104,7 @@ def _create_override(config, course_id, assignment, override):
     required_keys = ['student_ids', 'unlock_at', 'due_at', 'lock_at', 'title']
     for rk in required_keys:
         if not override.get(rk):
-            sig = signals.FAIL("invalid override for assignment " + str(assignment['name']) +"("+str(assignment['id'])+"): dict missing required key " + rk)
+            sig = signals.FAIL("invalid override for assignment {assignment['name']} ({assignment['id']}): dict missing required key {rk}")
             sig.assignment = assignment
             sig.override = override
             sig.missing_key = rk
@@ -124,7 +125,7 @@ def _create_override(config, course_id, assignment, override):
     overs = _canvas_get_overrides(config, course_id, assignment)
     n_match = len([over for over in overs if over['title'] == override['title']])
     if n_match != 1:
-        sig = signals.FAIL("override for assignment " + str(assignment['name']) +"("+str(assignment['id'])+") failed to upload to Canvas")
+        sig = signals.FAIL("override for assignment {assignment['name']} ({assignment['id'])}) failed to upload to Canvas")
         sig.assignment = assignment
         sig.attempted_override = override
         sig.overrides = overs
@@ -137,7 +138,7 @@ def _remove_override(config, course_id, assignment, override):
     overs = _canvas_get_overrides(config, course_id, assignment)
     n_match = len([over for over in overs if over['id'] == override['id']])
     if n_match != 0:
-        sig = signals.FAIL("override " + str(override['title']) + " for assignment " + str(assignment['name']) + "("+str(assignment['id'])+") failed to be removed from Canvas")
+        sig = signals.FAIL("override {override['title']} for assignment {assignment['name']} ({assignment['id']}) failed to be removed from Canvas")
         sig.override = override
         sig.assignment = assignment
         sig.overrides = overs
@@ -205,7 +206,6 @@ def get_assignments(config, course_id, assignment_names):
         if a['has_overrides']:
             a['overrides'] = _canvas_get_overrides(config, course_id, a)
 
-
     # check for duplicate IDs and names
     # we require both of these to be unique (snapshots, grader accounts, etc all depend on unique human-readable names)
     ids = [a['id'] for a in processed_asgns]
@@ -214,6 +214,11 @@ def get_assignments(config, course_id, assignment_names):
         signals.FAIL(f"Course ID {course_id}: Two assignments detected with the same ID. IDs: {ids}")
     if len(set(names)) != len(names):
         signals.FAIL(f"Course ID {course_id}: Two assignments detected with the same name. Names: {names}")
+    # check to make sure the full list of assignment_names was obtained
+    # not mandatory, so just print a warning
+    if len(assignment_names) != len(names):
+        logger = prefect.context.get("logger")
+        logger.warning(f"Assignments in config do not match assignments on Canvas.\nConfig: {assignment_names}\nCanvas: {names}")
 
     return processed_asgns
 
@@ -226,7 +231,8 @@ def get_submissions(config, course_id, assignment):
                    'score' : subm['score'],
                    'posted_at' : None if subm['posted_at'] is None else plm.parse(subm['posted_at']),
                    'late' : subm['late'],
-                   'missing' : subm['missing']
+                   'missing' : subm['missing'],
+                   'excused' : subm['excused'],
             } for subm in subms ]
     subms_map = {}
     for subm in processed_subms:
@@ -236,7 +242,7 @@ def get_submissions(config, course_id, assignment):
     return subms_map
 
 @task
-def update_overrides(config, course_id, override_update_tuple):
+def update_override(config, course_id, override_update_tuple):
     assignment, to_create, to_remove = override_update_tuple
     if to_remove is not None:
         _remove_override(config, course_id, assignment, to_remove)

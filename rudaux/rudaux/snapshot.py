@@ -87,10 +87,7 @@ def validate_config(config):
     #config.course_start_date
 
 def get_snap_name(config, course_id, assignment, override):
-    name = config.course_names[course_id]+'-'+ assignment['name']
-    if override is not None:
-        name = name + '-' + override['id']
-    return name
+    return config.course_names[course_id]+'-'+assignment['name']+'-' + assignment['id'] + '-' + ('' if override is None else override['id'])
 
 @task
 def extract_snapshots(config, course_id, assignments):
@@ -139,9 +136,9 @@ def take_snapshot(config, course_info, snap, existing_snap_names):
 
     if snap_deadline < course_info['start_at']:
          sig = signals.FAIL(f"Snapshot {snap_name} deadline ({snap_deadline}) prior to the course " +
-                             "start ({course_info['start_at']}). This is often because of an old deadline " +
-                             "from a copied Canvas course from a previous semester. Please make sure " +
-                             "assignment deadlines are all updated to the current semester.")
+                            f"start ({course_info['start_at']}). This is often because of an old deadline " +
+                            f"from a copied Canvas course from a previous semester. Please make sure " +
+                            f"assignment deadlines are all updated to the current semester.")
          sig.snap_name = snap_name
          sig.snap_deadline = snap_deadline
          raise sig

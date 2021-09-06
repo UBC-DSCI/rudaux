@@ -9,7 +9,7 @@ from .docker import DockerError
 import pendulum as plm
 from .course_api import put_grade
 from .container import run_container
-from prefect import task 
+from prefect import task
 
 class GradingStatus(IntEnum):
     ASSIGNED = 0
@@ -21,75 +21,150 @@ class GradingStatus(IntEnum):
     NEEDS_MANUAL_GRADE = 9
     DONE_GRADING = 10
 
-def _get_due_date(assignment, student):
-        basic_date = assignment['due_at']
-
-        #get overrides for the student
-        overrides = [over for over in assignment['overrides'] if student['id'] in over['student_ids'] and (over['due_at'] is not None)]
-
-        #if there was no override, return the basic date
-        if len(overrides) == 0:
-            return basic_date, None
-
-        #if there was one, get the latest override date
-        latest_override = overrides[0]
-        for over in overrides:
-            if over['due_at'] > latest_override['due_at']:
-                latest_override = over
-        
-        #return the latest date between the basic and override dates
-        if latest_override['due_at'] > basic_date:
-            return latest_override['due_at'], latest_override
-        else:
-            return basic_date, None
-
-def _get_snap_name(config, assignment, override):
-    return config.course_name+'-'+assignment['name']+'-' + assignment['id'] + ('' if override is None else override['id'])
-
 @task
 def validate_config(config):
     # config.student_dataset_root
     # config.student_local_assignment_folder
     return config
 
-
-# used to construct the product of all student x assignments and assign to graders
+# used to construct the product of all student x assignments
 @task
-def build_submissions(assignments, students, subm_info, graders):
+def get_submissions(config, course_id, assignments, students):
     logger = prefect.context.get("logger")
-    logger.info(f"Initializing submission objects")
+    logger.info(f"Building the list of submissions")
     subms = []
     for asgn in assignments:
         for stu in students:
             subm = {}
-            # initialize values that are *not* potential failure points here
             subm['assignment'] = asgn
             subm['student'] = stu
-
-            # search for this student in the grader folders 
-            found = False
-            for grader in graders:
-                collected_assignment_path = os.path.join(grader['submissions_folder'], 
-                                                         config.grading_student_folder_prefix+stu['id'], 
-                                                         asgn['name'] + '.ipynb')
-                if os.path.exists(collected_assignment_path):
-                    found = True
-                    subm['grader'] = grader
-                    break
-            # if not assigned to anyone, choose the worker with the minimum current workload
-            if not found:
-                # TODO I believe sorted makes a copy, so I need to find the original grader in the list to increase their workload
-                # should debug this to make sure workloads are actually increasing, and also figure out whether it's possible to simplify
-                min_grader = sorted(graders, key = lambda g : g['workload'])[0]
-                graders[graders.index(min_grader)]['workload'] += 1
-                subm['grader'] = graders[graders.index(min_grader)]
-
-            subm['name'] = f"({asgn['name']}-{asgn['id']},{stu['name']}-{stu['id']},{subm['grader']['name']})"  
-            
+            subm['name'] = f"{config.course_names[course_id]}-{course_id} : {asgn['name']}-{asgn['id']} : {stu['name']}-{stu['id']}"
             subms.append(subm)
     return subms
 
-# validate each submission, skip if not due yet 
+def _get_due_date(assignment, student):
+    basic_date = assignment['due_at']
+
+    #get overrides for the student
+    overrides = [over for over in assignment['overrides'] if student['id'] in over['student_ids'] and (over['due_at'] is not None)]
+
+    #if there was no override, return the basic date
+    if len(overrides) == 0:
+        return basic_date, None
+
+    #if there was one, get the latest override date
+    latest_override = overrides[0]
+    for over in overrides:
+        if over['due_at'] > latest_override['due_at']:
+            latest_override = over
+
+    #return the latest date between the basic and override dates
+    if latest_override['due_at'] > basic_date:
+        return latest_override['due_at'], latest_override
+    else:
+        return basic_date, None
+
+@task
+def compute_deadline(course_info, subm):
+    assignment = subm['assignment']
+    student = subm['student']
+
+    # check student regdate, assignment due/unlock dates exist
+    if assignment['unlock_at'] is None or assignment['due_at'] is None:
+        sig = signals.FAIL(f"Invalid unlock ({assignment['unlock_at']}) and/or due ({assignment['due_at']}) date for assignment {assignment['name']}")
+        sig.assignment = assignment
+        raise sig
+
+    # if assignment dates are prior to course start, error
+    if assignment['unlock_at'] < course_info['start_at'] or assignment['due_at'] < course_info['start_at']:
+        sig = signals.FAIL(f"Assignment {assignment['name']} unlock date ({assignment['unlock_at']}) "+
+                           f"and/or due date ({assignment['due_at']}) is prior to the course start date "+
+                           f"({course_info['start_at']}). This is often because of an old deadline from "+
+                           f"a copied Canvas course from a previous semester. Please make sure assignment "+
+                           f"deadlines are all updated to the current semester.")
+        sig.assignment = assignment
+        raise sig
+
+    # if student has no reg date, error
+    if student['reg_date'] is None:
+        sig = signals.FAIL(f"Invalid registration date for student {student['name']}, {student['id']} ({student['reg_date']})")
+        sig.student = student
+        raise sig
+
+    # if student is inactive, skip
+    if student['status'] != 'active':
+        raise signals.SKIP(f"Student {student['name']} is inactive. Skipping their submission.")
+
+    # compute the assignment's due date
+    due_date, override = _get_due_date(assignment, student)
+    subm['due_at'] = due_date
+    subm['override'] = override
+    return subm
+
+@task
+def get_latereg_override(extension_days, submission):
+    logger = prefect.context.get("logger")
+    tz = course_info['time_zone']
+    fmt = 'ddd YYYY-MM-DD HH:mm:ss'
+
+    assignment = submission['assignment']
+    student = submission['student']
+
+    logger.info(f"Checking if student {student['name']} needs an extension on assignment {assignment['name']}")
+    regdate = student['reg_date']
+    logger.info(f"Student registration date: {regdate}    Status: {student['status']}")
+    logger.info(f"Assignment unlock: {assignment['unlock_at']}    Assignment deadline: {assignment['due_at']}")
+    to_remove = None
+    to_create = None
+    if regdate > assignment['unlock_at']:
+        logger.info("Assignment unlock date after student registration date. Extension required.")
+        #the late registration due date
+        latereg_date = regdate.add(days=extension_days)
+        logger.info("Current student-specific due date: " + submission['due_at'].in_timezone(tz).format(fmt) + " from override: " + str(True if (submission['override'] is not None) else False))
+        logger.info('Late registration extension date: ' + latereg_date.in_timezone(tz).format(fmt))
+        if latereg_date > submission['due_at']:
+            logger.info('Creating automatic late registration extension to ' + latereg_date.in_timezone(tz).format(fmt))
+            if override is not None:
+                logger.info("Need to remove old override " + str(override['id']))
+                to_remove = override
+            to_create = {'student_ids' : [student['id']],
+                         'due_at' : latereg_date,
+                         'lock_at' : assignment['lock_at'],
+                         'unlock_at' : assignment['unlock_at'],
+                         'title' : student['name']+'-'+assignment['name']+'-latereg'}
+        else:
+            raise signals.SKIP("Current due date for student {student['name']}, assignment {assignment['name']} after late registration date; no override modifications required.")
+    else:
+        raise signals.SKIP("Assignment {assignment['name']} unlocks after student {student['name']} registration date; no extension required.")
+    return (assignment, to_create, to_remove)
+
+@task
+def assign_graders(submissions, graders)
+    # search for this student in the grader folders
+    found = False
+    for grader in graders:
+        collected_assignment_path = os.path.join(grader['submissions_folder'],
+                                                 config.grading_student_folder_prefix+stu['id'],
+                                                 asgn['name'] + '.ipynb')
+        if os.path.exists(collected_assignment_path):
+            found = True
+            subm['grader'] = grader
+            break
+
+    # if not assigned to anyone, choose the worker with the minimum current workload
+    if not found:
+        # TODO I believe sorted makes a copy, so I need to find the original grader in the list to increase their workload
+        # should debug this to make sure workloads are actually increasing, and also figure out whether it's possible to simplify
+        min_grader = sorted(graders, key = lambda g : g['workload'])[0]
+        graders[graders.index(min_grader)]['workload'] += 1
+        subm['grader'] = graders[graders.index(min_grader)]
+
+    subm['name'] = f"({asgn['name']}-{asgn['id']},{stu['name']}-{stu['id']},{subm['grader']['name']})"
+
+    subms.append(subm)
+    return subms
+
+# validate each submission, skip if not due yet
 @task
 def initialize_submission(config, course_info, subm):
     logger = prefect.context.get("logger")
@@ -104,7 +179,7 @@ def initialize_submission(config, course_info, subm):
          raise sig
     if assignment['unlock_at'] < course_info['start_at'] or assignment['due_at'] < course_info['start_at']:
          sig = signals.FAIL(f"Assignment {assignment['name']} unlock date ({assignment['unlock_at']}) and/or due date ({assignment['due_at']}) is prior to the course start date ({course_info['start_at']}). This is often because of an old deadline from a copied Canvas course from a previous semester. Please make sure assignment deadlines are all updated to the current semester.")
-         sig.assignment = assignment
+             sig.assignment = assignment
          raise sig
     if student['reg_date'] is None:
          sig = signals.FAIL(f"Invalid registration date for student {student['name']}, {student['id']} ({student['reg_date']})")
@@ -119,14 +194,14 @@ def initialize_submission(config, course_info, subm):
     due_date, override = _get_due_date(assignment, student)
     subm['due_at'] = due_date
     subm['override'] = override
-    subm['snap_name'] = _get_snap_name(config, assignment, override) 
+    subm['snap_name'] = _get_snap_name(config, assignment, override)
     if override is None:
         subm['zfs_snap_path'] = config.student_dataset_root.strip('/') + '@' + subm['snap_name']
     else:
         subm['zfs_snap_path'] = os.path.join(config.student_dataset_root, student['id']).strip('/') + '@' + subm['snap_name']
     subm['attached_folder'] = os.path.join(config.grading_attached_student_dataset_root, student['id'])
-    subm['snapped_assignment_path'] = os.path.join(subm['attached_folder'], 
-                '.zfs', 'snapshot', subm['snap_name'], config.student_local_assignment_folder, 
+    subm['snapped_assignment_path'] = os.path.join(subm['attached_folder'],
+                '.zfs', 'snapshot', subm['snap_name'], config.student_local_assignment_folder,
                 assignment['name'], assignment['name']+'.ipynb')
     subm['soln_path'] = os.path.join(subm['attached_folder'], assignment['name'] + '_solution.html')
     subm['fdbk_path'] = os.path.join(subm['attached_folder'], assignment['name'] + '_feedback.html')
@@ -134,14 +209,14 @@ def initialize_submission(config, course_info, subm):
     subm['posted_at'] = subm_info[assignment['id']][student['id']]['posted_at']
     subm['late'] = subm_info[assignment['id']][student['id']]['late']
     subm['missing'] = subm_info[assignment['id']][student['id']]['missing']
-    subm['collected_assignment_path'] = os.path.join(subm['grader']['submissions_folder'], 
-                                                     config.grading_student_folder_prefix+subm['student']['id'], 
+    subm['collected_assignment_path'] = os.path.join(subm['grader']['submissions_folder'],
+                                                     config.grading_student_folder_prefix+subm['student']['id'],
                                                      subm['assignment']['name'], subm['assignment']['name'] + '.ipynb')
-    subm['autograded_assignment_path'] = os.path.join(subm['grader']['autograded_folder'], 
-                                                     config.grading_student_folder_prefix+subm['student']['id'], 
+    subm['autograded_assignment_path'] = os.path.join(subm['grader']['autograded_folder'],
+                                                     config.grading_student_folder_prefix+subm['student']['id'],
                                                      subm['assignment']['name'], subm['assignment']['name'] + '.ipynb')
-    subm['feedback_path'] = os.path.join(subm['grader']['feedback_folder'], 
-                                                     config.grading_student_folder_prefix+subm['student']['id'], 
+    subm['feedback_path'] = os.path.join(subm['grader']['feedback_folder'],
+                                                     config.grading_student_folder_prefix+subm['student']['id'],
                                                      subm['assignment']['name'], subm['assignment']['name'] + '.html')
     subm['status'] = GradingStatus.ASSIGNED
 
@@ -153,13 +228,13 @@ def get_pastdue_fractions(config, course_info, submissions):
     assignment_outstanding = {}
     assignment_fracs = {}
     for subm in submissions:
-        assignment = subm['assignment'] 
+        assignment = subm['assignment']
         anm = assignment['name']
         if anm not in assignment_totals:
             assignment_totals[anm] = 0
         if anm not in assignment_outstanding:
             assignment_outstanding[anm] = 0
-        
+
         assignment_totals[anm] += 1
         if subm['due_at'] > plm.now():
             assignment_outstanding[anm] += 1
@@ -172,7 +247,7 @@ def get_pastdue_fractions(config, course_info, submissions):
 @task
 def return_solution(config, course_info, assignment_fracs, subm):
     logger = prefect.context.get("logger")
-    assignment = subm['assignment'] 
+    assignment = subm['assignment']
     anm = assignment['name']
     logger.info(f"Checking whether solution for submission {subm['name']} can be returned")
     if subm['due_at'] > plm.now() and assignment_fracs[anm] > config.return_solution_threshold and plm.now() > plm.parse(config.earliest_solution_return_date, tz=course_info['time_zone']):
@@ -180,7 +255,7 @@ def return_solution(config, course_info, assignment_fracs, subm):
         if not os.path.exists(subm['soln_path']):
             if os.path.exists(subm['attached_folder']):
                 try:
-                    shutil.copy(subm['grader']['soln_path'], subm['soln_path']) 
+                    shutil.copy(subm['grader']['soln_path'], subm['soln_path'])
                     os.chown(subm['soln_path'], subm['grader']['unix_uid'], subm['grader']['unix_uid'])
                 except Exception as e:
                     raise signals.FAIL(str(e))
@@ -227,7 +302,7 @@ def clean_submission(config, subm):
     f = open(subm['collected_assignment_path'], 'r')
     nb = json.load(f)
     f.close()
-    
+
     #go through and delete the nbgrader metadata from any duplicated cells
     cell_ids = set()
     for cell in nb['cells']:
@@ -241,7 +316,7 @@ def clean_submission(config, subm):
         cell['metadata'].pop('nbgrader', None)
       else:
         cell_ids.add(cell_id)
-    
+
     #write the sanitized notebook back to the submitted folder
     f = open(subm['collected_assignment_path'], 'w')
     json.dump(nb, f)
@@ -281,10 +356,10 @@ def autograde(config, subm):
     return subm
 
 @task
-def wait_for_manual_grading(config, subm): 
+def wait_for_manual_grading(config, subm):
     logger = prefect.context.get("logger")
     logger.info(f"Checking whether submission {subm['name']} needs manual grading")
-        
+
     # check if the submission needs manual grading
     try:
         gb = Gradebook('sqlite:///'+os.path.join(subm['grader']['folder'], 'gradebook.db'))
@@ -301,7 +376,7 @@ def wait_for_manual_grading(config, subm):
     if flag:
         subm['status'] = GradingStatus.NEEDS_MANUAL_GRADE
         raise signals.SKIP(f"Submission {subm['name']} still waiting for manual grading. Skipping the remainder of this task.")
-        
+
     logger.info("Done grading for submission {subm['name']}.")
     subm['status'] = GradingStatus.DONE_GRADING
     return subm
@@ -345,7 +420,7 @@ def generate_feedback(config, subm):
 @task
 def return_feedback(config, course_info, assignment_fracs, subm):
     logger = prefect.context.get("logger")
-    assignment = subm['assignment'] 
+    assignment = subm['assignment']
     anm = assignment['name']
     logger.info(f"Checking whether feedback for submission {subm['name']} can be returned")
     if subm['due_at'] > plm.now() and assignment_fracs[anm] > config.return_solution_threshold and plm.now() > plm.parse(config.earliest_solution_return_date, tz=course_info['time_zone']):
@@ -353,7 +428,7 @@ def return_feedback(config, course_info, assignment_fracs, subm):
         if not os.path.exists(fdbk_path_student):
             if os.path.exists(fdbk_folder_student):
                 try:
-                    shutil.copy(fdbk_path_grader, fdbk_path_student) 
+                    shutil.copy(fdbk_path_grader, fdbk_path_student)
                     os.chown(fdbk_path_student, subm['grader']['unix_uid'], subm['grader']['unix_uid'])
                 except Exception as e:
                     print('Error occured when returning feedback.')
@@ -422,43 +497,7 @@ def upload_grade(config, subm):
     logger.info(f"Uploading to Canvas...")
     subm['score'] = pct
     put_grade(config, subm)
-    
+
     return subm
 
-@task
-def get_latereg_override(config, submission):
-    logger = prefect.context.get("logger")
-    tz = course_info['time_zone']
-    fmt = 'ddd YYYY-MM-DD HH:mm:ss'
-    
-    assignment = submission['assignment']
-    student = submission['student']
 
-    logger.info(f"Checking if student {student['name']} needs an extension on assignment {assignment['name']}")
-    regdate = student['reg_date']
-    logger.info(f"Student registration date: {regdate}    Status: {student['status']}")
-    logger.info(f"Assignment unlock: {assignment['unlock_at']}    Assignment deadline: {assignment['due_at']}")
-    to_remove = None
-    to_create = None
-    if regdate > assignment['unlock_at']:
-        logger.info("Assignment unlock date after student registration date. Extension required.")
-        #the late registration due date
-        latereg_date = regdate.add(days=config.latereg_extension_days)
-        logger.info("Current student-specific due date: " + submission['due_at'].in_timezone(tz).format(fmt) + " from override: " + str(True if (submission['override'] is not None) else False))
-        logger.info('Late registration extension date: ' + latereg_date.in_timezone(tz).format(fmt))
-        if latereg_date > submission['due_at']:
-            logger.info('Creating automatic late registration extension to ' + latereg_date.in_timezone(tz).format(fmt)) 
-            if override is not None:
-                logger.info("Need to remove old override " + str(override['id']))
-                to_remove = override
-            to_create = {'student_ids' : [student['id']],
-                         'due_at' : latereg_date,
-                         'lock_at' : assignment['lock_at'],
-                         'unlock_at' : assignment['unlock_at'],
-                         'title' : student['name']+'-'+assignment['name']+'-latereg'}
-        else:
-            raise signals.SKIP("Current due date for student {student['name']}, assignment {assignment['name']} after late registration date; no override modifications required.")
-    else:
-        raise signals.SKIP("Assignment {assignment['name']} unlocks after student {student['name']} registration date; no extension required.")
-
-    return (assignment, to_create, to_remove)

@@ -15,9 +15,6 @@ from . import submission as subm
 from . import course_api as api
 from . import grader as grd
 
-@task
-def combine_dictionaries(dicts):
-    return {k : v for d in dicts for k, v in d.items()}
 
 __PROJECT_NAME = "rudaux"
 
@@ -50,14 +47,17 @@ def register(args):
     print("Creating the local dask executor")
     executor = LocalDaskExecutor(num_workers = args.dask_threads)   # for DaskExecutor: cluster_kwargs = {'n_workers': 8}) #address="tcp://localhost:8786")
 
-    flows = [ (build_snapshot_flow, 'snapshot', args.snapshot_interval) ]
-    for build_func, flow_name, interval in flows:
+    flow_builders = [ (build_snapshot_flows, 'snapshot', args.snapshot_interval),
+                      (build_autoext_flows, 'autoextension', args.autoext_interval),
+    ]
+    for build_func, flow_name, interval in flow_builders:
         print(f"Building/registering the {flow_name} flow...")
-        flow = build_func(config, args)
-        flow.executor = executor
-        flow.schedule = IntervalSchedule(start_date = plm.now('UTC').add(seconds=1),
-                               interval = plm.duration(minutes=interval))
-        flow.register(__PROJECT_NAME)
+        flows = build_func(config, args)
+        for flow in flows:
+            flow.executor = executor
+            flow.schedule = IntervalSchedule(start_date = plm.now('UTC').add(seconds=1),
+                                   interval = plm.duration(minutes=interval))
+            flow.register(__PROJECT_NAME)
 
     #print("Building/registering the test flow")
     #flow = build_test_flow()
@@ -152,36 +152,42 @@ def build_snapshot_flows(config, args):
             flows.append(flow)
     return flows
 
+
+@task
+def combine_dictionaries(dicts):
+    return {k : v for d in dicts for k, v in d.items()}
+
+## should run at the same or faster interval as the snapshot flow
+def build_autoext_flow(config, args):
+    flows = []
+    for group in config.course_groups:
+        for course_id in config.course_groups[group]:
+            with Flow(config.course_names[course_id]+"-autoextension") as flow:
+                # Obtain course/student/assignment/etc info from the course API
+                course_info = api.get_course_info(config, course_id)
+                assignments = api.get_assignments(config, course_id, list(config.assignments[group].keys()))
+                students = api.get_students(config, course_id)
+                subm_info = combine_dictionaries(api.get_submissions.map(unmapped(config), unmapped(course_id), assignments))
+
+                # Create submissions
+                submissions = subm.get_submissions(config, course_id, assignments, students)
+
+                # Fill in submission deadlines
+                submissions = subm.compute_deadline.map(unmapped(course_info), submissions)
+
+                # Compute override updates
+                override_updates = subm.get_latereg_override.map(unmapped(config.latereg_extension_days[group]), submissions)
+
+                # Remove / create overrides
+                api.update_override.map(unmapped(config), unmapped(course_id), override_updates)
+            flows.append(flow)
+    return flows
+
 # TODO a flow that resets an assignment; take in parameter, no interval,
 # require manual task "do you really want to do this"
 def build_reset_flow(_config, args):
     raise NotImplementedError
 
-## should run at the same or faster interval as the snapshot flow
-#def build_autoext_flow(_config, args):
-#    with Flow(_config.course_name+"-autoextension") as flow:
-#        # validate the config file for API access
-#        config = api.validate_config(_config)
-#        config = subm.validate_config(config)
-#
-#        # Obtain course/student/assignment/etc info from the course API
-#        course_info = api.get_course_info(config)
-#        assignments = api.get_assignments(config)
-#        students = api.get_students(config)
-#        subm_info = combine_dictionaries(api.get_submissions.map(unmapped(config), assignments))
-#
-#        # Create submissions
-#        submissions = subm.build_submissions(assignments, students, subm_info)
-#        submissions = subm.initialize_submission.map(unmapped(config), unmapped(course_info), submissions)
-#
-#        # get override updates to make
-#        override_updates = subm.get_latereg_override.map(unmapped(config), submissions)
-#
-#        # Remove / create extensions
-#        api.update_overrides.map(unmapped(config), override_updates)
-#
-#    return flow
-#
 #def build_grading_flow(_config, args):
 #    with Flow(_config.course_name+"-grading") as flow:
 #        # validate the config file for API access
