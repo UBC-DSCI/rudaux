@@ -38,11 +38,18 @@ def register(args):
     subm.validate_config(config)
     grd.validate_config(config)
 
-    print(f"Deleting the {__PROJECT_NAME} prefect project if it exists...")
-    prefect.client.client.Client().delete_project(__PROJECT_NAME)
-
-    print(f"Creating the {__PROJECT_NAME} prefect project...")
-    prefect.client.client.Client().create_project(__PROJECT_NAME)
+    try:
+        print(f"Deleting the {__PROJECT_NAME} prefect project if it exists...")
+        prefect.client.client.Client().delete_project(__PROJECT_NAME)
+        print(f"Creating the {__PROJECT_NAME} prefect project...")
+        prefect.client.client.Client().create_project(__PROJECT_NAME)
+    except ConnectionRefusedError as e:
+        print(e)
+        sys.exit(
+              f"""
+              Could not connect to the prefect server. Is the server running?
+              """
+            )
 
     print("Creating the local dask executor")
     executor = LocalDaskExecutor(num_workers = args.dask_threads)   # for DaskExecutor: cluster_kwargs = {'n_workers': 8}) #address="tcp://localhost:8786")
