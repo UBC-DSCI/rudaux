@@ -93,7 +93,7 @@ def status(args):
     flows = result.get("data", {}).get("flow", None)
 
     for flow in flows:
-        print(FlowView.from_flow_id(flows['id']))
+        print(FlowView.from_flow_id(flow['id']))
 
     flow_run_query = {
         "query": {
@@ -114,7 +114,7 @@ def status(args):
     result = client.graphql(flow_run_query)
     flowruns = result.get("data", {}).get("flow_run", None)
     for flowrun in flowruns:
-        print(FlowRunView.from_flow_run_id(flowruns['id']))
+        print(FlowRunView.from_flow_run_id(flowrun['id']))
 
 def run(args):
     print("Running the local agent...")
