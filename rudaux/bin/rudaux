@@ -6,21 +6,7 @@ import pendulum as plm
 import os, sys
 import pyfiglet, termcolor
 
-def nice_help(parser):
-    # Otherwise, no subcommand was called, so print a header and help text
-    sys.stdout.write("\n")
-    termcolor.cprint(pyfiglet.figlet_format("Rudaux"), 'blue', attrs=['bold'])
-    sys.stdout.write('Version 0.2\n')
-    sys.stdout.write('DateTime: ' + str(plm.now('UTC'))+'\n') 
-    sys.stdout.write('Command: ' + str(sys.argv)+'\n')
-    sys.stdout.write("Visit the documentation at https://ubc-dsci.github.io/rudaux\n")
-    sys.stdout.write('============================================================\n')
-    sys.stdout.write('\n')
-    parser.print_help()
-
 parser = ArgumentParser()
-parser.add_argument('-h', '--help', action = nice_help, nargs=0)
-
 subparsers = parser.add_subparsers(
   title='Subcommands', dest="subparser", help='Commands that rudaux can process.'
 )
@@ -226,4 +212,13 @@ args = parser.parse_args()
 if args.subparser is not None:
   args.func(args)
 else: 
+  # Otherwise, no subcommand was called, so print a header and help text
+  sys.stdout.write("\n")
+  termcolor.cprint(pyfiglet.figlet_format("Rudaux"), 'blue', attrs=['bold'])
+  sys.stdout.write('Version 0.2\n')
+  sys.stdout.write('DateTime: ' + str(plm.now('UTC'))+'\n') 
+  sys.stdout.write('Command: ' + str(sys.argv)+'\n')
+  sys.stdout.write("Visit the documentation at https://ubc-dsci.github.io/rudaux\n")
+  sys.stdout.write('============================================================\n')
+  sys.stdout.write('\n')
   args = parser.parse_known_args(['-h'])
