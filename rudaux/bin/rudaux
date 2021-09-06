@@ -120,6 +120,13 @@ reg_parser.add_argument(
   default=os.getcwd(),
   help="the directory containing the rudaux configuration file."
 )
+reg_parser.add_argument(
+  '--dask_threads',
+  dest='dask_threads',
+  action='store',
+  default=8,
+  help="The number of local dask executor threads"
+)
 
 #---------------------------------------------
 #           List workflows and status
