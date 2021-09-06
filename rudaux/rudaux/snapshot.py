@@ -3,6 +3,7 @@ import prefect
 from prefect import task
 from prefect.engine import signals
 import paramiko as pmk
+import pendulum as plm
 
 def _parse_zfs_snap_paths(stdout):
     # look for ...@... and take the part after @ but before spaces
@@ -27,7 +28,9 @@ def _parse_zfs_snap_names(stdout):
     return names
 
 def _ssh_open(config, course_id):
+    logger = prefect.context.get("logger")
     stu_ssh = config.student_ssh[course_id]
+    logger.info(f"Opening ssh connection to {stu_ssh}")
     # open a ssh connection to the student machine
     client = pmk.client.SSHClient()
     client.set_missing_host_key_policy(pmk.client.AutoAddPolicy())
@@ -35,9 +38,12 @@ def _ssh_open(config, course_id):
     client.connect(stu_ssh['hostname'], stu_ssh['port'], stu_ssh['user'], allow_agent=True)
     s = client.get_transport().open_session()
     pmk.agent.AgentRequestHandler(s)
+    # TODO error handling
     return client
 
 def _ssh_command(client, cmd):
+    logger = prefect.context.get("logger")
+    logger.info(f"Running ssh command {cmd}")
     # execute the snapshot command
     stdin, stdout, stderr = client.exec_command(cmd)
 
@@ -49,13 +55,18 @@ def _ssh_command(client, cmd):
     return stdout, stderr
 
 def _ssh_snapshot(config, course_id, snap_path):
+    logger = prefect.context.get("logger")
+    logger.info(f"Taking a snapshot for course {course_id} , path {snap_path}")
     # open the connection
+    logger.info(f"Opening ssh connection")
     client = _ssh_open(config, course_id)
 
     # execute the snapshot
+    logger.info(f"Taking a snapshot")
     stdout, stderr = _ssh_command(client, config.student_ssh[course_id]['zfs_path'] + ' snapshot -r ' + snap_path)
 
     # verify the snapshot
+    logger.info(f"Verifying the snapshot")
     stdout, stderr = _ssh_command(client, config.student_ssh[course_id]['zfs_path'] + ' list -t snapshot')
     snap_paths = _parse_zfs_snap_paths(stdout)
     if snap_path not in snap_paths:
@@ -65,16 +76,29 @@ def _ssh_snapshot(config, course_id, snap_path):
         raise sig
 
     # close the connection
+    logger.info(f"Closing ssh connection")
     client.close()
 
 def _ssh_list_snapshot_names(config, course_id):
+    logger = prefect.context.get("logger")
+    logger.info(f"Listing existing snapshot names for course {course_id}")
+
     # open the connection
+    logger.info(f"Opening ssh connection")
     client = _ssh_open(config, course_id)
 
     # list snapshots
+    logger.info(f"Listing snapshots")
     stdout, stderr = _ssh_command(client, config.student_ssh[course_id]['zfs_path'] + ' list -t snapshot')
 
-    return _parse_zfs_snap_names(stdout)
+    # close the connection
+    logger.info(f"Closing ssh connection")
+    client.close()
+
+    logger.info(f"Parsing snapshot names")
+    snapnames = _parse_zfs_snap_names(stdout)
+
+    return snapnames
 
 def validate_config(config):
     pass
@@ -90,7 +114,7 @@ def get_snap_name(config, course_id, assignment, override):
     return config.course_names[course_id]+'-'+assignment['name']+'-' + assignment['id'] + '-' + ('' if override is None else override['id'])
 
 @task
-def extract_snapshots(config, course_id, assignments):
+def get_all_snapshots(config, course_id, assignments):
     snaps = []
     for asgn in assignments:
         snaps.append( {'due_at' : asgn['due_at'],
@@ -101,12 +125,18 @@ def extract_snapshots(config, course_id, assignments):
                 snaps.append({'due_at': override['due_at'],
                               'name' : get_snap_name(config, course_id, asgn, override),
                               'student_id' : student_id})
+    logger = prefect.context.get("logger")
+    logger.info(f"Found {len(snaps)} snapshots to take.")
+    logger.info(f"Snapshots: {snaps}")
     return snaps
 
 @task
 def get_existing_snapshots(config, course_id):
+    existing_snaps = _ssh_list_snapshot_names(config, course_id)
     logger = prefect.context.get("logger")
-    return _ssh_list_snapshot_names(config, course_id)
+    logger.info(f"Found {len(existing_snaps)} existing snapshots.")
+    logger.info(f"Snapshots: {existing_snaps}")
+    return existing_snaps
 
 @task
 def take_snapshot(config, course_info, snap, existing_snap_names):
@@ -143,7 +173,6 @@ def take_snapshot(config, course_info, snap, existing_snap_names):
          sig.snap_deadline = snap_deadline
          raise sig
 
-
     logger.info(f'Snapshot {snap_name} deadline {snap_deadline} is valid, and snap does not already exist; taking snapshot.')
     if snap_user is None:
         snap_path = config.student_ssh[course_info['id']]['student_root'].strip('/') + '@' + snap_name
@@ -151,5 +180,4 @@ def take_snapshot(config, course_info, snap, existing_snap_names):
     else:
         snap_path = os.path.join(config.student_ssh[course_info['id']]['student_root'], snap_student).strip('/') + '@' + snap_name
         _ssh_snapshot(config, course_info['id'], snap_path)
-
     return

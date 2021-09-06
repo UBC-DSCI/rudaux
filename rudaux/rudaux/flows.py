@@ -153,7 +153,7 @@ def build_snapshot_flows(config, args):
                 assignments = api.get_assignments(config, course_id, list(config.assignments[group].keys()))
 
                 # extract the total list of snapshots to take from assignment data
-                snaps = snap.extract_snapshots(config, course_id, assignments)
+                snaps = snap.get_all_snapshots(config, course_id, assignments)
 
                 # obtain the list of existing snapshots
                 existing_snaps = snap.get_existing_snapshots(config, course_id)

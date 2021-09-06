@@ -16,6 +16,11 @@ def _canvas_get(config, course_id, path_suffix, use_group_base=False):
         url = urllib.parse.urljoin(group_url, path_suffix)
     else:
         url = urllib.parse.urljoin(base_url, path_suffix)
+
+
+    logger = prefect.context.get("logger")
+    logger.info(f"GET request to URL: {url}")
+
     resp = None
     resp_items = []
     #see https://community.canvaslms.com/t5/Question-Forum/Why-is-the-Assignment-due-at-value-that-of-the-last-override/m-p/209593
@@ -51,6 +56,10 @@ def _canvas_upload(config, course_id, path_suffix, json_data, typ):
              'post': requests.post,
              'delete': requests.delete}
     url = urllib.parse.urljoin(base_url, path_suffix)
+
+    logger = prefect.context.get("logger")
+    logger.info(f"{typ.upper()} request to URL: {url}")
+
     resp = rfuncs[typ](
         url = url,
         headers = {
@@ -165,23 +174,36 @@ def get_course_info(config, course_id):
              "end_at" : None if info['end_at'] is None else plm.parse(info['end_at']),
              "time_zone" : info['time_zone']
     }
+    logger = prefect.context.get("logger")
+    logger.info(f"Course info: {processed_info}")
     return processed_info
 
 @task
 def get_students(config, course_id):
-    return _canvas_get_people_by_type(config, course_id, 'StudentEnrollment')
+    ppl = _canvas_get_people_by_type(config, course_id, 'StudentEnrollment')
+    logger = prefect.context.get("logger")
+    logger.info(f"Successfully retrieved {len(ppl)} students from LMS")
+    return ppl
 
 @task
 def get_instructors(config, course_id):
-    return _canvas_get_people_by_type(config, course_id, 'TeacherEnrollment')
+    ppl = _canvas_get_people_by_type(config, course_id, 'TeacherEnrollment')
+    logger = prefect.context.get("logger")
+    logger.info(f"Successfully retrieved {len(ppl)} instructors from LMS")
+    return ppl
 
 @task
 def get_tas(config, course_id):
-    return _canvas_get_people_by_type(config, course_id, 'TaEnrollment')
+    ppl = _canvas_get_people_by_type(config, course_id, 'TaEnrollment')
+    logger = prefect.context.get("logger")
+    logger.info(f"Successfully retrieved {len(ppl)} TAs from LMS")
+    return ppl
 
 @task
 def get_groups(config, course_id):
     grps = _canvas_get(config, course_id,'groups')
+    logger = prefect.context.get("logger")
+    logger.info(f"Successfully retrieved {len(grps)} groups from LMS")
     return [{
              'name' : g['name'],
              'id' : str(g['id']),
@@ -207,6 +229,8 @@ def get_assignments(config, course_id, assignment_names):
         if a['has_overrides']:
             a['overrides'] = _canvas_get_overrides(config, course_id, a)
 
+    logger = prefect.context.get("logger")
+    logger.info(f"Successfully retrieved {len(processed_asgns)} assignments from course LMS")
     # check for duplicate IDs and names
     # we require both of these to be unique (snapshots, grader accounts, etc all depend on unique human-readable names)
     ids = [a['id'] for a in processed_asgns]
@@ -215,11 +239,11 @@ def get_assignments(config, course_id, assignment_names):
         signals.FAIL(f"Course ID {course_id}: Two assignments detected with the same ID. IDs: {ids}")
     if len(set(names)) != len(names):
         signals.FAIL(f"Course ID {course_id}: Two assignments detected with the same name. Names: {names}")
+
     # check to make sure the full list of assignment_names was obtained
     # not mandatory, so just print a warning
     if len(assignment_names) != len(names):
-        logger = prefect.context.get("logger")
-        logger.warning(f"Assignments in config do not match assignments on Canvas.\nConfig: {assignment_names}\nCanvas: {names}")
+        logger.warning(f"Assignments in config do not match assignments on course LMS.\nConfig: {assignment_names}\nCanvas: {names}")
 
     return processed_asgns
 
@@ -235,6 +259,10 @@ def get_submissions(config, course_id, assignment):
                    'missing' : subm['missing'],
                    'excused' : subm['excused'],
             } for subm in subms ]
+
+    logger = prefect.context.get("logger")
+    logger.info(f"Successfully retrieved {len(processed_subms)} submissions for assignment {assignment['name']} from course LMS")
+
     subms_map = {}
     for subm in processed_subms:
         if subm['assignment_id'] not in subms_map:
