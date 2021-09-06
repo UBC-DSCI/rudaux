@@ -43,11 +43,12 @@ def register(args):
         prefect.client.client.Client().delete_project(__PROJECT_NAME)
         print(f"Creating the {__PROJECT_NAME} prefect project...")
         prefect.client.client.Client().create_project(__PROJECT_NAME)
-    except ConnectionRefusedError as e:
+    except Exception as e:
         print(e)
         sys.exit(
               f"""
-              Could not connect to the prefect server. Is the server running?
+              Could not create/delete projects on the prefect server. Is the server running?
+              Make sure to start the server before trying to register flows (prefect server start).
               """
             )
 
