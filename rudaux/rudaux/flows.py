@@ -187,7 +187,8 @@ def build_autoext_flows(config, args):
                 submissions = subm.compute_deadline.map(unmapped(course_info), submissions)
 
                 # Compute override updates
-                override_updates = subm.get_latereg_override.map(unmapped(config.latereg_extension_days[group]), submissions)
+                override_updates = subm.get_latereg_override.map(unmapped(config.latereg_extension_days[group]),
+                                                                    unmapped(course_info), submissions)
 
                 # Remove / create overrides
                 api.update_override.map(unmapped(config), unmapped(course_id), override_updates)

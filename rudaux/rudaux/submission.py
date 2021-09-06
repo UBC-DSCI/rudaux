@@ -102,7 +102,7 @@ def compute_deadline(course_info, subm):
     return subm
 
 @task
-def get_latereg_override(extension_days, submission):
+def get_latereg_override(extension_days, course_info, submission):
     logger = prefect.context.get("logger")
     tz = course_info['time_zone']
     fmt = 'ddd YYYY-MM-DD HH:mm:ss'
