@@ -11,9 +11,9 @@ import shutil
 #from .docker import _run_docker
 
 def _recursive_chown(path, uid):
-    for root, dirs, files in os.walk(path):  
-        for di in dirs:  
-          os.chown(os.path.join(root, di), uid, uid) 
+    for root, dirs, files in os.walk(path):
+        for di in dirs:
+          os.chown(os.path.join(root, di), uid, uid)
         for fi in files:
           os.chown(os.path.join(root, fi), uid, uid)
 
@@ -23,7 +23,6 @@ def _clean_jhub_uname(s):
 def _grader_account_name(assignment, ta):
     return _clean_jhub_uname(assignment['name'])+'-'+_clean_jhub_uname(ta)
 
-@task
 def validate_config(config):
     #config.graders
     #config.snapshot_window
@@ -98,7 +97,7 @@ def initialize_volumes(config, graders):
     for grader in graders:
         logger.info("Creating volume for grader {grader['name']}")
 
-        # create the zfs volume 
+        # create the zfs volume
         logger.info('Checking if grader folder exists..')
         if not os.path.exists(grader['folder']):
             logger.info("Folder doesn't exist, creating...")
@@ -171,9 +170,9 @@ def initialize_accounts(config, graders):
             logger.info(f"User {grader['name']} does not exist; creating")
             Args = namedtuple('Args', 'username directory copy_creds salt digest')
             args = Args(username = grader['name'],
-                        directory = config.grading_jupyterhub_config_dir, 
+                        directory = config.grading_jupyterhub_config_dir,
                         copy_creds = grader['ta'],
-                        salt = None, 
+                        salt = None,
                         digest = None)
             add_user(args)
             check_call(['systemctl', 'stop', 'jupyterhub'])

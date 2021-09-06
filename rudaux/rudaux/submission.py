@@ -21,7 +21,6 @@ class GradingStatus(IntEnum):
     NEEDS_MANUAL_GRADE = 9
     DONE_GRADING = 10
 
-@task
 def validate_config(config):
     # config.student_dataset_root
     # config.student_local_assignment_folder
@@ -139,7 +138,7 @@ def get_latereg_override(extension_days, submission):
     return (assignment, to_create, to_remove)
 
 @task
-def assign_graders(submissions, graders)
+def assign_graders(submissions, graders):
     # search for this student in the grader folders
     found = False
     for grader in graders:
@@ -174,21 +173,25 @@ def initialize_submission(config, course_info, subm):
 
     # check student regdate, assignment due/unlock dates exist
     if assignment['unlock_at'] is None or assignment['due_at'] is None:
-         sig = signals.FAIL(f"Invalid unlock ({assignment['unlock_at']}) and/or due ({assignment['due_at']}) date for assignment {assignment['name']}")
-         sig.assignment = assignment
-         raise sig
+        sig = signals.FAIL(f"Invalid unlock ({assignment['unlock_at']}) and/or due ({assignment['due_at']}) date for assignment {assignment['name']}")
+        sig.assignment = assignment
+        raise sig
     if assignment['unlock_at'] < course_info['start_at'] or assignment['due_at'] < course_info['start_at']:
-         sig = signals.FAIL(f"Assignment {assignment['name']} unlock date ({assignment['unlock_at']}) and/or due date ({assignment['due_at']}) is prior to the course start date ({course_info['start_at']}). This is often because of an old deadline from a copied Canvas course from a previous semester. Please make sure assignment deadlines are all updated to the current semester.")
-             sig.assignment = assignment
-         raise sig
+        sig = signals.FAIL(f"Assignment {assignment['name']} unlock date ({assignment['unlock_at']}) "+
+                            f"and/or due date ({assignment['due_at']}) is prior to the course start "+
+                            f"date ({course_info['start_at']}). This is often because of an old deadline "+
+                            f"from a copied Canvas course from a previous semester. Please make sure assignment "+
+                            f"deadlines are all updated to the current semester.")
+        sig.assignment = assignment
+        raise sig
     if student['reg_date'] is None:
-         sig = signals.FAIL(f"Invalid registration date for student {student['name']}, {student['id']} ({student['reg_date']})")
-         sig.student = student
-         raise sig
+        sig = signals.FAIL(f"Invalid registration date for student {student['name']}, {student['id']} ({student['reg_date']})")
+        sig.student = student
+        raise sig
 
     # if student is inactive, skip
     if student['status'] != 'active':
-         raise signals.SKIP(f"Student {student['name']} is inactive. Skipping their submissions.")
+        raise signals.SKIP(f"Student {student['name']} is inactive. Skipping their submissions.")
 
     # initialize values that are potential failure points here
     due_date, override = _get_due_date(assignment, student)

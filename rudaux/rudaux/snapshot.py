@@ -76,8 +76,8 @@ def _ssh_list_snapshot_names(config, course_id):
 
     return _parse_zfs_snap_names(stdout)
 
-@task
 def validate_config(config):
+    pass
     # TODO validate these
     #config.student_ssh_hostname
     #config.student_ssh_port

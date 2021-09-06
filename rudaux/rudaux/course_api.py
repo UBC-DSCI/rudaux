@@ -146,6 +146,7 @@ def _remove_override(config, course_id, assignment, override):
 
 
 def validate_config(config):
+    pass
     #TODO validate these all strings, format, etc
     #config.canvas_domain
     #config.canvas_token
