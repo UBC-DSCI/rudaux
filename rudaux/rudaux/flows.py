@@ -9,6 +9,7 @@ from prefect.backend import FlowView, FlowRunView
 from traitlets.config import Config
 from traitlets.config.loader import PyFileConfigLoader
 import pendulum as plm
+from requests.exceptions import ConnectionError
 
 from . import snapshot as snap
 from . import submission as subm
@@ -41,9 +42,21 @@ def register(args):
     try:
         print(f"Deleting the {__PROJECT_NAME} prefect project if it exists...")
         prefect.client.client.Client().delete_project(__PROJECT_NAME)
+    except ConnectionError as e:
+        print(e)
+        sys.exit(
+              f"""
+              Could not create/delete projects on the prefect server. Is the server running?
+              Make sure to start the server before trying to register flows (prefect server start).
+              """
+            )
+    except ValueError as e:
+        print(f"Project {__PROJECT_NAME} not found on prefect server. Continuing...")
+
+    try:
         print(f"Creating the {__PROJECT_NAME} prefect project...")
         prefect.client.client.Client().create_project(__PROJECT_NAME)
-    except Exception as e:
+    except ConnectionError as e:
         print(e)
         sys.exit(
               f"""
@@ -166,7 +179,7 @@ def combine_dictionaries(dicts):
     return {k : v for d in dicts for k, v in d.items()}
 
 ## should run at the same or faster interval as the snapshot flow
-def build_autoext_flow(config, args):
+def build_autoext_flows(config, args):
     flows = []
     for group in config.course_groups:
         for course_id in config.course_groups[group]:
