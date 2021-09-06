@@ -6,7 +6,7 @@ with open('requirements.txt', 'r') as in_:
 
 setup(
   name='dictauth',
-  version='0.2',
+  version='0.2.0',
   description='Dictionary Authentication tools for JupyterHub.',
   author='Trevor Campbell',
   author_email='trevor.d.campbell@gmail.com',
