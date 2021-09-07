@@ -64,7 +64,10 @@ def _get_due_date(assignment, student):
     else:
         return basic_date, None
 
-@task
+def generate_compute_deadline_name(course_info, subm, **kwargs):
+    return 'get-deadline-'+ subm['name']
+
+@task(task_run_name=generate_compute_deadline_name)
 def compute_deadline(course_info, subm):
     assignment = subm['assignment']
     student = subm['student']
@@ -101,7 +104,10 @@ def compute_deadline(course_info, subm):
     subm['override'] = override
     return subm
 
-@task
+def generate_latereg_override_name(extension_days, course_info, submission, **kwargs):
+    return 'latereg-override-'+ subm['name']
+
+@task(task_run_name=generate_latereg_override_name)
 def get_latereg_override(extension_days, course_info, submission):
     logger = prefect.context.get("logger")
     tz = course_info['time_zone']
