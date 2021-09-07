@@ -167,7 +167,7 @@ def validate_config(config):
 def get_course_info(config, course_id):
     info = _canvas_get(config, course_id, '')[0]
     processed_info = {
-             "id" : info['id'],
+             "id" : str(info['id']),
              "name" : info['name'],
              "code" : info['course_code'],
              "start_at" : None if info['start_at'] is None else plm.parse(info['start_at']),

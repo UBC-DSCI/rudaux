@@ -53,6 +53,25 @@ def _ssh_command(client, cmd):
     stdout.channel.recv_exit_status()
     stderr.channel.recv_exit_status()
 
+    # get output
+    stdout_lines = []
+    for line in stdout:
+        stdout_lines.append(line)
+    stdout = stdout_lines
+
+    stderr_lines = []
+    for line in stderr:
+        stderr_lines.append(line)
+    stderr = stderr_lines
+
+    if len(stderr) > 0:
+        sig = signals.FAIL(f"Paramiko SSH command error: stderr nonempty.\nstderr\n{stderr}\nstdout\n{stdout}")
+        sig.stderr = stderr
+        sig.stdout = stdout
+        sig.snap_path = snap_path
+        sig.taken_snaps = snap_paths
+        raise sig
+
     # return
     return stdout, stderr
 
@@ -93,9 +112,11 @@ def _ssh_list_snapshot_names(config, course_id):
     logger.info(f"Closing ssh connection")
     client.close()
 
+    # parse the output of zfs
     snapnames = _parse_zfs_snap_names(stdout)
 
-    return snapnames
+    # return the list of unique names
+    return list(set(snapnames))
 
 def validate_config(config):
     pass
@@ -135,7 +156,11 @@ def get_existing_snapshots(config, course_id):
     logger.info(f"Snapshots: {existing_snaps}")
     return existing_snaps
 
-@task
+
+def generate_take_snapshot_name(config, course_info, snap, existing_snap_names, **kwargs):
+    return snap['name']
+
+@task(task_run_name=generate_take_snapshot_name)
 def take_snapshot(config, course_info, snap, existing_snap_names):
     logger = prefect.context.get("logger")
     snap_deadline = snap['due_at']
@@ -171,7 +196,7 @@ def take_snapshot(config, course_info, snap, existing_snap_names):
          raise sig
 
     logger.info(f'Snapshot {snap_name} deadline {snap_deadline} is valid, and snap does not already exist; taking snapshot.')
-    if snap_user is None:
+    if snap_student is None:
         snap_path = config.student_ssh[course_info['id']]['student_root'].strip('/') + '@' + snap_name
         _ssh_snapshot(config, course_info['id'], snap_path)
     else:
