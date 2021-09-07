@@ -175,35 +175,35 @@ def get_course_info(config, course_id):
              "time_zone" : info['time_zone']
     }
     logger = prefect.context.get("logger")
-    logger.info(f"Course info: {processed_info}")
+    logger.info(f"Retrieved course info")
     return processed_info
 
 @task(checkpoint=False)
 def get_students(config, course_id):
     ppl = _canvas_get_people_by_type(config, course_id, 'StudentEnrollment')
     logger = prefect.context.get("logger")
-    logger.info(f"Successfully retrieved {len(ppl)} students from LMS")
+    logger.info(f"Retrieved {len(ppl)} students from LMS")
     return ppl
 
 @task(checkpoint=False)
 def get_instructors(config, course_id):
     ppl = _canvas_get_people_by_type(config, course_id, 'TeacherEnrollment')
     logger = prefect.context.get("logger")
-    logger.info(f"Successfully retrieved {len(ppl)} instructors from LMS")
+    logger.info(f"Retrieved {len(ppl)} instructors from LMS")
     return ppl
 
 @task(checkpoint=False)
 def get_tas(config, course_id):
     ppl = _canvas_get_people_by_type(config, course_id, 'TaEnrollment')
     logger = prefect.context.get("logger")
-    logger.info(f"Successfully retrieved {len(ppl)} TAs from LMS")
+    logger.info(f"Retrieved {len(ppl)} TAs from LMS")
     return ppl
 
 @task(checkpoint=False)
 def get_groups(config, course_id):
     grps = _canvas_get(config, course_id,'groups')
     logger = prefect.context.get("logger")
-    logger.info(f"Successfully retrieved {len(grps)} groups from LMS")
+    logger.info(f"Retrieved {len(grps)} groups from LMS")
     return [{
              'name' : g['name'],
              'id' : str(g['id']),
@@ -230,7 +230,7 @@ def get_assignments(config, course_id, assignment_names):
             a['overrides'] = _canvas_get_overrides(config, course_id, a)
 
     logger = prefect.context.get("logger")
-    logger.info(f"Successfully retrieved {len(processed_asgns)} assignments from course LMS")
+    logger.info(f"Retrieved {len(processed_asgns)} assignments from course LMS")
     # check for duplicate IDs and names
     # we require both of these to be unique (snapshots, grader accounts, etc all depend on unique human-readable names)
     ids = [a['id'] for a in processed_asgns]
@@ -268,7 +268,7 @@ def get_submissions(config, course_id, assignment):
             } for subm in subms ]
 
     logger = prefect.context.get("logger")
-    logger.info(f"Successfully retrieved {len(processed_subms)} submissions for assignment {assignment['name']} from course LMS")
+    logger.info(f"Retrieved {len(processed_subms)} submissions for assignment {assignment['name']} from course LMS")
 
     subms_map = {}
     for subm in processed_subms:

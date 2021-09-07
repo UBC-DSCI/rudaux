@@ -62,7 +62,7 @@ reg_parser.add_argument(
   '--autoext_interval',
   dest='autoext_interval',
   action='store',
-  default=1,
+  default=300,
   help="The interval (minutes) to reg the autoextension flow"
 )
 reg_parser.add_argument(

@@ -172,8 +172,7 @@ def combine_dictionaries(dicts):
 @task(checkpoint=False)
 def print_big(inp):
     logger = prefect.context.get("logger")
-    logger.info(len(inp))
-    logger.info(inp)
+    logger.info(f"print_big found {len(inp)} items")
 
 ## should run at the same or faster interval as the snapshot flow
 def build_autoext_flows(config, args):
