@@ -236,12 +236,18 @@ def get_assignments(config, course_id, assignment_names):
     ids = [a['id'] for a in processed_asgns]
     names = [a['name'] for a in processed_asgns]
     if len(set(ids)) != len(ids):
-        signals.FAIL(f"Course ID {course_id}: Two assignments detected with the same ID. IDs: {ids}")
+        sig = signals.FAIL(f"Course ID {course_id}: Two assignments detected with the same ID. IDs: {ids}")
+        sig.course_id = course_id
+        raise sig
     if len(set(names)) != len(names):
-        signals.FAIL(f"Course ID {course_id}: Two assignments detected with the same name. Names: {names}")
+        sig = signals.FAIL(f"Course ID {course_id}: Two assignments detected with the same name. Names: {names}")
+        sig.course_id = course_id
+        raise sig
     # make sure anything listed in the rudaux_config appears on canvas
     if len(names) < len(assignment_names):
-        signals.FAIL(f"Assignments from config missing in the course LMS.\nConfig: {assignment_names}\nLMS: {names}")
+        sig = signals.FAIL(f"Assignments from config missing in the course LMS.\nConfig: {assignment_names}\nLMS: {names}")
+        sig.course_id = course_id
+        raise sig
 
     return processed_asgns
 
