@@ -68,8 +68,6 @@ def _ssh_command(client, cmd):
         sig = signals.FAIL(f"Paramiko SSH command error: stderr nonempty.\nstderr\n{stderr}\nstdout\n{stdout}")
         sig.stderr = stderr
         sig.stdout = stdout
-        sig.snap_path = snap_path
-        sig.taken_snaps = snap_paths
         raise sig
 
     # return
