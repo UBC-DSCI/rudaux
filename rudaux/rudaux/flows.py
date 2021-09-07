@@ -165,11 +165,11 @@ def build_snapshot_flows(config, args):
     return flows
 
 
-@task
+@task(checkpoint=False)
 def combine_dictionaries(dicts):
     return {k : v for d in dicts for k, v in d.items()}
 
-@task
+@task(checkpoint=False)
 def print_big(inp):
     logger = prefect.context.get("logger")
     logger.info(len(inp))
@@ -271,17 +271,17 @@ def build_reset_flow(_config, args):
 #
 #    return flow
 
-#@task
+#@task(checkpoint=False)
 #def get_list():
 #    return [1, 2, 3, 4]
 #
-#@task
+#@task(checkpoint=False)
 #def skip_some(num):
 #    if num % 2 == 0:
 #        raise signals.SKIP(f"skipped this one {num}")
 #    return num
 #
-#@task
+#@task(checkpoint=False)
 #def mergeli(nums):
 #    logger = prefect.context.get("logger")
 #    logger.info(f"this is nums: {nums}")

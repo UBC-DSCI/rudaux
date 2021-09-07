@@ -163,7 +163,7 @@ def validate_config(config):
     #config.ignored_assignments
     # duplicate assignment names, etc
 
-@task
+@task(checkpoint=False)
 def get_course_info(config, course_id):
     info = _canvas_get(config, course_id, '')[0]
     processed_info = {
@@ -178,28 +178,28 @@ def get_course_info(config, course_id):
     logger.info(f"Course info: {processed_info}")
     return processed_info
 
-@task
+@task(checkpoint=False)
 def get_students(config, course_id):
     ppl = _canvas_get_people_by_type(config, course_id, 'StudentEnrollment')
     logger = prefect.context.get("logger")
     logger.info(f"Successfully retrieved {len(ppl)} students from LMS")
     return ppl
 
-@task
+@task(checkpoint=False)
 def get_instructors(config, course_id):
     ppl = _canvas_get_people_by_type(config, course_id, 'TeacherEnrollment')
     logger = prefect.context.get("logger")
     logger.info(f"Successfully retrieved {len(ppl)} instructors from LMS")
     return ppl
 
-@task
+@task(checkpoint=False)
 def get_tas(config, course_id):
     ppl = _canvas_get_people_by_type(config, course_id, 'TaEnrollment')
     logger = prefect.context.get("logger")
     logger.info(f"Successfully retrieved {len(ppl)} TAs from LMS")
     return ppl
 
-@task
+@task(checkpoint=False)
 def get_groups(config, course_id):
     grps = _canvas_get(config, course_id,'groups')
     logger = prefect.context.get("logger")
@@ -210,7 +210,7 @@ def get_groups(config, course_id):
              'members' : [str(m['user_id']) for m in _canvas_get(config, course_id, str(g['id'])+'/memberships', use_group_base=True)]
             } for g in grps]
 
-@task
+@task(checkpoint=False)
 def get_assignments(config, course_id, assignment_names):
     asgns = _canvas_get(config, course_id, 'assignments')
     processed_asgns = [ {
@@ -254,7 +254,7 @@ def get_assignments(config, course_id, assignment_names):
 def generate_get_submissions_name(config, course_id, assignment, **kwargs):
     return 'get-subms-'+assignment['name']
 
-@task(task_run_name=generate_get_submissions_name)
+@task(checkpoint=False,task_run_name=generate_get_submissions_name)
 def get_submissions(config, course_id, assignment):
     subms = _canvas_get(config, course_id, 'assignments/'+assignment['id']+'/submissions')
     processed_subms =  [ {
@@ -280,7 +280,7 @@ def get_submissions(config, course_id, assignment):
 def generate_update_override_name(config, course_id, override_update_tuple, **kwargs):
     return 'upd-override-'+ override_update_tuple[1]['title']
 
-@task(task_run_name=generate_update_override_name)
+@task(checkpoint=False,task_run_name=generate_update_override_name)
 def update_override(config, course_id, override_update_tuple):
     assignment, to_create, to_remove = override_update_tuple
     if to_remove is not None:

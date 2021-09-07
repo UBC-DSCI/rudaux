@@ -131,7 +131,7 @@ def validate_config(config):
 def get_snap_name(config, course_id, assignment, override):
     return config.course_names[course_id]+'-'+assignment['name']+'-' + assignment['id'] + ('' if override is None else '-'+ override['id'])
 
-@task
+@task(checkpoint=False)
 def get_all_snapshots(config, course_id, assignments):
     snaps = []
     for asgn in assignments:
@@ -148,7 +148,7 @@ def get_all_snapshots(config, course_id, assignments):
     logger.info(f"Snapshots: {snaps}")
     return snaps
 
-@task
+@task(checkpoint=False)
 def get_existing_snapshots(config, course_id):
     existing_snaps = _ssh_list_snapshot_names(config, course_id)
     logger = prefect.context.get("logger")
@@ -160,7 +160,7 @@ def get_existing_snapshots(config, course_id):
 def generate_take_snapshot_name(config, course_info, snap, existing_snap_names, **kwargs):
     return snap['name']
 
-@task(task_run_name=generate_take_snapshot_name)
+@task(checkpoint=False,task_run_name=generate_take_snapshot_name)
 def take_snapshot(config, course_info, snap, existing_snap_names):
     logger = prefect.context.get("logger")
     snap_deadline = snap['due_at']

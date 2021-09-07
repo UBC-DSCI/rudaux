@@ -28,7 +28,7 @@ def validate_config(config):
     return config
 
 # used to construct the product of all student x assignments
-@task
+@task(checkpoint=False)
 def initialize_submissions(config, course_id, assignments, students):
     logger = prefect.context.get("logger")
     logger.info(f"Building the list of submissions")
@@ -67,7 +67,7 @@ def _get_due_date(assignment, student):
 def generate_compute_deadline_name(course_info, subm, **kwargs):
     return 'get-deadline-'+ subm['name']
 
-@task(task_run_name=generate_compute_deadline_name)
+@task(checkpoint=False,task_run_name=generate_compute_deadline_name)
 def compute_deadline(course_info, subm):
     assignment = subm['assignment']
     student = subm['student']
@@ -107,7 +107,7 @@ def compute_deadline(course_info, subm):
 def generate_latereg_override_name(extension_days, course_info, submission, **kwargs):
     return 'latereg-override-'+ subm['name']
 
-@task(task_run_name=generate_latereg_override_name)
+@task(checkpoint=False,task_run_name=generate_latereg_override_name)
 def get_latereg_override(extension_days, course_info, submission):
     logger = prefect.context.get("logger")
     tz = course_info['time_zone']
@@ -144,7 +144,7 @@ def get_latereg_override(extension_days, course_info, submission):
         raise signals.SKIP("Assignment {assignment['name']} unlocks after student {student['name']} registration date; no extension required.")
     return (assignment, to_create, to_remove)
 
-@task
+@task(checkpoint=False)
 def assign_graders(submissions, graders):
     # search for this student in the grader folders
     found = False
@@ -171,7 +171,7 @@ def assign_graders(submissions, graders):
     return subms
 
 # validate each submission, skip if not due yet
-@task
+@task(checkpoint=False)
 def initialize_submission(config, course_info, subm):
     logger = prefect.context.get("logger")
     logger.info(f"Validating submission {submission['name']}")
@@ -232,7 +232,7 @@ def initialize_submission(config, course_info, subm):
 
     return subm
 
-@task
+@task(checkpoint=False)
 def get_pastdue_fractions(config, course_info, submissions):
     assignment_totals = {}
     assignment_outstanding = {}
@@ -254,7 +254,7 @@ def get_pastdue_fractions(config, course_info, submissions):
 
     return assignment_fracs
 
-@task
+@task(checkpoint=False)
 def return_solution(config, course_info, assignment_fracs, subm):
     logger = prefect.context.get("logger")
     assignment = subm['assignment']
@@ -276,7 +276,7 @@ def return_solution(config, course_info, assignment_fracs, subm):
 
     return submission
 
-@task
+@task(checkpoint=False)
 def collect_submission(config, subm):
     logger = prefect.context.get("logger")
     logger.info(f"Collecting submission {subm['name']}...")
@@ -302,7 +302,7 @@ def collect_submission(config, subm):
         subm['status'] = GradingStatus.COLLECTED
     return subm
 
-@task
+@task(checkpoint=False)
 def clean_submission(config, subm):
     logger = prefect.context.get("logger")
 
@@ -336,7 +336,7 @@ def clean_submission(config, subm):
 
     return subm
 
-@task
+@task(checkpoint=False)
 def autograde(config, subm):
     logger = prefect.context.get("logger")
     logger.info(f"Autograding submission {subm['name']}")
@@ -365,7 +365,7 @@ def autograde(config, subm):
 
     return subm
 
-@task
+@task(checkpoint=False)
 def wait_for_manual_grading(config, subm):
     logger = prefect.context.get("logger")
     logger.info(f"Checking whether submission {subm['name']} needs manual grading")
@@ -391,7 +391,7 @@ def wait_for_manual_grading(config, subm):
     subm['status'] = GradingStatus.DONE_GRADING
     return subm
 
-@task(skip_on_upstream_skip = False)
+@task(checkpoint=False,skip_on_upstream_skip = False)
 def get_complete_assignments(config, assignments, submissions):
     complete_tokens = []
     for asgn in assignments:
@@ -399,13 +399,13 @@ def get_complete_assignments(config, assignments, submissions):
             complete_tokens.append(asgn['id'])
     return complete_tokens
 
-@task
+@task(checkpoint=False)
 def wait_for_completion(config, complete_ids, subm):
     if subm['assignment']['id'] in complete_ids:
         raise signals.SKIP("Submission {subm['name']} : other submissions for this assignment not done grading yet. Skipping remainder of this workflow (uploading grades / returning feedback)")
     return subm
 
-@task
+@task(checkpoint=False)
 def generate_feedback(config, subm):
     logger = prefect.context.get("logger")
     logger.info(f"Generating feedback for submission {subm['name']}")
@@ -427,7 +427,7 @@ def generate_feedback(config, subm):
 
 
 # TODO this func still needs some work
-@task
+@task(checkpoint=False)
 def return_feedback(config, course_info, assignment_fracs, subm):
     logger = prefect.context.get("logger")
     assignment = subm['assignment']
@@ -468,7 +468,7 @@ def _compute_max_score(config, subm):
       pass
   return pts
 
-@task
+@task(checkpoint=False)
 def upload_grade(config, subm):
     logger = prefect.context.get("logger")
     logger.info(f"Uploading grade for submission {subm['name']}")
