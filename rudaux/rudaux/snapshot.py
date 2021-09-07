@@ -50,8 +50,10 @@ def _ssh_command(client, cmd):
     stdin, stdout, stderr = client.exec_command(cmd)
 
     # block on result
-    stdout.channel.recv_exit_status()
-    stderr.channel.recv_exit_status()
+    out_status = stdout.channel.recv_exit_status()
+    err_status = stderr.channel.recv_exit_status()
+
+    logger.info(f"Command exit codes: out = {out_status}  err = {err_status}")
 
     # get output
     stdout_lines = []
@@ -64,8 +66,8 @@ def _ssh_command(client, cmd):
         stderr_lines.append(line)
     stderr = stderr_lines
 
-    if len(stderr) > 0:
-        sig = signals.FAIL(f"Paramiko SSH command error: stderr nonempty.\nstderr\n{stderr}\nstdout\n{stdout}")
+    if out_status != 0 or err_status != 0:
+        sig = signals.FAIL(f"Paramiko SSH command error: nonzero status.\nstderr\n{stderr}\nstdout\n{stdout}")
         sig.stderr = stderr
         sig.stdout = stdout
         raise sig

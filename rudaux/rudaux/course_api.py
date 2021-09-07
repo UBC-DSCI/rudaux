@@ -239,11 +239,9 @@ def get_assignments(config, course_id, assignment_names):
         signals.FAIL(f"Course ID {course_id}: Two assignments detected with the same ID. IDs: {ids}")
     if len(set(names)) != len(names):
         signals.FAIL(f"Course ID {course_id}: Two assignments detected with the same name. Names: {names}")
-
-    # check to make sure the full list of assignment_names was obtained
-    # not mandatory, so just print a warning
-    if len(assignment_names) != len(names):
-        logger.warning(f"Assignments in config do not match assignments on course LMS.\nConfig: {assignment_names}\nLMS: {names}")
+    # make sure anything listed in the rudaux_config appears on canvas
+    if len(names) < len(assignment_names):
+        signals.FAIL(f"Assignments from config missing in the course LMS.\nConfig: {assignment_names}\nLMS: {names}")
 
     return processed_asgns
 
