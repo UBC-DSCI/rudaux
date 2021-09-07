@@ -69,7 +69,7 @@ reg_parser.add_argument(
   '--snapshot_interval',
   dest='snapshot_interval',
   action='store',
-  default=1,
+  default=15,
   help="The interval (minutes) to take snapshots"
 )
 reg_parser.add_argument(
