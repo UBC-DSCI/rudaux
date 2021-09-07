@@ -58,9 +58,10 @@ def register(args):
     print("Creating the local dask executor")
     executor = LocalDaskExecutor(num_workers = args.dask_threads)   # for DaskExecutor: cluster_kwargs = {'n_workers': 8}) #address="tcp://localhost:8786")
 
-    flow_builders = [ (build_snapshot_flows, 'snapshot', args.snapshot_interval)]#,
-                      #(build_autoext_flows, 'autoextension', args.autoext_interval),
-    #]
+    flow_builders = [ (build_autoext_flows, 'autoextension', args.autoext_interval)] #,
+                    #(build_snapshot_flows, 'snapshot', args.snapshot_interval)]#,#]
+                    #(build_grading_flows, 'grading', args.grading_interval)]#,#]
+
     for build_func, flow_name, interval in flow_builders:
         print(f"Building/registering the {flow_name} flow...")
         flows = build_func(config, args)
@@ -168,6 +169,12 @@ def build_snapshot_flows(config, args):
 def combine_dictionaries(dicts):
     return {k : v for d in dicts for k, v in d.items()}
 
+@task
+def print_big(inp):
+    logger = prefect.context.get("logger")
+    logger.info(len(inp))
+    logger.info(inp)
+
 ## should run at the same or faster interval as the snapshot flow
 def build_autoext_flows(config, args):
     flows = []
@@ -181,17 +188,19 @@ def build_autoext_flows(config, args):
                 subm_info = combine_dictionaries(api.get_submissions.map(unmapped(config), unmapped(course_id), assignments))
 
                 # Create submissions
-                submissions = subm.get_submissions(config, course_id, assignments, students)
+                submissions = subm.initialize_submissions(config, course_id, assignments, students)
 
                 # Fill in submission deadlines
                 submissions = subm.compute_deadline.map(unmapped(course_info), submissions)
 
+                print_big(submissions)
+
                 # Compute override updates
-                override_updates = subm.get_latereg_override.map(unmapped(config.latereg_extension_days[group]),
-                                                                    unmapped(course_info), submissions)
+                #override_updates = subm.get_latereg_override.map(unmapped(config.latereg_extension_days[group]),
+                #                                                    unmapped(course_info), submissions)
 
                 # Remove / create overrides
-                api.update_override.map(unmapped(config), unmapped(course_id), override_updates)
+                #api.update_override.map(unmapped(config), unmapped(course_id), override_updates)
             flows.append(flow)
     return flows
 
