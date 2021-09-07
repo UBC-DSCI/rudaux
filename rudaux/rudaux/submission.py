@@ -29,7 +29,7 @@ def validate_config(config):
 
 # used to construct the product of all student x assignments
 @task
-def get_submissions(config, course_id, assignments, students):
+def initialize_submissions(config, course_id, assignments, students):
     logger = prefect.context.get("logger")
     logger.info(f"Building the list of submissions")
     subms = []
