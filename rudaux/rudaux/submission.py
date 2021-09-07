@@ -65,7 +65,7 @@ def _get_due_date(assignment, student):
         return basic_date, None
 
 def generate_compute_deadline_name(course_info, subm, **kwargs):
-    return 'get-deadline-'+ subm['name']
+    return 'get-deadline-'+ subm['student']['name']+'-'+subm['assignment']['name']
 
 @task(checkpoint=False,task_run_name=generate_compute_deadline_name)
 def compute_deadline(course_info, subm):
