@@ -12,7 +12,7 @@ import pendulum as plm
 from requests.exceptions import ConnectionError
 
 from . import snapshot as snap
-from . import submission as subm
+from . import assignment as asgn
 from . import course_api as api
 from . import grader as grd
 
@@ -164,17 +164,6 @@ def build_snapshot_flows(config, args):
             flows.append(flow)
     return flows
 
-
-@task(checkpoint=False)
-def combine_dictionaries(dicts):
-    return {k : v for d in dicts for k, v in d.items()}
-
-@task(checkpoint=False)
-def print_big(inp):
-    logger = prefect.context.get("logger")
-    logger.info(f"print_big found {len(inp)} items")
-
-## should run at the same or faster interval as the snapshot flow
 def build_autoext_flows(config, args):
     flows = []
     for group in config.course_groups:
@@ -184,22 +173,18 @@ def build_autoext_flows(config, args):
                 course_info = api.get_course_info(config, course_id)
                 assignments = api.get_assignments(config, course_id, list(config.assignments[group].keys()))
                 students = api.get_students(config, course_id)
-                subm_info = combine_dictionaries(api.get_submissions.map(unmapped(config), unmapped(course_id), assignments))
 
                 # Create submissions
-                submissions = subm.initialize_submissions(config, course_id, assignments, students)
+                submissions = asgn.initialize_submissions.map(unmapped(config), unmapped(course_id), assignments, unmapped(students))
 
                 # Fill in submission deadlines
-                submissions = subm.compute_deadline.map(unmapped(course_info), submissions)
-
-                print_big(submissions)
+                submissions = asgn.compute_deadlines.map(unmapped(course_info), submissions)
 
                 # Compute override updates
-                #override_updates = subm.get_latereg_override.map(unmapped(config.latereg_extension_days[group]),
-                #                                                    unmapped(course_info), submissions)
+                overrides = asgn.get_latereg_overrides.map(unmapped(config.latereg_extension_days[group]), unmapped(course_info), submissions)
 
                 # Remove / create overrides
-                #api.update_override.map(unmapped(config), unmapped(course_id), override_updates)
+                api.update_override.map(unmapped(config), unmapped(course_id), flatten(overrides))
             flows.append(flow)
     return flows
 
@@ -207,6 +192,12 @@ def build_autoext_flows(config, args):
 # require manual task "do you really want to do this"
 def build_reset_flow(_config, args):
     raise NotImplementedError
+
+@task(checkpoint=False)
+def combine_dictionaries(dicts):
+    return {k : v for d in dicts for k, v in d.items()}
+
+
 
 #def build_grading_flow(_config, args):
 #    with Flow(_config.course_name+"-grading") as flow:
