@@ -251,7 +251,10 @@ def get_assignments(config, course_id, assignment_names):
 
     return processed_asgns
 
-@task
+def generate_get_submissions_name(config, course_id, assignment, **kwargs):
+    return 'get-subms-'+assignment['name']
+
+@task(task_run_name=generate_get_submissions_name)
 def get_submissions(config, course_id, assignment):
     subms = _canvas_get(config, course_id, 'assignments/'+assignment['id']+'/submissions')
     processed_subms =  [ {
@@ -274,7 +277,10 @@ def get_submissions(config, course_id, assignment):
         subms_map[subm['assignment_id']][subm['student_id']] = subm
     return subms_map
 
-@task
+def generate_update_override_name(config, course_id, override_update_tuple, **kwargs):
+    return 'upd-override-'+ override_update_tuple[1]['title']
+
+@task(task_run_name=generate_update_override_name)
 def update_override(config, course_id, override_update_tuple):
     assignment, to_create, to_remove = override_update_tuple
     if to_remove is not None:
