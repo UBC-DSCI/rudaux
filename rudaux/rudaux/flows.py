@@ -3,13 +3,15 @@ import prefect
 from prefect import Flow, unmapped, task, flatten
 from prefect.engine import signals
 from prefect.schedules import IntervalSchedule
-from prefect.executors import DaskExecutor, LocalDaskExecutor
+from prefect.executors import LocalExecutor, DaskExecutor, LocalDaskExecutor
 from prefect.utilities.logging import get_logger
 from prefect.backend import FlowView, FlowRunView
 from traitlets.config import Config
 from traitlets.config.loader import PyFileConfigLoader
 import pendulum as plm
 from requests.exceptions import ConnectionError
+
+import threading
 
 from . import snapshot as snap
 from . import assignment as subm
@@ -19,7 +21,7 @@ from . import notification as ntfy
 
 __PROJECT_NAME = "rudaux"
 
-def register(args):
+def _build_flows(args):
     print("Loading the rudaux_config.py file...")
     if not os.path.exists(os.path.join(args.directory, 'rudaux_config.py')):
             sys.exit(
@@ -39,6 +41,32 @@ def register(args):
     subm.validate_config(config)
     grd.validate_config(config)
 
+    print("Creating the executor")
+    executor = LocalExecutor()
+    # LocalDaskExecutor(num_workers = args.dask_threads)
+    # for DaskExecutor: cluster_kwargs = {'n_workers': 8}) #address="tcp://localhost:8786")
+
+    flow_builders = [ (build_autoext_flows, 'autoextension', args.autoext_interval)] #,
+                    #(build_snapshot_flows, 'snapshot', args.snapshot_interval)]#,#]
+                    #(build_grading_flows, 'grading', args.grading_interval)]#,#]
+
+    #flow_builders = [ (build_snapshot_flow, 'snapshot', args.snapshot_interval),
+    #          (build_autoext_flow, 'autoextension', args.autoext_interval),
+    #          (build_grading_flow, 'grading', args.grading_interval)]
+
+    flows = []
+    for build_func, flow_name, interval in flow_builders:
+        print(f"Building/registering the {flow_name} flow...")
+        _flows = build_func(config, args)
+        for flow in _flows:
+            flow.executor = executor
+            flow.schedule = IntervalSchedule(start_date = plm.now('UTC').add(seconds=1),
+                                   interval = plm.duration(minutes=interval))
+            flows.append(flow)
+    return flows
+
+def register(args):
+    print("Creating/running flows via server orchestration")
     try:
         print(f"Creating the {__PROJECT_NAME} prefect project...")
         prefect.client.client.Client().create_project(__PROJECT_NAME)
@@ -54,31 +82,31 @@ def register(args):
 
               """
             )
+    flows = _build_flows(args)
+    for flow in flows:
+        flow.register(__PROJECT_NAME)
+    return
 
-    print("Creating the local dask executor")
-    executor = LocalDaskExecutor(num_workers = args.dask_threads)   # for DaskExecutor: cluster_kwargs = {'n_workers': 8}) #address="tcp://localhost:8786")
-
-    flow_builders = [ (build_autoext_flows, 'autoextension', args.autoext_interval)] #,
-                    #(build_snapshot_flows, 'snapshot', args.snapshot_interval)]#,#]
-                    #(build_grading_flows, 'grading', args.grading_interval)]#,#]
-
-    #flow_builders = [ (build_snapshot_flow, 'snapshot', args.snapshot_interval),
-    #          (build_autoext_flow, 'autoextension', args.autoext_interval),
-    #          (build_grading_flow, 'grading', args.grading_interval)]
-
-    for build_func, flow_name, interval in flow_builders:
-        print(f"Building/registering the {flow_name} flow...")
-        flows = build_func(config, args)
-        for flow in flows:
-            flow.executor = executor
-            flow.schedule = IntervalSchedule(start_date = plm.now('UTC').add(seconds=1),
-                                   interval = plm.duration(minutes=interval))
-            flow.register(__PROJECT_NAME)
+def _run_flow(flow):
+    print("Flow {flow.name} starting...")
+    flow.run()
+    print("Flow {flow.name} stopping...")
+    return
 
 def run(args):
-    print("Running the local agent...")
-    agent = prefect.agent.local.agent.LocalAgent()
-    agent.start()
+    print("Creating/running flows in local threads")
+    flows = _build_flows(args)
+    threads = []
+    for flow in flows:
+        threads.append(threading.Thread(target=_run_flow, args=(flow,)))
+
+    for thread in threads:
+        thread.start()
+
+    for thread in threads:
+        thread.join()
+
+    return
 
 def build_snapshot_flows(config, args):
     flows = []
