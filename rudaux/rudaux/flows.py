@@ -12,7 +12,7 @@ import pendulum as plm
 from requests.exceptions import ConnectionError
 
 from . import snapshot as snap
-from . import assignment as asgn
+from . import assignment as subm
 from . import course_api as api
 from . import grader as grd
 
@@ -36,7 +36,7 @@ def register(args):
     print("Validating the config file...")
     api.validate_config(config)
     snap.validate_config(config)
-    asgn.validate_config(config)
+    subm.validate_config(config)
     grd.validate_config(config)
 
     try:
@@ -113,13 +113,13 @@ def build_autoext_flows(config, args):
                 students = api.get_students(config, course_id)
 
                 # Create submissions
-                submission_sets = asgn.initialize_submission_sets(config, [course_info], [assignments], [students])
+                submission_sets = subm.initialize_submission_sets(config, [course_info], [assignments], [students])
 
                 # Fill in submission deadlines
-                submission_sets = asgn.compute_deadlines.map(submission_sets)
+                submission_sets = subm.compute_deadlines.map(submission_sets)
 
                 # Compute override updates
-                overrides = asgn.get_latereg_overrides.map(unmapped(config.latereg_extension_days[group]), submission_sets)
+                overrides = subm.get_latereg_overrides.map(unmapped(config.latereg_extension_days[group]), submission_sets)
 
                 # Remove / create overrides
                 api.update_override.map(unmapped(config), unmapped(course_id), flatten(overrides))
@@ -144,17 +144,15 @@ def build_grading_flows(config, args):
             course_ids = config.course_groups[group]
 
             # Obtain course/student/assignment/etc info from the course API
-            course_info = api.get_course_info.map(unmapped(config), course_ids)
-            assignments = api.get_assignments.map(unmapped(config), course_ids, unmapped(list(config.assignments[group].keys())))
-            students = api.get_students.map(unmapped(config), course_ids)
+            course_infos = api.get_course_info.map(unmapped(config), course_ids)
+            assignment_lists = api.get_assignments.map(unmapped(config), course_ids, unmapped(list(config.assignments[group].keys())))
+            student_lists = api.get_students.map(unmapped(config), course_ids)
 
             # Create submissions
-            submissions = asgn.initialize_submissions.map(unmapped(config), unmapped(course_id), assignments, unmapped(students))
+            submission_sets = subm.initialize_submission_sets(unmapped(config), course_infos, assignment_lists, student_lists)
 
-            # ideally we would have individual graders, not grader teams here
-            # but Prefect (Apr 2021) doesn't allow product maps yet; so in order to preserve
-            # proper cascading of skips/failures/successes, we'll use this design for now
-            # If Prefect implements product maps, we can probably parallelize more across individual graders
+            # Fill in submission deadlines
+            submission_sets = subm.compute_deadlines.map(submission_sets)
 
             # Create grader teams
             grader_teams = grd.build_grading_team.map(unmapped(config), assignments)
