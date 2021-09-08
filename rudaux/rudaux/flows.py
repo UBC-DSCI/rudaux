@@ -36,7 +36,7 @@ def register(args):
     print("Validating the config file...")
     api.validate_config(config)
     snap.validate_config(config)
-    subm.validate_config(config)
+    asgn.validate_config(config)
     grd.validate_config(config)
 
     try:

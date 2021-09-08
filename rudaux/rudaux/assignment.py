@@ -28,7 +28,7 @@ def validate_config(config):
     return config
 
 def generate_initialize_submissions_name(config, course_id, assignment, students, **kwargs):
-    return 'initialize-submissions-'+assignment['name']
+    return 'init-subms-'+assignment['name']
 
 @task(checkpoint=False,task_run_name=generate_initialize_submissions_name)
 def initialize_submissions(config, course_id, assignment, students):
@@ -37,9 +37,9 @@ def initialize_submissions(config, course_id, assignment, students):
     subms = []
     for stu in students:
         subm = {}
-        subm['assignment'] = asgn
+        subm['assignment'] = assignment
         subm['student'] = stu
-        subm['name'] = f"{config.course_names[course_id]}-{course_id} : {asgn['name']}-{asgn['id']} : {stu['name']}-{stu['id']}"
+        subm['name'] = f"{config.course_names[course_id]}-{course_id} : {assignment['name']}-{assignment['id']} : {stu['name']}-{stu['id']}"
         subms.append(subm)
     return subms
 
@@ -110,11 +110,11 @@ def compute_deadlines(course_info, subms):
 
 def generate_latereg_overrides_name(extension_days, course_info, subms, **kwargs):
     if len(subms) > 0:
-        return 'latereg-overrides-'+subms[0]['assignment']['name']
-    return 'latereg-overrides'
+        return 'lateregs-'+subms[0]['assignment']['name']
+    return 'lateregs'
 
 @task(checkpoint=False,task_run_name=generate_latereg_overrides_name)
-def get_latereg_override(extension_days, course_info, subms):
+def get_latereg_overrides(extension_days, course_info, subms):
     logger = prefect.context.get("logger")
     tz = course_info['time_zone']
     fmt = 'ddd YYYY-MM-DD HH:mm:ss'
@@ -123,18 +123,18 @@ def get_latereg_override(extension_days, course_info, subms):
     for submission in subms:
         assignment = submission['assignment']
         student = submission['student']
-
-        logger.info(f"Checking if student {student['name']} needs an extension on assignment {assignment['name']}")
         regdate = student['reg_date']
-        logger.info(f"Student registration date: {regdate}    Status: {student['status']}")
-        logger.info(f"Assignment unlock: {assignment['unlock_at']}    Assignment deadline: {assignment['due_at']}")
+        override = submission['override']
+
         to_remove = None
         to_create = None
         if regdate > assignment['unlock_at']:
-            logger.info("Assignment unlock date after student registration date. Extension required.")
+            logger.info(f"Student {student['name']} needs an extension on assignment {assignment['name']}")
+            logger.info(f"Student registration date: {regdate}    Status: {student['status']}")
+            logger.info(f"Assignment unlock: {assignment['unlock_at']}    Assignment deadline: {assignment['due_at']}")
             #the late registration due date
-            latereg_date = regdate.add(days=extension_days)
-            logger.info("Current student-specific due date: " + submission['due_at'].in_timezone(tz).format(fmt) + " from override: " + str(True if (submission['override'] is not None) else False))
+            latereg_date = regdate.add(days=extension_days).in_timezone(tz).end_of('day')
+            logger.info("Current student-specific due date: " + submission['due_at'].in_timezone(tz).format(fmt) + " from override: " + str(True if (override is not None) else False))
             logger.info('Late registration extension date: ' + latereg_date.in_timezone(tz).format(fmt))
             if latereg_date > submission['due_at']:
                 logger.info('Creating automatic late registration extension to ' + latereg_date.in_timezone(tz).format(fmt))
@@ -184,7 +184,7 @@ def assign_graders(submissions, graders):
 
 # validate each submission, skip if not due yet
 @task(checkpoint=False)
-def initialize_submission(config, course_info, subm):
+def build_subms(config, course_info, subm):
     logger = prefect.context.get("logger")
     logger.info(f"Validating submission {submission['name']}")
     assignment = subm['assignment']

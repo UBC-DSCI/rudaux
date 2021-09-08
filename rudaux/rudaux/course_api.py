@@ -51,6 +51,7 @@ def _canvas_get(config, course_id, path_suffix, use_group_base=False):
     return resp_items
 
 def _canvas_upload(config, course_id, path_suffix, json_data, typ):
+    base_url = urllib.parse.urljoin(config.canvas_domain, 'api/v1/courses/'+course_id+'/')
     token = config.course_tokens[course_id]
     rfuncs = {'put' : requests.put,
              'post': requests.post,
