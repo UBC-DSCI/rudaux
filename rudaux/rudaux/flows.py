@@ -16,7 +16,6 @@ from . import assignment as subm
 from . import course_api as api
 from . import grader as grd
 
-
 __PROJECT_NAME = "rudaux"
 
 def register(args):
@@ -65,8 +64,6 @@ def register(args):
     #flow_builders = [ (build_snapshot_flow, 'snapshot', args.snapshot_interval),
     #          (build_autoext_flow, 'autoextension', args.autoext_interval),
     #          (build_grading_flow, 'grading', args.grading_interval)]
-
-
 
     for build_func, flow_name, interval in flow_builders:
         print(f"Building/registering the {flow_name} flow...")
@@ -148,6 +145,9 @@ def build_grading_flows(config, args):
             assignment_lists = api.get_assignments.map(unmapped(config), course_ids, unmapped(list(config.assignments[group].keys())))
             student_lists = api.get_students.map(unmapped(config), course_ids)
 
+            #TODO fix this
+            subm_infos = api.get_submissions.map(unmapped(config), course_ids, unmapped(list(config.assignments[group].keys())))
+
             # Create submissions
             submission_sets = subm.initialize_submission_sets(unmapped(config), course_infos, assignment_lists, student_lists)
 
@@ -155,13 +155,15 @@ def build_grading_flows(config, args):
             submission_sets = subm.compute_deadlines.map(submission_sets)
 
             # Create grader teams
-            grader_teams = grd.build_grading_team.map(unmapped(config), submission_sets)
+            grader_teams = grd.build_grading_team.map(unmapped(config), unmapped(group), submission_sets)
 
             # create grader volumes, add git repos, create folder structures, initialize nbgrader
             grader_teams = grd.initialize_volumes.map(unmapped(config), grader_teams)
 
             # create grader jhub accounts
             grader_teams = grd.initialize_accounts.map(unmapped(config), grader_teams)
+
+            # TODO build submissions
 
             # create submission lists for each grading team, then flatten
             submissions = flatten(subm.build_submissions.map(unmapped(assignments), unmapped(students), unmapped(subm_info), grader_teams))

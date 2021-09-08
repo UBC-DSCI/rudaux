@@ -91,9 +91,10 @@ def initialize_submission_sets(config, course_infos, assignments, students):
             subm_set[course_name]['submissions'] = [{
                                         'student' : stu,
                                         'name' : f"{course_name}-{course_info['id']} : {assignment['name']}-{assignment['id']} : {stu['name']}-{stu['id']}"
-                                        } for stu in students[i]]
+                                        } for stu in students[i] if stu['status'] == 'active']
         subm_sets.append(subm_set)
 
+            
     logger.info(f"Built a list of {len(subm_sets)} submission sets")
     return subm_sets
 
@@ -153,10 +154,6 @@ def compute_deadlines(subm_set):
                 sig = signals.FAIL(f"Invalid registration date for student {student['name']}, {student['id']} ({student['reg_date']})")
                 sig.student = student
                 raise sig
-
-            # if student is inactive, skip
-            if student['status'] != 'active':
-                raise signals.SKIP(f"Student {student['name']} is inactive. Skipping their submission.")
 
             # compute the assignment's due date
             due_date, override = _get_due_date(assignment, student)

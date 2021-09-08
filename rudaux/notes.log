@@ -1,2 +1,3 @@
 - create a .prefect/config.toml file, set backend="server"
 - give stty2u user permissions to snapshot via zfs allow stty2u snapshot tank
+- put a dsci-100-instructor deploy key
