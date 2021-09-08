@@ -62,6 +62,12 @@ def register(args):
                     #(build_snapshot_flows, 'snapshot', args.snapshot_interval)]#,#]
                     #(build_grading_flows, 'grading', args.grading_interval)]#,#]
 
+    #flow_builders = [ (build_snapshot_flow, 'snapshot', args.snapshot_interval),
+    #          (build_autoext_flow, 'autoextension', args.autoext_interval),
+    #          (build_grading_flow, 'grading', args.grading_interval)]
+
+
+
     for build_func, flow_name, interval in flow_builders:
         print(f"Building/registering the {flow_name} flow...")
         flows = build_func(config, args)
@@ -71,16 +77,133 @@ def register(args):
                                    interval = plm.duration(minutes=interval))
             flow.register(__PROJECT_NAME)
 
-    #print("Building/registering the test flow")
-    #flow = build_test_flow()
-    #flow.executor = executor
-    #flow.schedule = IntervalSchedule(start_date = plm.now('UTC').add(seconds=1),
-    #                           interval = plm.duration(minutes=1))
-    #flow_id = flow.register(__PROJECT_NAME)
+def run(args):
+    print("Running the local agent...")
+    agent = prefect.agent.local.agent.LocalAgent()
+    agent.start()
 
-    #flows = [ (build_snapshot_flow, 'snapshot', args.snapshot_interval),
-    #          (build_autoext_flow, 'autoextension', args.autoext_interval),
-    #          (build_grading_flow, 'grading', args.grading_interval)]
+def build_snapshot_flows(config, args):
+    flows = []
+    for group in config.course_groups:
+        for course_id in config.course_groups[group]:
+            with Flow(config.course_names[course_id]+"-snapshot") as flow:
+                # Obtain course/student/assignment/etc info from the course API
+                course_info = api.get_course_info(config, course_id)
+                assignments = api.get_assignments(config, course_id, list(config.assignments[group].keys()))
+
+                # extract the total list of snapshots to take from assignment data
+                snaps = snap.get_all_snapshots(config, course_id, assignments)
+
+                # obtain the list of existing snapshots
+                existing_snaps = snap.get_existing_snapshots(config, course_id)
+
+                # take new snapshots
+                snap.take_snapshot.map(unmapped(config), unmapped(course_info), snaps, unmapped(existing_snaps))
+            flows.append(flow)
+    return flows
+
+def build_autoext_flows(config, args):
+    flows = []
+    for group in config.course_groups:
+        for course_id in config.course_groups[group]:
+            with Flow(config.course_names[course_id]+"-autoextension") as flow:
+                # Obtain course/student/assignment/etc info from the course API
+                course_info = api.get_course_info(config, course_id)
+                assignments = api.get_assignments(config, course_id, list(config.assignments[group].keys()))
+                students = api.get_students(config, course_id)
+
+                # Create submissions
+                submission_sets = asgn.initialize_submission_sets(config, [course_info], [assignments], [students])
+
+                # Fill in submission deadlines
+                submission_sets = asgn.compute_deadlines.map(submission_sets)
+
+                # Compute override updates
+                overrides = asgn.get_latereg_overrides.map(unmapped(config.latereg_extension_days[group]), submission_sets)
+
+                # Remove / create overrides
+                api.update_override.map(unmapped(config), unmapped(course_id), flatten(overrides))
+            flows.append(flow)
+    return flows
+
+@task(checkpoint=False)
+def combine_dictionaries(dicts):
+    return {k : v for d in dicts for k, v in d.items()}
+
+
+# TODO this creates one flow per grading group,
+# not one flow per assignment. In the future we might
+# not load assignments/graders from the rudaux config but
+# rather dynamically from LMS; there we dont know what
+# assignments there are until runtime.
+def build_grading_flows(config, args):
+    flows = []
+    for group in config.course_groups:
+        with Flow(group+"-grading") as flow:
+            # get the course ids in this group
+            course_ids = config.course_groups[group]
+
+            # Obtain course/student/assignment/etc info from the course API
+            course_info = api.get_course_info.map(unmapped(config), course_ids)
+            assignments = api.get_assignments.map(unmapped(config), course_ids, unmapped(list(config.assignments[group].keys())))
+            students = api.get_students.map(unmapped(config), course_ids)
+
+            # Create submissions
+            submissions = asgn.initialize_submissions.map(unmapped(config), unmapped(course_id), assignments, unmapped(students))
+
+            # ideally we would have individual graders, not grader teams here
+            # but Prefect (Apr 2021) doesn't allow product maps yet; so in order to preserve
+            # proper cascading of skips/failures/successes, we'll use this design for now
+            # If Prefect implements product maps, we can probably parallelize more across individual graders
+
+            # Create grader teams
+            grader_teams = grd.build_grading_team.map(unmapped(config), assignments)
+
+            # create grader volumes, add git repos, create folder structures, initialize nbgrader
+            grader_teams = grd.initialize_volumes.map(unmapped(config), grader_teams)
+
+            # create grader jhub accounts
+            grader_teams = grd.initialize_accounts.map(unmapped(config), grader_teams)
+
+            # create submission lists for each grading team, then flatten
+            submissions = flatten(subm.build_submissions.map(unmapped(assignments), unmapped(students), unmapped(subm_info), grader_teams))
+            submissions = subm.initialize_submission.map(unmapped(config), unmapped(course_info), submissions)
+
+            # compute the fraction of submissions past due for each assignment, and then return solutions for all assignments past the threshold
+            pastdue_fracs = subm.get_pastdue_fractions(config, course_info, submissions)
+            subm.return_solution.map(unmapped(config), unmapped(course_info), unmapped(pastdue_fracs), submissions)
+
+            # collect submissions
+            submissions = subm.collect_submission.map(unmapped(config), submissions)
+
+            # clean submissions
+            submissions = subm.clean_submission.map(unmapped(config), submissions)
+
+            # Autograde submissions
+            submissions = subm.autograde_submission.map(unmapped(config), submissions)
+
+            # Wait for manual grading
+            submissions = subm.wait_for_manual_grading.map(unmapped(config), submissions)
+
+            # Skip submissions for assignments with incomplete grading
+            complete_assignments = subm.get_complete_assignments(config, assignments, submissions)
+            submissions = subm.wait_for_completion.map(unmapped(config), unmapped(complete_assignments), submissions)
+
+            # generate feedback
+            submissions = subm.generate_feedback.map(unmapped(config), submissions)
+
+            # return feedback
+            submissions = subm.return_feedback.map(unmapped(config), unmapped(course_info), unmapped(pastdue_fracs), submissions)
+
+            # Upload grades
+            submissions = subm.upload_grade.map(unmapped(config),  submissions)
+        flows.append(flow)
+    return flows
+
+# TODO a flow that resets an assignment; take in parameter, no interval,
+# require manual task "do you really want to do this"
+def build_reset_flow(_config, args):
+    raise NotImplementedError
 
 def status(args):
     print(f"Creating the {__PROJECT_NAME} client...")
@@ -138,150 +261,3 @@ def status(args):
     flowruns = result.get("data", {}).get("flow_run", None)
     for flowrun in flowruns:
         print(FlowRunView.from_flow_run_id(flowrun['id']))
-
-def run(args):
-    print("Running the local agent...")
-    agent = prefect.agent.local.agent.LocalAgent()
-    agent.start()
-
-def build_snapshot_flows(config, args):
-    flows = []
-    for group in config.course_groups:
-        for course_id in config.course_groups[group]:
-            with Flow(config.course_names[course_id]+"-snapshot") as flow:
-                # Obtain course/student/assignment/etc info from the course API
-                course_info = api.get_course_info(config, course_id)
-                assignments = api.get_assignments(config, course_id, list(config.assignments[group].keys()))
-
-                # extract the total list of snapshots to take from assignment data
-                snaps = snap.get_all_snapshots(config, course_id, assignments)
-
-                # obtain the list of existing snapshots
-                existing_snaps = snap.get_existing_snapshots(config, course_id)
-
-                # take new snapshots
-                snap.take_snapshot.map(unmapped(config), unmapped(course_info), snaps, unmapped(existing_snaps))
-            flows.append(flow)
-    return flows
-
-def build_autoext_flows(config, args):
-    flows = []
-    for group in config.course_groups:
-        for course_id in config.course_groups[group]:
-            with Flow(config.course_names[course_id]+"-autoextension") as flow:
-                # Obtain course/student/assignment/etc info from the course API
-                course_info = api.get_course_info(config, course_id)
-                assignments = api.get_assignments(config, course_id, list(config.assignments[group].keys()))
-                students = api.get_students(config, course_id)
-
-                # Create submissions
-                submissions = asgn.initialize_submissions.map(unmapped(config), unmapped(course_id), assignments, unmapped(students))
-
-                # Fill in submission deadlines
-                submissions = asgn.compute_deadlines.map(unmapped(course_info), submissions)
-
-                # Compute override updates
-                overrides = asgn.get_latereg_overrides.map(unmapped(config.latereg_extension_days[group]), unmapped(course_info), submissions)
-
-                # Remove / create overrides
-                api.update_override.map(unmapped(config), unmapped(course_id), flatten(overrides))
-            flows.append(flow)
-    return flows
-
-# TODO a flow that resets an assignment; take in parameter, no interval,
-# require manual task "do you really want to do this"
-def build_reset_flow(_config, args):
-    raise NotImplementedError
-
-@task(checkpoint=False)
-def combine_dictionaries(dicts):
-    return {k : v for d in dicts for k, v in d.items()}
-
-
-
-#def build_grading_flow(_config, args):
-#    with Flow(_config.course_name+"-grading") as flow:
-#        # validate the config file for API access
-#        config = api.validate_config(_config)
-#        config = grader.validate_config(config)
-#
-#        # Obtain course/student/assignment/etc info from the course API
-#        course_info = api.get_course_info(config)
-#        assignments = api.get_assignments(config)
-#        students = api.get_students(config)
-#        subm_info = combine_dictionaries(api.get_submissions.map(unmapped(config), assignments))
-#
-#        # ideally we would have individual graders, not grader teams here
-#        # but Prefect (Apr 2021) doesn't allow product maps yet; so in order to preserve
-#        # proper cascading of skips/failures/successes, we'll use this design for now
-#        # If Prefect implements product maps, we can probably parallelize more across individual graders
-#
-#        # Create grader teams
-#        grader_teams = grd.build_grading_team.map(unmapped(config), assignments)
-#
-#        # create grader volumes, add git repos, create folder structures, initialize nbgrader
-#        grader_teams = grd.initialize_volumes.map(unmapped(config), grader_teams)
-#
-#        # create grader jhub accounts
-#        grader_teams = grd.initialize_accounts.map(unmapped(config), grader_teams)
-#
-#        # create submission lists for each grading team, then flatten
-#        submissions = flatten(subm.build_submissions.map(unmapped(assignments), unmapped(students), unmapped(subm_info), grader_teams))
-#        submissions = subm.initialize_submission.map(unmapped(config), unmapped(course_info), submissions)
-#
-#        # compute the fraction of submissions past due for each assignment, and then return solutions for all assignments past the threshold
-#        pastdue_fracs = subm.get_pastdue_fractions(config, course_info, submissions)
-#        subm.return_solution.map(unmapped(config), unmapped(course_info), unmapped(pastdue_fracs), submissions)
-#
-#        # collect submissions
-#        submissions = subm.collect_submission.map(unmapped(config), submissions)
-#
-#        # clean submissions
-#        submissions = subm.clean_submission.map(unmapped(config), submissions)
-#
-#        # Autograde submissions
-#        submissions = subm.autograde_submission.map(unmapped(config), submissions)
-#
-#        # Wait for manual grading
-#        submissions = subm.wait_for_manual_grading.map(unmapped(config), submissions)
-#
-#        # Skip submissions for assignments with incomplete grading
-#        complete_assignments = subm.get_complete_assignments(config, assignments, submissions)
-#        submissions = subm.wait_for_completion.map(unmapped(config), unmapped(complete_assignments), submissions)
-#
-#        # generate feedback
-#        submissions = subm.generate_feedback.map(unmapped(config), submissions)
-#
-#        # return feedback
-#        submissions = subm.return_feedback.map(unmapped(config), unmapped(course_info), unmapped(pastdue_fracs), submissions)
-#
-#        # Upload grades
-#        submissions = subm.upload_grade.map(unmapped(config),  submissions)
-#
-#
-#    return flow
-
-#@task(checkpoint=False)
-#def get_list():
-#    return [1, 2, 3, 4]
-#
-#@task(checkpoint=False)
-#def skip_some(num):
-#    if num % 2 == 0:
-#        raise signals.SKIP(f"skipped this one {num}")
-#    return num
-#
-#@task(checkpoint=False)
-#def mergeli(nums):
-#    logger = prefect.context.get("logger")
-#    logger.info(f"this is nums: {nums}")
-#    return nums[0]
-#
-#def build_test_flow():
-#    with Flow("test") as flow:
-#        li = get_list()
-#        li2 = skip_some.map(li)
-#        li3 = mergeli(li2)
-#    return flow
-
-
