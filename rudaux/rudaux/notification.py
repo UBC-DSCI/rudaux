@@ -1,6 +1,7 @@
 import smtplib
 import subprocess
 import time
+from prefect import task
 
 class NotifyError(Exception):
     def __init__(self, message):
@@ -114,6 +115,9 @@ class SMTP(Notification):
             self.server.quit()
             self.connected = False
 
+
+def validate_config(config):
+    pass
 
 @task(checkpoint=False)
 def notify(config, notifications):

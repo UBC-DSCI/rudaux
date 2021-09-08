@@ -14,7 +14,7 @@ from requests.exceptions import ConnectionError
 import threading
 
 from . import snapshot as snap
-from . import assignment as subm
+from . import submission as subm
 from . import course_api as api
 from . import grader as grd
 from . import notification as ntfy
@@ -40,6 +40,7 @@ def _build_flows(args):
     snap.validate_config(config)
     subm.validate_config(config)
     grd.validate_config(config)
+    ntfy.validate_config(config)
 
     print("Creating the executor")
     executor = LocalExecutor()

@@ -19,6 +19,7 @@ def _recursive_chown(path, uid):
           os.chown(os.path.join(root, fi), uid, uid)
 
 def validate_config(config):
+    pass
     #config.graders
     #config.snapshot_window
     #config.grading_jupyter_user
@@ -35,7 +36,6 @@ def validate_config(config):
     #config.grading_docker_bind_folder
     #config.return_solution_threshold
     #config.earliest_solution_return_date
-    return config
 
 def _clean_jhub_uname(s):
     return ''.join(ch for ch in s if ch.isalnum())

@@ -11,7 +11,7 @@ from .course_api import put_grade
 from .container import run_container
 import prefect
 from prefect import task
-from snapshot import _get_snap_name
+from .snapshot import _get_snap_name
 
 class GradingStatus(IntEnum):
     ASSIGNED = 0
@@ -622,7 +622,7 @@ def _compute_max_score(subm):
       pass
   return pts
 
-def generate_retfeedback_name(subm_set, **kwargs):
+def generate_uploadgrade_name(subm_set, **kwargs):
     return 'upload-grds-'+subm_set['__name__']
 
 @task(checkpoint=False,task_run_name=generate_uploadgrade_name)
