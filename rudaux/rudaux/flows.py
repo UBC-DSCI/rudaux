@@ -155,7 +155,7 @@ def build_grading_flows(config, args):
             submission_sets = subm.compute_deadlines.map(submission_sets)
 
             # Create grader teams
-            grader_teams = grd.build_grading_team.map(unmapped(config), assignments)
+            grader_teams = grd.build_grading_team.map(unmapped(config), submission_sets)
 
             # create grader volumes, add git repos, create folder structures, initialize nbgrader
             grader_teams = grd.initialize_volumes.map(unmapped(config), grader_teams)
