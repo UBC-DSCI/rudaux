@@ -128,20 +128,20 @@ def validate_config(config):
     #config.student_dataset_root
     #config.course_start_date
 
-def get_snap_name(config, course_id, assignment, override):
-    return config.course_names[course_id]+'-'+assignment['name']+'-' + assignment['id'] + ('' if override is None else '-'+ override['id'])
+def _get_snap_name(course_name, assignment, override):
+    return course_name+'-'+assignment['name']+'-' + assignment['id'] + ('' if override is None else '-'+ override['id'])
 
 @task(checkpoint=False)
 def get_all_snapshots(config, course_id, assignments):
     snaps = []
     for asgn in assignments:
         snaps.append( {'due_at' : asgn['due_at'],
-                       'name' : get_snap_name(config, course_id, asgn, None),
+                       'name' : _get_snap_name(config.course_names[course_id], asgn, None),
                        'student_id' : None})
         for override in asgn['overrides']:
             for student_id in override['student_ids']:
                 snaps.append({'due_at': override['due_at'],
-                              'name' : get_snap_name(config, course_id, asgn, override),
+                              'name' : _get_snap_name(config.course_names[course_id], asgn, override),
                               'student_id' : student_id})
     logger = prefect.context.get("logger")
     logger.info(f"Found {len(snaps)} snapshots to take.")

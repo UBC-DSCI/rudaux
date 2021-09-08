@@ -99,21 +99,27 @@ def build_snapshot_flows(config, args):
             flows.append(flow)
     return flows
 
+@task(checkpoint=False)
+def combine_dictionaries(dicts):
+    return {k : v for d in dicts for k, v in d.items()}
+
 def build_autoext_flows(config, args):
     flows = []
     for group in config.course_groups:
         for course_id in config.course_groups[group]:
             with Flow(config.course_names[course_id]+"-autoextension") as flow:
+                assignment_names = list(config.assignments[group].keys())
                 # Obtain course/student/assignment/etc info from the course API
                 course_info = api.get_course_info(config, course_id)
-                assignments = api.get_assignments(config, course_id, list(config.assignments[group].keys()))
+                assignments = api.get_assignments(config, course_id, assignment_names)
                 students = api.get_students(config, course_id)
+                submission_info = combine_dictionaries(api.get_submissions.map(unmapped(config), unmapped(course_id), assignments))
 
                 # Create submissions
-                submission_sets = subm.initialize_submission_sets(config, [course_info], [assignments], [students])
+                submission_sets = subm.initialize_submission_sets(config, [course_info], [assignments], [students], [submission_info])
 
                 # Fill in submission deadlines
-                submission_sets = subm.compute_deadlines.map(submission_sets)
+                submission_sets = subm.build_submission_set.map(submission_sets)
 
                 # Compute override updates
                 overrides = subm.get_latereg_overrides.map(unmapped(config.latereg_extension_days[group]), submission_sets)
@@ -122,10 +128,6 @@ def build_autoext_flows(config, args):
                 api.update_override.map(unmapped(config), unmapped(course_id), flatten(overrides))
             flows.append(flow)
     return flows
-
-@task(checkpoint=False)
-def combine_dictionaries(dicts):
-    return {k : v for d in dicts for k, v in d.items()}
 
 
 # TODO this creates one flow per grading group,
@@ -139,20 +141,21 @@ def build_grading_flows(config, args):
         with Flow(group+"-grading") as flow:
             # get the course ids in this group
             course_ids = config.course_groups[group]
+            assignment_names = list(config.assignments[group].keys())
 
             # Obtain course/student/assignment/etc info from the course API
             course_infos = api.get_course_info.map(unmapped(config), course_ids)
-            assignment_lists = api.get_assignments.map(unmapped(config), course_ids, unmapped(list(config.assignments[group].keys())))
+            assignment_lists = api.get_assignments.map(unmapped(config), course_ids, unmapped(assignment_names))
             student_lists = api.get_students.map(unmapped(config), course_ids)
-
-            #TODO fix this
-            subm_infos = api.get_submissions.map(unmapped(config), course_ids, unmapped(list(config.assignments[group].keys())))
+            submission_infos = []
+            for i in range(len(course_ids)):
+                submission_infos.append(combine_dictionaries(api.get_submissions.map(unmapped(config), unmapped(course_ids[i]), assignment_lists[i])))
 
             # Create submissions
-            submission_sets = subm.initialize_submission_sets(unmapped(config), course_infos, assignment_lists, student_lists)
+            submission_sets = subm.initialize_submission_sets(unmapped(config), course_infos, assignment_lists, student_lists, submission_infos)
 
-            # Fill in submission deadlines
-            submission_sets = subm.compute_deadlines.map(submission_sets)
+            # Fill in submission details
+            submission_sets = subm.build_submission_set.map(submission_sets)
 
             # Create grader teams
             grader_teams = grd.build_grading_team.map(unmapped(config), unmapped(group), submission_sets)
@@ -163,40 +166,38 @@ def build_grading_flows(config, args):
             # create grader jhub accounts
             grader_teams = grd.initialize_accounts.map(unmapped(config), grader_teams)
 
-            # TODO build submissions
+            # assign graders
+            submission_sets = subm.assign_graders.map(submission_sets, grader_teams)
 
-            # create submission lists for each grading team, then flatten
-            submissions = flatten(subm.build_submissions.map(unmapped(assignments), unmapped(students), unmapped(subm_info), grader_teams))
-            submissions = subm.initialize_submission.map(unmapped(config), unmapped(course_info), submissions)
+            # compute the fraction of submissions past due for each assignment,
+            # and then return solutions for all assignments past the threshold
+            pastdue_fracs = subm.get_pastdue_fraction.map(submission_sets)
+            subm.return_solutions.map(unmapped(config), pastdue_fracs, submission_sets)
 
-            # compute the fraction of submissions past due for each assignment, and then return solutions for all assignments past the threshold
-            pastdue_fracs = subm.get_pastdue_fractions(config, course_info, submissions)
-            subm.return_solution.map(unmapped(config), unmapped(course_info), unmapped(pastdue_fracs), submissions)
+            ## collect submissions
+            submission_sets = subm.collect_submissions.map(unmapped(config), submission_sets)
 
-            # collect submissions
-            submissions = subm.collect_submission.map(unmapped(config), submissions)
+            ## clean submissions
+            submission_sets = subm.clean_submissions.map(submission_sets)
 
-            # clean submissions
-            submissions = subm.clean_submission.map(unmapped(config), submissions)
+            ## Autograde submissions
+            submission_sets = subm.autograde_submission.map(unmapped(config), submission_sets)
 
-            # Autograde submissions
-            submissions = subm.autograde_submission.map(unmapped(config), submissions)
+            ## Wait for manual grading
+            submission_sets = subm.check_manual_grading.map(unmapped(config), submission_sets)
 
-            # Wait for manual grading
-            submissions = subm.wait_for_manual_grading.map(unmapped(config), submissions)
+            ## Collect grading notifications
+            notifications = subm.collect_grading_notifications(submission_sets)
 
-            # Skip submissions for assignments with incomplete grading
-            complete_assignments = subm.get_complete_assignments(config, assignments, submissions)
-            submissions = subm.wait_for_completion.map(unmapped(config), unmapped(complete_assignments), submissions)
+            ## Skip submissions for assignments with incomplete grading
+            submission_sets = subm.await_completion.map(submission_sets)
 
-            # generate feedback
-            submissions = subm.generate_feedback.map(unmapped(config), submissions)
+            ## generate & return feedback (separate tasks for these; dont block grade upload)
+            submission_sets_fdbk = subm.generate_feedback.map(unmapped(config), submission_sets)
+            subm.return_feedback.map(unmapped(config), pastdue_fracs, submission_sets_fdbk)
 
-            # return feedback
-            submissions = subm.return_feedback.map(unmapped(config), unmapped(course_info), unmapped(pastdue_fracs), submissions)
-
-            # Upload grades
-            submissions = subm.upload_grade.map(unmapped(config),  submissions)
+            ## Upload grades
+            subm.upload_grades.map(unmapped(config), submission_sets)
         flows.append(flow)
     return flows
 

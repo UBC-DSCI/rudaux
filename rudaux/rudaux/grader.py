@@ -9,7 +9,7 @@ from dictauth.users import add_user, remove_user, get_users
 from collections import namedtuple
 import git
 import shutil
-#from .docker import _run_docker
+from .container import run_container
 
 def _recursive_chown(path, uid):
     for root, dirs, files in os.walk(path):
@@ -54,10 +54,19 @@ def build_grading_team(config, course_group, subm_set):
         if course_name == '__name__':
             continue
         assignment = subm_set[course_name]['assignment']
-    
+
         # skip the assignment if it isn't due yet
         if assignment['due_at'] > plm.now():
-            raise signals.SKIP(f"Assignment {assignment['name']} due date {assignment['due_at']} is in the future. Skipping.")
+            raise signals.SKIP(f"Assignment {assignment['name']} ({assignment['id']}) due date {assignment['due_at']} is in the future. Skipping.")
+
+    # check whether all grades have been posted (assignment is done). If so, skip
+    all_posted = True
+    for course_name in subm_set:
+        if course_name == '__name__':
+            continue
+        all_posted = all_posted and all([subm['posted_at'] is not None for subm in subm_set[course_name]['submissions']])
+    if all_posted:
+        raise signals.SKIP(f"All grades are posted for assignment {subm_set['__name__']}. Workflow done. Skipping.")
 
     asgn_name = subm_set['__name__']
 
