@@ -15,6 +15,7 @@ from . import snapshot as snap
 from . import assignment as subm
 from . import course_api as api
 from . import grader as grd
+from . import notification as ntfy
 
 __PROJECT_NAME = "rudaux"
 
@@ -197,7 +198,14 @@ def build_grading_flows(config, args):
             subm.return_feedback.map(unmapped(config), pastdue_fracs, submission_sets_fdbk)
 
             ## Upload grades
-            subm.upload_grades.map(unmapped(config), submission_sets)
+            submission_sets = subm.upload_grades.map(unmapped(config), submission_sets)
+
+            ## collect posting notifications
+            notifications = subm.collect_posting_notifications(notifications, submission_sets)
+
+            ## send notifications
+            ntfy.notify(notifications)
+
         flows.append(flow)
     return flows
 

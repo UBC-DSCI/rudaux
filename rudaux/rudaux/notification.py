@@ -7,8 +7,7 @@ class NotifyError(Exception):
         self.message = message
 
 class Notification(object):
-    def __init__(self, config, dry_run):
-        self.dry_run = dry_run
+    def __init__(self, config):
         self.notifications = {}
 
     def submit(self, recipient, message):
@@ -28,14 +27,14 @@ class Notification(object):
 
     def connect(self):
         raise NotImplementedError('Need to subclass Notification')
- 
+
     def close(self):
         raise NotImplementedError('Need to subclass Notification')
 
 
 class SendMail(Notification):
-    def __init__(self, config, dry_run):
-        super().__init__(config, dry_run)
+    def __init__(self, config):
+        super().__init__(config)
         self.address = config.sendmail.address
         self.contact_info = config.sendmail.contact_info
         self.message_template = '\r\n'.join(['From: '+self.address,
@@ -71,8 +70,8 @@ class SendMail(Notification):
         pass
 
 class SMTP(Notification):
-    def __init__(self, config, dry_run):
-        super().__init__(config, dry_run)
+    def __init__(self, config):
+        super().__init__(config)
         self.hostname = config.smtp.hostname
         self.username = config.smtp.username
         self.passwd = config.smtp.passwd
@@ -104,16 +103,22 @@ class SMTP(Notification):
     def notify(self, recipient, message):
         if not self.connected:
             raise NotifyError('Not connected to SMTP server; cannot send notifications')
-        self.server.sendmail(self.address, 
-				self.contact_info[recipient]['address'], 
+        self.server.sendmail(self.address,
+				self.contact_info[recipient]['address'],
 				self.message_template.format(self.contact_info[recipient]['address'], self.contact_info[recipient]['name'], message)
                             )
 
     #TODO deal with smtplib exceptions
     def close(self):
-        if self.connected:       
+        if self.connected:
             self.server.quit()
             self.connected = False
 
+
+@task(checkpoint=False)
+def notify(config, notifications):
+    pass
+    #sm = SendMail(config)
+    #sm.notify(recipient, message)
 
 

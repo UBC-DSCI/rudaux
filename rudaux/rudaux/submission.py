@@ -518,8 +518,14 @@ def collect_grading_notifications(subm_sets):
     for subm_set in subm_sets:
         #TODO
         pass
-    return notifications
+    return 0
 
+@task(checkpoint=False)
+def collect_posting_notifications(notifications, subm_sets):
+    for subm_set in subm_sets:
+        #TODO
+        pass
+    return 0
 
 def generate_awaitcompletion_name(subm_set, **kwargs):
     return 'await-compl-'+subm_set['__name__']
