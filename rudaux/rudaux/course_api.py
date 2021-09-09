@@ -4,6 +4,7 @@ import pendulum as plm
 import prefect
 from prefect import task
 from prefect.engine import signals
+from .utilities import get_logger
 
 # TODO replace "course api" with "LMS"
 
@@ -18,7 +19,7 @@ def _canvas_get(config, course_id, path_suffix, use_group_base=False):
         url = urllib.parse.urljoin(base_url, path_suffix)
 
 
-    logger = prefect.context.get("logger")
+    logger = get_logger()
     logger.info(f"GET request to URL: {url}")
 
     resp = None
@@ -58,7 +59,7 @@ def _canvas_upload(config, course_id, path_suffix, json_data, typ):
              'delete': requests.delete}
     url = urllib.parse.urljoin(base_url, path_suffix)
 
-    logger = prefect.context.get("logger")
+    logger = get_logger()
     logger.info(f"{typ.upper()} request to URL: {url}")
 
     resp = rfuncs[typ](
@@ -175,36 +176,36 @@ def get_course_info(config, course_id):
              "end_at" : None if info['end_at'] is None else plm.parse(info['end_at']),
              "time_zone" : info['time_zone']
     }
-    logger = prefect.context.get("logger")
-    logger.info(f"Retrieved course info")
+    logger = get_logger()
+    logger.info(f"Retrieved course info for {config.course_names[course_id]}")
     return processed_info
 
 @task(checkpoint=False)
 def get_students(config, course_id):
     ppl = _canvas_get_people_by_type(config, course_id, 'StudentEnrollment')
-    logger = prefect.context.get("logger")
-    logger.info(f"Retrieved {len(ppl)} students from LMS")
+    logger = get_logger()
+    logger.info(f"Retrieved {len(ppl)} students from LMS for {config.course_names[course_id]}")
     return ppl
 
 @task(checkpoint=False)
 def get_instructors(config, course_id):
     ppl = _canvas_get_people_by_type(config, course_id, 'TeacherEnrollment')
-    logger = prefect.context.get("logger")
-    logger.info(f"Retrieved {len(ppl)} instructors from LMS")
+    logger = get_logger()
+    logger.info(f"Retrieved {len(ppl)} instructors from LMS for {config.course_names[course_id]}")
     return ppl
 
 @task(checkpoint=False)
 def get_tas(config, course_id):
     ppl = _canvas_get_people_by_type(config, course_id, 'TaEnrollment')
-    logger = prefect.context.get("logger")
-    logger.info(f"Retrieved {len(ppl)} TAs from LMS")
+    logger = get_logger()
+    logger.info(f"Retrieved {len(ppl)} TAs from LMS for {config.course_names[course_id]}")
     return ppl
 
 @task(checkpoint=False)
 def get_groups(config, course_id):
     grps = _canvas_get(config, course_id,'groups')
-    logger = prefect.context.get("logger")
-    logger.info(f"Retrieved {len(grps)} groups from LMS")
+    logger = get_logger()
+    logger.info(f"Retrieved {len(grps)} groups from LMS for {config.course_names[course_id]}")
     return [{
              'name' : g['name'],
              'id' : str(g['id']),
@@ -230,8 +231,8 @@ def get_assignments(config, course_id, assignment_names):
         if a['has_overrides']:
             a['overrides'] = _canvas_get_overrides(config, course_id, a)
 
-    logger = prefect.context.get("logger")
-    logger.info(f"Retrieved {len(processed_asgns)} assignments from course LMS")
+    logger = get_logger()
+    logger.info(f"Retrieved {len(processed_asgns)} assignments from LMS for {config.course_names[course_id]}")
     # check for duplicate IDs and names
     # we require both of these to be unique (snapshots, grader accounts, etc all depend on unique human-readable names)
     ids = [a['id'] for a in processed_asgns]
@@ -268,8 +269,8 @@ def get_submissions(config, course_id, assignment):
                    'excused' : subm['excused'],
             } for subm in subms ]
 
-    logger = prefect.context.get("logger")
-    logger.info(f"Retrieved {len(processed_subms)} submissions for assignment {assignment['name']} from course LMS")
+    logger = get_logger()
+    logger.info(f"Retrieved {len(processed_subms)} submissions for assignment {assignment['name']} from LMS for {config.course_names[course_id]}")
 
     subms_map = {}
     for subm in processed_subms:
@@ -288,6 +289,21 @@ def update_override(config, course_id, override_update_tuple):
         _remove_override(config, course_id, assignment, to_remove)
     if to_create is not None:
         _create_override(config, course_id, assignment, to_create)
+
+
+# TODO remove this function once https://github.com/PrefectHQ/prefect/issues/4084 is resolved
+# and fix where this gets called in flows.py
+def generate_update_override_flatten_name(config, course_id, override_update_tuple, **kwargs):
+    return 'upd-override-'+ override_update_tuple[1]['title']
+
+@task(checkpoint=False,task_run_name=generate_update_override_flatten_name)
+def update_override_flatten(config, course_id, override_update_tuples):
+    for override_update_tuple in override_update_tuples:
+        assignment, to_create, to_remove = override_update_tuple
+        if to_remove is not None:
+            _remove_override(config, course_id, assignment, to_remove)
+        if to_create is not None:
+            _create_override(config, course_id, assignment, to_create)
 
 def put_grade(config, course_id, subm):
     assignment = subm['assignment']

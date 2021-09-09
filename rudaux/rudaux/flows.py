@@ -4,12 +4,12 @@ from prefect import Flow, unmapped, task, flatten
 from prefect.engine import signals
 from prefect.schedules import IntervalSchedule
 from prefect.executors import LocalExecutor, DaskExecutor, LocalDaskExecutor
-from prefect.utilities.logging import get_logger
 from prefect.backend import FlowView, FlowRunView
 from traitlets.config import Config
 from traitlets.config.loader import PyFileConfigLoader
 import pendulum as plm
 from requests.exceptions import ConnectionError
+import logging
 
 import threading
 
@@ -47,13 +47,11 @@ def _build_flows(args):
     # LocalDaskExecutor(num_workers = args.dask_threads)
     # for DaskExecutor: cluster_kwargs = {'n_workers': 8}) #address="tcp://localhost:8786")
 
-    flow_builders = [ (build_autoext_flows, 'autoextension', args.autoext_interval)] #,
-                    #(build_snapshot_flows, 'snapshot', args.snapshot_interval)]#,#]
-                    #(build_grading_flows, 'grading', args.grading_interval)]#,#]
+    flow_builders = [(build_autoext_flows, 'autoextension', args.autoext_interval)]
 
-    #flow_builders = [ (build_snapshot_flow, 'snapshot', args.snapshot_interval),
-    #          (build_autoext_flow, 'autoextension', args.autoext_interval),
-    #          (build_grading_flow, 'grading', args.grading_interval)]
+    #flow_builders = [ (build_snapshot_flows, 'snapshot', args.snapshot_interval),
+    #          (build_autoext_flows, 'autoextension', args.autoext_interval),
+    #          (build_grading_flows, 'grading', args.grading_interval)]
 
     flows = []
     for build_func, flow_name, interval in flow_builders:
@@ -89,9 +87,9 @@ def register(args):
     return
 
 def _run_flow(flow):
-    print("Flow {flow.name} starting...")
+    print(f"Flow {flow.name} starting...")
     flow.run()
-    print("Flow {flow.name} stopping...")
+    print(f"Flow {flow.name} stopping...")
     return
 
 def run(args):
@@ -99,7 +97,7 @@ def run(args):
     flows = _build_flows(args)
     threads = []
     for flow in flows:
-        threads.append(threading.Thread(target=_run_flow, args=(flow,)))
+        threads.append(threading.Thread(name=flow.name, target=_run_flow, args=(flow,)))
 
     for thread in threads:
         thread.start()
@@ -113,7 +111,7 @@ def build_snapshot_flows(config, args):
     flows = []
     for group in config.course_groups:
         for course_id in config.course_groups[group]:
-            with Flow(config.course_names[course_id]+"-snapshot") as flow:
+            with Flow(config.course_names[course_id]+"-snap") as flow:
                 # Obtain course/student/assignment/etc info from the course API
                 course_info = api.get_course_info(config, course_id)
                 assignments = api.get_assignments(config, course_id, list(config.assignments[group].keys()))
@@ -137,7 +135,7 @@ def build_autoext_flows(config, args):
     flows = []
     for group in config.course_groups:
         for course_id in config.course_groups[group]:
-            with Flow(config.course_names[course_id]+"-autoextension") as flow:
+            with Flow(config.course_names[course_id]+"-autoext") as flow:
                 assignment_names = list(config.assignments[group].keys())
                 # Obtain course/student/assignment/etc info from the course API
                 course_info = api.get_course_info(config, course_id)
@@ -149,13 +147,17 @@ def build_autoext_flows(config, args):
                 submission_sets = subm.initialize_submission_sets(config, [course_info], [assignments], [students], [submission_info])
 
                 # Fill in submission deadlines
-                submission_sets = subm.build_submission_set.map(submission_sets)
+                submission_sets = subm.build_submission_set.map(unmapped(config), submission_sets)
 
                 # Compute override updates
                 overrides = subm.get_latereg_overrides.map(unmapped(config.latereg_extension_days[group]), submission_sets)
 
-                # Remove / create overrides
-                api.update_override.map(unmapped(config), unmapped(course_id), flatten(overrides))
+                # TODO: we would ideally do flatten(overrides) and then
+                # api.update_override.map(unmapped(config), unmapped(course_id), flatten(overrides))
+                # but that will cause prefect to fail. see https://github.com/PrefectHQ/prefect/issues/4084
+                # so instead we will code a temporary hack for update_override.
+                api.update_override_flatten.map(unmapped(config), unmapped(course_id), overrides)
+
             flows.append(flow)
     return flows
 
@@ -185,7 +187,7 @@ def build_grading_flows(config, args):
             submission_sets = subm.initialize_submission_sets(unmapped(config), course_infos, assignment_lists, student_lists, submission_infos)
 
             # Fill in submission details
-            submission_sets = subm.build_submission_set.map(submission_sets)
+            submission_sets = subm.build_submission_set.map(unmapped(config), submission_sets)
 
             # Create grader teams
             grader_teams = grd.build_grading_team.map(unmapped(config), unmapped(group), submission_sets)

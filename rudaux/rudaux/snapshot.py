@@ -4,6 +4,7 @@ from prefect import task
 from prefect.engine import signals
 import paramiko as pmk
 import pendulum as plm
+from .utilities import get_logger
 
 def _parse_zfs_snap_paths(stdout):
     # look for ...@... and take the part after @ but before spaces
@@ -21,8 +22,8 @@ def _parse_zfs_snap_paths(stdout):
 
 def _parse_zfs_snap_names(stdout):
     paths = _parse_zfs_snap_paths(stdout)
-    logger = prefect.context.get("logger")
-    logger.info(f"Parsing ZFS snapshots:\n{paths}")
+    logger = get_logger()
+    logger.info(f"Parsing {len(paths)} ZFS snapshots")
     names = []
     for path in paths:
         lidx = path.find('@')+1
@@ -30,9 +31,9 @@ def _parse_zfs_snap_names(stdout):
     return names
 
 def _ssh_open(config, course_id):
-    logger = prefect.context.get("logger")
+    logger = get_logger()
     stu_ssh = config.student_ssh[course_id]
-    logger.info(f"Opening ssh connection to {stu_ssh}")
+    logger.info(f"Opening ssh connection to {stu_ssh['hostname']}")
     # open a ssh connection to the student machine
     client = pmk.client.SSHClient()
     client.set_missing_host_key_policy(pmk.client.AutoAddPolicy())
@@ -44,7 +45,7 @@ def _ssh_open(config, course_id):
     return client
 
 def _ssh_command(client, cmd):
-    logger = prefect.context.get("logger")
+    logger = get_logger()
     logger.info(f"Running ssh command {cmd}")
     # execute the snapshot command
     stdin, stdout, stderr = client.exec_command(cmd)
@@ -76,18 +77,16 @@ def _ssh_command(client, cmd):
     return stdout, stderr
 
 def _ssh_snapshot(config, course_id, snap_path):
-    logger = prefect.context.get("logger")
-    logger.info(f"Taking a snapshot for course {course_id} , path {snap_path}")
+    logger = get_logger()
     # open the connection
-    logger.info(f"Opening ssh connection")
     client = _ssh_open(config, course_id)
 
     # execute the snapshot
-    logger.info(f"Taking a snapshot")
+    logger.info('Taking snapshot')
     stdout, stderr = _ssh_command(client, config.student_ssh[course_id]['zfs_path'] + ' snapshot -r ' + snap_path)
 
     # verify the snapshot
-    logger.info(f"Verifying the snapshot")
+    logger.info('Verifying snapshot')
     stdout, stderr = _ssh_command(client, config.student_ssh[course_id]['zfs_path'] + ' list -t snapshot')
     snap_paths = _parse_zfs_snap_paths(stdout)
     if snap_path not in snap_paths:
@@ -95,13 +94,12 @@ def _ssh_snapshot(config, course_id, snap_path):
         sig.snap_path = snap_path
         sig.taken_snaps = snap_paths
         raise sig
+    logger.info('Snapshot {snap_path} verified')
 
     # close the connection
-    logger.info(f"Closing ssh connection")
     client.close()
 
 def _ssh_list_snapshot_names(config, course_id):
-    logger = prefect.context.get("logger")
     # open the connection
     client = _ssh_open(config, course_id)
 
@@ -109,7 +107,6 @@ def _ssh_list_snapshot_names(config, course_id):
     stdout, stderr = _ssh_command(client, config.student_ssh[course_id]['zfs_path'] + ' list -t snapshot')
 
     # close the connection
-    logger.info(f"Closing ssh connection")
     client.close()
 
     # parse the output of zfs
@@ -143,15 +140,12 @@ def get_all_snapshots(config, course_id, assignments):
                 snaps.append({'due_at': override['due_at'],
                               'name' : _get_snap_name(config.course_names[course_id], asgn, override),
                               'student_id' : student_id})
-    logger = prefect.context.get("logger")
-    logger.info(f"Found {len(snaps)} snapshots to take.")
-    logger.info(f"Snapshots: {snaps}")
     return snaps
 
 @task(checkpoint=False)
 def get_existing_snapshots(config, course_id):
     existing_snaps = _ssh_list_snapshot_names(config, course_id)
-    logger = prefect.context.get("logger")
+    logger = get_logger()
     logger.info(f"Found {len(existing_snaps)} existing snapshots.")
     logger.info(f"Snapshots: {existing_snaps}")
     return existing_snaps
@@ -162,7 +156,7 @@ def generate_take_snapshot_name(config, course_info, snap, existing_snap_names, 
 
 @task(checkpoint=False,task_run_name=generate_take_snapshot_name)
 def take_snapshot(config, course_info, snap, existing_snap_names):
-    logger = prefect.context.get("logger")
+    logger = get_logger()
     snap_deadline = snap['due_at']
     snap_name = snap['name']
     snap_student = snap['student_id']
@@ -195,7 +189,7 @@ def take_snapshot(config, course_info, snap, existing_snap_names):
          sig.snap_deadline = snap_deadline
          raise sig
 
-    logger.info(f'Snapshot {snap_name} deadline {snap_deadline} is valid, and snap does not already exist; taking snapshot.')
+    logger.info(f'Snapshot {snap_name} does not exist and deadline {snap_deadline} has passed; taking & verifying snapshot.')
     if snap_student is None:
         snap_path = config.student_ssh[course_info['id']]['student_root'].strip('/') + '@' + snap_name
         _ssh_snapshot(config, course_info['id'], snap_path)

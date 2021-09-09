@@ -1,17 +1,16 @@
-from traitlets.config.configurable import Configurable
-from traitlets import Int, Float, Unicode, Bool
 from enum import IntEnum
 import os, shutil, pwd
 import json
 from nbgrader.api import Gradebook, MissingEntry
-from .docker import DockerError
 #from .course_api import GradeNotUploadedError
 import pendulum as plm
 from .course_api import put_grade
 from .container import run_container
 import prefect
 from prefect import task
+from prefect.engine import signals
 from .snapshot import _get_snap_name
+from .utilities import get_logger
 
 class GradingStatus(IntEnum):
     ASSIGNED = 0
@@ -37,7 +36,7 @@ def validate_config(config):
 # you would output a flattened list of every (student, assignment) pair
 @task(checkpoint=False)
 def initialize_submission_sets(config, course_infos, assignments, students, subm_infos):
-    logger = prefect.context.get("logger")
+    logger = get_logger()
     # verify that each list is of length (# courses)
     if len(course_infos) != len(assignments) or len(course_infos) != len(students):
         sig = signals.FAIL(f"course_infos, assignments, and students lists must all have the same number "+
@@ -99,7 +98,7 @@ def initialize_submission_sets(config, course_infos, assignments, students, subm
                                         'student' : stu,
                                         'name' : f"{course_name}-{course_info['id']} : {assignment['name']}-{assignment['id']} : {stu['name']}-{stu['id']}"
                                         } for stu in students[i] if stu['status'] == 'active']
-            for subm in subm_set:
+            for subm in subm_set[course_name]['submissions']:
                 student = subm['student']
                 subm['score'] = subm_info[assignment['id']][student['id']]['score']
                 subm['posted_at'] = subm_info[assignment['id']][student['id']]['posted_at']
@@ -132,11 +131,12 @@ def _get_due_date(assignment, student):
     else:
         return basic_date, None
 
-def generate_build_subm_set_name(subm_set, **kwargs):
-    return 'get-deadlns-'+subm_set['__name__']
+def generate_build_subm_set_name(config, subm_set, **kwargs):
+    return 'build-submset-'+subm_set['__name__']
 
 @task(checkpoint=False,task_run_name=generate_build_subm_set_name)
-def build_submission_set(subm_set):
+def build_submission_set(config, subm_set):
+    logger = get_logger()
     # check whether any of the assignment deadlines are in the future. If so, skip
     for course_name in subm_set:
         if course_name == '__name__':
@@ -213,7 +213,7 @@ def generate_latereg_overrides_name(extension_days, subm_set, **kwargs):
 
 @task(checkpoint=False,task_run_name=generate_latereg_overrides_name)
 def get_latereg_overrides(extension_days, subm_set):
-    logger = prefect.context.get("logger")
+    logger = get_logger()
     fmt = 'ddd YYYY-MM-DD HH:mm:ss'
     overrides = []
     for course_name in subm_set:
@@ -230,11 +230,11 @@ def get_latereg_overrides(extension_days, subm_set):
             to_remove = None
             to_create = None
             if regdate > assignment['unlock_at']:
-                logger.info(f"Student {student['name']} needs an extension on assignment {assignment['name']}")
+                logger.info(f"Student {student['name']} gets an extension on assignment {assignment['name']}")
                 logger.info(f"Student registration date: {regdate}    Status: {student['status']}")
                 logger.info(f"Assignment unlock: {assignment['unlock_at']}    Assignment deadline: {assignment['due_at']}")
                 #the late registration due date
-                latereg_date = regdate.add(days=extension_days).in_timezone(tz).end_of('day')
+                latereg_date = regdate.add(days=extension_days).in_timezone(tz).end_of('day').set(microsecond=0)
                 logger.info("Current student-specific due date: " + subm['due_at'].in_timezone(tz).format(fmt) + " from override: " + str(True if (override is not None) else False))
                 logger.info('Late registration extension date: ' + latereg_date.in_timezone(tz).format(fmt))
                 if latereg_date > subm['due_at']:
@@ -248,6 +248,7 @@ def get_latereg_overrides(extension_days, subm_set):
                                  'unlock_at' : assignment['unlock_at'],
                                  'title' : student['name']+'-'+assignment['name']+'-latereg'}
                 else:
+                    logger.info("Current extension meets or exceeds the late registration extension.")
                     continue
                     #raise signals.SKIP("Current due date for student {student['name']}, assignment {assignment['name']} after late registration date; no override modifications required.")
             else:
@@ -319,7 +320,7 @@ def generate_return_solns_name(config, pastdue_frac, subm_set, **kwargs):
 
 @task(checkpoint=False,task_run_name=generate_return_solns_name)
 def return_solutions(config, pastdue_frac, subm_set):
-    logger = prefect.context.get("logger")
+    logger = get_logger()
     # skip if pastdue frac not high enough or we haven't reached the earlist return date
     if pastdue_frac < config.return_solution_threshold:
         raise signals.SKIP(f"Assignment {subm_set['__name__']} has {pastdue_frac} submissions "+
@@ -355,7 +356,7 @@ def generate_collect_subms_name(config, subm_set, **kwargs):
 
 @task(checkpoint=False,task_run_name=generate_collect_subms_name)
 def collect_submissions(config, subm_set):
-    logger = prefect.context.get("logger")
+    logger = get_logger()
     for course_name in subm_set:
         if course_name == '__name__':
             continue
@@ -392,7 +393,7 @@ def generate_clean_subms_name(subm_set, **kwargs):
 
 @task(checkpoint=False,task_run_name=generate_clean_subms_name)
 def clean_submissions(subm_set):
-    logger = prefect.context.get("logger")
+    logger = get_logger()
 
     for course_name in subm_set:
         if course_name == '__name__':
@@ -443,7 +444,7 @@ def generate_autograde_name(subm_set, **kwargs):
 
 @task(checkpoint=False,task_run_name=generate_autograde_name)
 def autograde(config, subm_set):
-    logger = prefect.context.get("logger")
+    logger = get_logger()
     for course_name in subm_set:
         if course_name == '__name__':
             continue
@@ -486,7 +487,7 @@ def generate_checkmanual_name(subm_set, **kwargs):
 
 @task(checkpoint=False,task_run_name=generate_checkmanual_name)
 def check_manual_grading(config, subm_set):
-    logger = prefect.context.get("logger")
+    logger = get_logger()
     logger.info(f"Checking whether submission {subm['name']} needs manual grading")
     for course_name in subm_set:
         if course_name == '__name__':
@@ -547,7 +548,7 @@ def generate_genfeedback_name(subm_set, **kwargs):
 
 @task(checkpoint=False,task_run_name=generate_genfeedback_name)
 def generate_feedback(config, subm_set):
-    logger = prefect.context.get("logger")
+    logger = get_logger()
     for course_name in subm_set:
         if course_name == '__name__':
             continue
@@ -574,7 +575,7 @@ def generate_retfeedback_name(subm_set, **kwargs):
 
 @task(checkpoint=False,task_run_name=generate_retfeedback_name)
 def return_feedback(config, pastdue_frac, subm):
-    logger = prefect.context.get("logger")
+    logger = get_logger()
     # skip if pastdue frac not high enough or we haven't reached the earlist return date
     if pastdue_frac < config.return_solution_threshold:
         raise signals.SKIP(f"Assignment {subm_set['__name__']} has {pastdue_frac} submissions "+
@@ -627,7 +628,7 @@ def generate_uploadgrade_name(subm_set, **kwargs):
 
 @task(checkpoint=False,task_run_name=generate_uploadgrade_name)
 def upload_grades(config, subm_set):
-    logger = prefect.context.get("logger")
+    logger = get_logger()
     for course_name in subm_set:
         if course_name == '__name__':
             continue

@@ -10,6 +10,7 @@ from collections import namedtuple
 import git
 import shutil
 from .container import run_container
+from .utilities import get_logger
 
 def _recursive_chown(path, uid):
     for root, dirs, files in os.walk(path):
@@ -48,7 +49,7 @@ def generate_build_grading_team_name(subm_set, **kwargs):
 
 @task(checkpoint=False,task_run_name=generate_build_grading_team_name)
 def build_grading_team(config, course_group, subm_set):
-    logger = prefect.context.get("logger")
+    logger = get_logger()
     # start by checking whether any of the assignment deadlines are in the future. If so, skip
     for course_name in subm_set:
         if course_name == '__name__':
@@ -101,7 +102,7 @@ def build_grading_team(config, course_group, subm_set):
 
 @task
 def initialize_volumes(config, graders):
-    logger = prefect.context.get("logger")
+    logger = get_logger()
     for grader in graders:
         logger.info("Creating volume for grader {grader['name']}")
 
@@ -169,7 +170,7 @@ def initialize_volumes(config, graders):
 
 @task
 def initialize_accounts(config, graders):
-    logger = prefect.context.get("logger")
+    logger = get_logger()
     for grader in graders:
         # create the jupyterhub user
         logger.info(f"Checking if jupyterhub user {grader['name']} exists")
