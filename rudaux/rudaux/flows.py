@@ -148,7 +148,7 @@ def build_autoext_flows(config, args):
                 # Create submissions
                 submissions = subm.initialize_submissions(config, [course_info], [assignments], [students], [submission_info])
 
-                # Fill in submission deadlines
+                # Fill in subm details
                 submissions = subm.build_submission.map(unmapped(config), submissions)
 
                 # Compute override updates
