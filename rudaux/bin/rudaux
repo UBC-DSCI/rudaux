@@ -24,32 +24,28 @@ reg_parser.add_argument(
   help="the directory containing the rudaux configuration file."
 )
 reg_parser.add_argument(
-  '--course_api_module',
-  dest='course_api_module',
-  action='store',
-  default='canvas',
-  help="The name of the course API module."
+  '--all',
+  dest='all_flows',
+  action='store_true',
+  help="Register all flows"
 )
 reg_parser.add_argument(
-  '--snapshot_module',
-  dest='snapshot_module',
-  action='store',
-  default='zfs_over_ssh',
-  help="The name of the snapshot module."
+  '--autoext',
+  dest='autoext',
+  action='store_true',
+  help="Register the autoextension flow"
 )
 reg_parser.add_argument(
-  '--auto_extension_module',
-  dest='autoext_module',
-  action='store',
-  default='latereg',
-  help="The name of the automatic extensions module."
+  '--snap',
+  dest='snap',
+  action='store_true',
+  help="Register the snapshot flow"
 )
 reg_parser.add_argument(
-  '--grader_module',
-  dest='grader_module',
-  action='store',
-  default='git_nbgrader',
-  help="The name of the grader module."
+  '--grade',
+  dest='grade',
+  action='store_true',
+  help="Register the grading flow"
 )
 reg_parser.add_argument(
   '--grading_interval',
@@ -93,32 +89,28 @@ run_parser.add_argument(
   help="the directory containing the rudaux configuration file."
 )
 run_parser.add_argument(
-  '--course_api_module',
-  dest='course_api_module',
-  action='store',
-  default='canvas',
-  help="The name of the course API module."
+  '--all',
+  dest='all_flows',
+  action='store_true',
+  help="Run all flows"
 )
 run_parser.add_argument(
-  '--snapshot_module',
-  dest='snapshot_module',
-  action='store',
-  default='zfs_over_ssh',
-  help="The name of the snapshot module."
+  '--autoext',
+  dest='autoext',
+  action='store_true',
+  help="Run the autoextension flow"
 )
 run_parser.add_argument(
-  '--auto_extension_module',
-  dest='autoext_module',
-  action='store',
-  default='latereg',
-  help="The name of the automatic extensions module."
+  '--snap',
+  dest='snap',
+  action='store_true',
+  help="Run the snapshot flow"
 )
 run_parser.add_argument(
-  '--grader_module',
-  dest='grader_module',
-  action='store',
-  default='git_nbgrader',
-  help="The name of the grader module."
+  '--grade',
+  dest='grade',
+  action='store_true',
+  help="Run the grading flow"
 )
 run_parser.add_argument(
   '--grading_interval',

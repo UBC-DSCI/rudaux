@@ -47,11 +47,13 @@ def _build_flows(args):
     # LocalDaskExecutor(num_workers = args.dask_threads)
     # for DaskExecutor: cluster_kwargs = {'n_workers': 8}) #address="tcp://localhost:8786")
 
-    flow_builders = [(build_autoext_flows, 'autoextension', args.autoext_interval)]
-
-    #flow_builders = [ (build_snapshot_flows, 'snapshot', args.snapshot_interval),
-    #          (build_autoext_flows, 'autoextension', args.autoext_interval),
-    #          (build_grading_flows, 'grading', args.grading_interval)]
+    flow_builders = []
+    if args.snap or args.all_flows:
+        flow_builders.append((build_snapshot_flows, 'snapshot', args.snapshot_interval))
+    if args.autoext or args.all_flows:
+        flow_builders.append((build_autoext_flows, 'autoextension', args.autoext_interval))
+    if args.grade or args.all_flows:
+        flow_builders.append((build_grading_flows, 'grading', args.grading_interval))
 
     flows = []
     for build_func, flow_name, interval in flow_builders:
