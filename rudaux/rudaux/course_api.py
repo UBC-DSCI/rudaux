@@ -290,21 +290,6 @@ def update_override(config, course_id, override_update_tuple):
     if to_create is not None:
         _create_override(config, course_id, assignment, to_create)
 
-
-# TODO remove this function once https://github.com/PrefectHQ/prefect/issues/4084 is resolved
-# and fix where this gets called in flows.py
-def generate_update_override_flatten_name(config, course_id, override_update_tuple, **kwargs):
-    return 'upd-override-'+ override_update_tuple[1]['title']
-
-@task(checkpoint=False,task_run_name=generate_update_override_flatten_name)
-def update_override_flatten(config, course_id, override_update_tuples):
-    for override_update_tuple in override_update_tuples:
-        assignment, to_create, to_remove = override_update_tuple
-        if to_remove is not None:
-            _remove_override(config, course_id, assignment, to_remove)
-        if to_create is not None:
-            _create_override(config, course_id, assignment, to_create)
-
 def put_grade(config, course_id, subm):
     assignment = subm['assignment']
     student = subm['student']
