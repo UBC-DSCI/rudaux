@@ -81,7 +81,6 @@ def initialize_submissions(config, course_infos, assignments, students, subm_inf
                 if student['status'] == 'active':
                     subm = {}
                     subm['name'] = f"{course_name}-{course_info['id']} : {assignment['name']}-{assignment['id']} : {student['name']}-{student['id']}"
-                    subm['course_name'] = course_name
                     subm['course_info'] = course_info
                     subm['student'] = student
                     subm['assignment'] = assignment
@@ -154,7 +153,7 @@ def build_submission(config, subm):
     due_date, override = _get_due_date(assignment, student)
     subm['due_at'] = due_date
     subm['override'] = override
-    subm['snap_name'] = _get_snap_name(subm['course_name'], assignment, override)
+    subm['snap_name'] = _get_snap_name(course_name, assignment, override)
     subm['student_folder'] = os.path.join(config.student_dataset_root, student['id'])
     if override is None:
         subm['zfs_snap_path'] = config.student_dataset_root.strip('/') + '@' + subm['snap_name']
@@ -178,7 +177,7 @@ def get_latereg_override(extension_days, subm):
     logger = get_logger()
     assignment = subm['assignment']
     student = subm['student']
-    course_info = subm['course_info']
+    course_info = subm_set[course_name]['course_info']
     tz = course_info['time_zone']
     fmt = 'ddd YYYY-MM-DD HH:mm:ss'
     regdate = student['reg_date']
