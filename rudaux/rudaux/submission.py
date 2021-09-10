@@ -172,7 +172,7 @@ def build_submission(config, subm):
 def generate_latereg_override_name(extension_days, subm, **kwargs):
     return 'latereg-'+subm_set['__name__']
 
-@task(checkpoint=False,task_run_name=generate_latereg_override_name)
+@task(checkpoint=False,task_run_name=generate_latereg_overrides_name)
 def get_latereg_override(extension_days, subm):
     logger = get_logger()
     assignment = subm['assignment']

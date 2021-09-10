@@ -11,4 +11,3 @@ termcolor>=1.1.0
 paramiko>=2.7.2
 docker-compose>=1.29.2
 paramiko>=2.7.2
-gitpython>=3.1.18
