@@ -80,7 +80,7 @@ def initialize_submissions(config, course_infos, assignments, students, subm_inf
             for student in students[i]:
                 if student['status'] == 'active':
                     subm = {}
-                    subm['name'] = f"{course_name}-{course_info['id']} : {assignment['name']}-{assignment['id']} : {student['name']}-{student['id']}"
+                    subm['name'] = f"{course_name}-{course_info['id']} : {assignment['name']}-{assignment['id']} : {stu['name']}-{stu['id']}"
                     subm['course_info'] = course_info
                     subm['student'] = student
                     subm['assignment'] = assignment
