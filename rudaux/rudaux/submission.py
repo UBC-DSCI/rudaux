@@ -35,7 +35,7 @@ def validate_config(config):
 # if eventually it is possible to do 1 task per submission, then this is where
 # you would output a flattened list of every (student, assignment) pair
 @task(checkpoint=False)
-def initialize_submissions(config, course_infos, assignments, students, subm_infos):
+def initialize_submission_sets(config, course_infos, assignments, students, subm_infos):
     logger = get_logger()
     # verify that each list is of length (# courses)
     if len(course_infos) != len(assignments) or len(course_infos) != len(students):
@@ -69,28 +69,45 @@ def initialize_submissions(config, course_infos, assignments, students, subm_inf
         sig.students = students
         raise sig
 
-    # construct the list of submissions
-    subms = []
+    # construct the list of grouped assignments
+    # data structure:
+    # list of dicts, one for each assignment
+    #     '__name__' : (assignment group name)
+    #     'course_name' : {
+    #              'assignment' : (assignment object)
+    #              'submissions' : [  {
+    #                                  'student' : (student object)
+    #                                  'name'    : (submission name)
+    #                                  'score'    : (score)
+    #                                  'posted_at'    : (date score was posted on LMS)
+    #                                  'late'    : (whether the subm is late)
+    #                                  'missing'    : (whether the subm is missing)
+    subm_sets = []
     for name in asgn_map:
+        subm_set = {}
+        subm_set['__name__'] = name
         for i in range(len(course_infos)):
             course_name = config.course_names[course_infos[i]['id']]
             course_info = course_infos[i]
             assignment = assignments[i][asgn_map[name][i]]
             subm_info = subm_infos[i]
-            for student in students[i]:
-                if student['status'] == 'active':
-                    subm = {}
-                    subm['name'] = f"{course_name}-{course_info['id']} : {assignment['name']}-{assignment['id']} : {stu['name']}-{stu['id']}"
-                    subm['course_info'] = course_info
-                    subm['student'] = student
-                    subm['assignment'] = assignment
-                    subm['score'] = subm_info[assignment['id']][student['id']]['score']
-                    subm['posted_at'] = subm_info[assignment['id']][student['id']]['posted_at']
-                    subm['late'] = subm_info[assignment['id']][student['id']]['late']
-                    subm['missing'] = subm_info[assignment['id']][student['id']]['missing']
-                    subms.append(subm)
-    logger.info(f"Built a list of {len(subms)} submissions")
-    return subms
+            subm_set[course_name] = {}
+            subm_set[course_name]['course_info'] = course_info
+            subm_set[course_name]['assignment'] = assignment
+            subm_set[course_name]['submissions'] = [{
+                                        'student' : stu,
+                                        'name' : f"{course_name}-{course_info['id']} : {assignment['name']}-{assignment['id']} : {stu['name']}-{stu['id']}"
+                                        } for stu in students[i] if stu['status'] == 'active']
+            for subm in subm_set[course_name]['submissions']:
+                student = subm['student']
+                subm['score'] = subm_info[assignment['id']][student['id']]['score']
+                subm['posted_at'] = subm_info[assignment['id']][student['id']]['posted_at']
+                subm['late'] = subm_info[assignment['id']][student['id']]['late']
+                subm['missing'] = subm_info[assignment['id']][student['id']]['missing']
+        subm_sets.append(subm_set)
+
+    logger.info(f"Built a list of {len(subm_sets)} submission sets")
+    return subm_sets
 
 def _get_due_date(assignment, student):
     basic_date = assignment['due_at']
@@ -114,100 +131,132 @@ def _get_due_date(assignment, student):
     else:
         return basic_date, None
 
-def generate_build_subm_name(config, subm, **kwargs):
-    return 'build-subm-'+subm_set['__name__']
+def generate_build_subm_set_name(config, subm_set, **kwargs):
+    return 'build-submset-'+subm_set['__name__']
 
-@task(checkpoint=False,task_run_name=generate_build_subm_name)
-def build_submission(config, subm):
+@task(checkpoint=False,task_run_name=generate_build_subm_set_name)
+def build_submission_set(config, subm_set):
     logger = get_logger()
-    assignment = subm['assignment']
-    student = subm['student']
-    course_info = subm['course_info']
-    # check whether the assignment deadline is in the future. If so, skip
-    if assignment['due_at'] > plm.now():
-        raise signals.SKIP(f"Assignment {assignment['name']} ({assignment['id']}) due date {assignment['due_at']} is in the future. Skipping.")
+    # check whether any of the assignment deadlines are in the future. If so, skip
+    for course_name in subm_set:
+        if course_name == '__name__':
+            continue
+        assignment = subm_set[course_name]['assignment']
 
-    # check that assignment due/unlock dates exist
-    if assignment['unlock_at'] is None or assignment['due_at'] is None:
-        sig = signals.FAIL(f"Invalid unlock ({assignment['unlock_at']}) and/or due ({assignment['due_at']}) date for assignment {assignment['name']}")
-        sig.assignment = assignment
-        raise sig
+        # skip the assignment if it isn't due yet
+        if assignment['due_at'] > plm.now():
+            raise signals.SKIP(f"Assignment {assignment['name']} ({assignment['id']}) due date {assignment['due_at']} is in the future. Skipping.")
 
-    # if assignment dates are prior to course start, error
-    if assignment['unlock_at'] < course_info['start_at'] or assignment['due_at'] < course_info['start_at']:
-        sig = signals.FAIL(f"Assignment {assignment['name']} unlock date ({assignment['unlock_at']}) "+
-                           f"and/or due date ({assignment['due_at']}) is prior to the course start date "+
-                           f"({course_info['start_at']}). This is often because of an old deadline from "+
-                           f"a copied Canvas course from a previous semester. Please make sure assignment "+
-                           f"deadlines are all updated to the current semester.")
-        sig.assignment = assignment
-        raise sig
+    for course_name in subm_set:
+        if course_name == '__name__':
+            continue
+        assignment = subm_set[course_name]['assignment']
+        course_info = subm_set[course_name]['course_info']
 
-    # check student registration date is valid
-    if student['reg_date'] is None:
-        sig = signals.FAIL(f"Invalid registration date for student {student['name']}, {student['id']} ({student['reg_date']})")
-        sig.student = student
-        raise sig
+        # check that assignment due/unlock dates exist
+        if assignment['unlock_at'] is None or assignment['due_at'] is None:
+            sig = signals.FAIL(f"Invalid unlock ({assignment['unlock_at']}) and/or due ({assignment['due_at']}) date for assignment {assignment['name']}")
+            sig.assignment = assignment
+            raise sig
 
-    # compute the submissions's due date, snap name, paths
-    due_date, override = _get_due_date(assignment, student)
-    subm['due_at'] = due_date
-    subm['override'] = override
-    subm['snap_name'] = _get_snap_name(course_name, assignment, override)
-    subm['student_folder'] = os.path.join(config.student_dataset_root, student['id'])
-    if override is None:
-        subm['zfs_snap_path'] = config.student_dataset_root.strip('/') + '@' + subm['snap_name']
-    else:
-        subm['zfs_snap_path'] = subm['student_folder'].strip('/') + '@' + subm['snap_name']
-    subm['snapped_assignment_path'] = os.path.join(subm['student_folder'],
-                '.zfs', 'snapshot', subm['snap_name'], config.student_local_assignment_folder,
-                assignment['name'], assignment['name']+'.ipynb')
-    subm['soln_path'] = os.path.join(subm['student_folder'], assignment['name'] + '_solution.html')
-    subm['fdbk_path'] = os.path.join(subm['student_folder'], assignment['name'] + '_feedback.html')
+        # if assignment dates are prior to course start, error
+        if assignment['unlock_at'] < course_info['start_at'] or assignment['due_at'] < course_info['start_at']:
+            sig = signals.FAIL(f"Assignment {assignment['name']} unlock date ({assignment['unlock_at']}) "+
+                               f"and/or due date ({assignment['due_at']}) is prior to the course start date "+
+                               f"({course_info['start_at']}). This is often because of an old deadline from "+
+                               f"a copied Canvas course from a previous semester. Please make sure assignment "+
+                               f"deadlines are all updated to the current semester.")
+            sig.assignment = assignment
+            raise sig
 
-    if subm['posted_at'] is not None and os.path.exists(subm['soln_path']) and os.path.exists(subm['fdbk_path']):
-        raise signals.SKIP(f"Student {student['name']} assignment {assignment['name']} has posted grade, and soln/fdbk both returned. Workflow done. Skipping.")
-    return subm
+        for subm in subm_set[course_name]['submissions']:
+            student = subm['student']
 
-def generate_latereg_override_name(extension_days, subm, **kwargs):
-    return 'latereg-'+subm_set['__name__']
+            # check student registration date is valid
+            if student['reg_date'] is None:
+                sig = signals.FAIL(f"Invalid registration date for student {student['name']}, {student['id']} ({student['reg_date']})")
+                sig.student = student
+                raise sig
+
+            # compute the submissions's due date, snap name, paths
+            due_date, override = _get_due_date(assignment, student)
+            subm['due_at'] = due_date
+            subm['override'] = override
+            subm['snap_name'] = _get_snap_name(course_name, assignment, override)
+            subm['student_folder'] = os.path.join(config.student_dataset_root, student['id'])
+            if override is None:
+                subm['zfs_snap_path'] = config.student_dataset_root.strip('/') + '@' + subm['snap_name']
+            else:
+                subm['zfs_snap_path'] = subm['student_folder'].strip('/') + '@' + subm['snap_name']
+            subm['snapped_assignment_path'] = os.path.join(subm['student_folder'],
+                        '.zfs', 'snapshot', subm['snap_name'], config.student_local_assignment_folder,
+                        assignment['name'], assignment['name']+'.ipynb')
+            subm['soln_path'] = os.path.join(subm['student_folder'], assignment['name'] + '_solution.html')
+            subm['fdbk_path'] = os.path.join(subm['student_folder'], assignment['name'] + '_feedback.html')
+
+    # check whether all grades have been posted, and solutions/feedback returned (assignment is done). If so, skip
+    all_posted = True
+    all_returned = True
+    for course_name in subm_set:
+        if course_name == '__name__':
+            continue
+        all_posted = all_posted and all([subm['posted_at'] is not None for subm in subm_set[course_name]['submissions']])
+        all_returned = all_returned and all([os.path.exists(subm['soln_path']) for subm in subm_set[course_name]['submissions']])
+        all_returned = all_returned and all([os.path.exists(subm['fdbk_path']) for subm in subm_set[course_name]['submissions']])
+    if all_posted and all_returned:
+        raise signals.SKIP(f"All grades are posted, all solutions returned, and all feedback returned for assignment {subm_set['__name__']}. Workflow done. Skipping.")
+
+    return subm_set
+
+def generate_latereg_overrides_name(extension_days, subm_set, **kwargs):
+    return 'lateregs-'+subm_set['__name__']
 
 @task(checkpoint=False,task_run_name=generate_latereg_overrides_name)
-def get_latereg_override(extension_days, subm):
+def get_latereg_overrides(extension_days, subm_set):
     logger = get_logger()
-    assignment = subm['assignment']
-    student = subm['student']
-    course_info = subm_set[course_name]['course_info']
-    tz = course_info['time_zone']
     fmt = 'ddd YYYY-MM-DD HH:mm:ss'
-    regdate = student['reg_date']
-    override = subm['override']
+    overrides = []
+    for course_name in subm_set:
+        if course_name == '__name__':
+            continue
+        assignment = subm_set[course_name]['assignment']
+        course_info = subm_set[course_name]['course_info']
+        tz = course_info['time_zone']
+        for subm in subm_set[course_name]['submissions']:
+            student = subm['student']
+            regdate = student['reg_date']
+            override = subm['override']
 
-    to_remove = None
-    to_create = None
-    if regdate > assignment['unlock_at']:
-        logger.info(f"Student {student['name']} gets an extension on assignment {assignment['name']}")
-        logger.info(f"Student registration date: {regdate}    Status: {student['status']}")
-        logger.info(f"Assignment unlock: {assignment['unlock_at']}    Assignment deadline: {assignment['due_at']}")
-        #the late registration due date
-        latereg_date = regdate.add(days=extension_days).in_timezone(tz).end_of('day').set(microsecond=0) 
-        logger.info("Current student-specific due date: " + subm['due_at'].in_timezone(tz).format(fmt) + " from override: " + str(True if (override is not None) else False))
-        logger.info('Late registration extension date: ' + latereg_date.in_timezone(tz).format(fmt))
-        if latereg_date > subm['due_at']:
-            logger.info('Creating automatic late registration extension to ' + latereg_date.in_timezone(tz).format(fmt))
-            if override is not None:
-                logger.info("Need to remove old override " + str(override['id']))
-                to_remove = override
-            to_create = {'student_ids' : [student['id']],
-                         'due_at' : latereg_date,
-                         'lock_at' : assignment['lock_at'],
-                         'unlock_at' : assignment['unlock_at'],
-                         'title' : student['name']+'-'+assignment['name']+'-latereg'}
-        else:
-            raise signals.SKIP("Current due date for student {student['name']}, assignment {assignment['name']} after late registration date; no override modifications required.")
-    else:
-        raise signals.SKIP("Assignment {assignment['name']} unlocks after student {student['name']} registration date; no extension required.")
-    return (assignment, to_create, to_remove)
+            to_remove = None
+            to_create = None
+            if regdate > assignment['unlock_at']:
+                logger.info(f"Student {student['name']} gets an extension on assignment {assignment['name']}")
+                logger.info(f"Student registration date: {regdate}    Status: {student['status']}")
+                logger.info(f"Assignment unlock: {assignment['unlock_at']}    Assignment deadline: {assignment['due_at']}")
+                #the late registration due date
+                latereg_date = regdate.add(days=extension_days).in_timezone(tz).end_of('day').set(microsecond=0)
+                logger.info("Current student-specific due date: " + subm['due_at'].in_timezone(tz).format(fmt) + " from override: " + str(True if (override is not None) else False))
+                logger.info('Late registration extension date: ' + latereg_date.in_timezone(tz).format(fmt))
+                if latereg_date > subm['due_at']:
+                    logger.info('Creating automatic late registration extension to ' + latereg_date.in_timezone(tz).format(fmt))
+                    if override is not None:
+                        logger.info("Need to remove old override " + str(override['id']))
+                        to_remove = override
+                    to_create = {'student_ids' : [student['id']],
+                                 'due_at' : latereg_date,
+                                 'lock_at' : assignment['lock_at'],
+                                 'unlock_at' : assignment['unlock_at'],
+                                 'title' : student['name']+'-'+assignment['name']+'-latereg'}
+                else:
+                    logger.info("Current extension meets or exceeds the late registration extension.")
+                    continue
+                    #raise signals.SKIP("Current due date for student {student['name']}, assignment {assignment['name']} after late registration date; no override modifications required.")
+            else:
+                continue
+                #raise signals.SKIP("Assignment {assignment['name']} unlocks after student {student['name']} registration date; no extension required.")
+            overrides.append((assignment, to_create, to_remove))
+            #return (assignment, to_create, to_remove)
+    return overrides
 
 def generate_assign_graders_name(subm_set, graders, **kwargs):
     return 'asgn-graders-'+subm_set['__name__']

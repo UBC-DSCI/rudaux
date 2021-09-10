@@ -146,15 +146,19 @@ def build_autoext_flows(config, args):
                 submission_info = combine_dictionaries(api.get_submissions.map(unmapped(config), unmapped(course_id), assignments))
 
                 # Create submissions
-                submissions = subm.initialize_submissions(config, [course_info], [assignments], [students], [submission_info])
+                submission_sets = subm.initialize_submission_sets(config, [course_info], [assignments], [students], [submission_info])
 
                 # Fill in submission deadlines
-                submissions = subm.build_submission.map(unmapped(config), submissions)
+                submission_sets = subm.build_submission_set.map(unmapped(config), submission_sets)
 
                 # Compute override updates
-                overrides = subm.get_latereg_override.map(unmapped(config.latereg_extension_days[group]), submissions)
+                overrides = subm.get_latereg_overrides.map(unmapped(config.latereg_extension_days[group]), submission_sets)
 
-                api.update_override.map(unmapped(config), unmapped(course_id), overrides)
+                # TODO: we would ideally do flatten(overrides) and then
+                # api.update_override.map(unmapped(config), unmapped(course_id), flatten(overrides))
+                # but that will cause prefect to fail. see https://github.com/PrefectHQ/prefect/issues/4084
+                # so instead we will code a temporary hack for update_override.
+                api.update_override_flatten.map(unmapped(config), unmapped(course_id), overrides)
 
             flows.append(flow)
     return flows
