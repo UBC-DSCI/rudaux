@@ -125,12 +125,6 @@ def build_submission(config, subm):
     student = subm['student']
     course_info = subm['course_info']
     # check whether the assignment deadline is in the future. If so, skip
-
-    # TODO change this to unlock at (latereg extensions don't work with due_at)
-    # TODO merge this with initialize subms above to avoid a very large number of skipped tasks
-    # check unlock_at > plm now, and check posted + fdbk/soln exists.
-    # if either of these, do not create a task for them
-
     if assignment['due_at'] > plm.now():
         raise signals.SKIP(f"Assignment {assignment['name']} ({assignment['id']}) due date {assignment['due_at']} is in the future. Skipping.")
 
