@@ -305,11 +305,7 @@ def update_override_flatten(config, course_id, override_update_tuples):
         if to_create is not None:
             _create_override(config, course_id, assignment, to_create)
 
-def put_grade(config, course_id, subm):
-    assignment = subm['assignment']
-    student = subm['student']
-    score = subm['score']
-
+def put_grade(config, course_id, student, assignment, score):
     # post the grade
     _canvas_put(config, course_id, 'assignments/'+assignment['id']+'/submissions/'+student['id'], {'submission' : {'posted_grade' : score}})
 

@@ -280,20 +280,21 @@ def assign_graders(config, subm_set, graders):
             # if not assigned to anyone, choose the worker with the minimum current workload
             if not found:
                 # sort graders in place and assign
-                min_grader = graders.sort(key = lambda g : g['workload'])[0]
+                graders.sort(key = lambda g : g['workload'])
+                min_grader = graders[0]
                 min_grader['workload'] += 1
                 subm['grader'] = min_grader
 
             # fill in the submission details that depend on a grader
             subm['collected_assignment_path'] = os.path.join(subm['grader']['submissions_folder'],
-                                                     config.grading_student_folder_prefix+subm['student']['id'],
-                                                     subm['assignment']['name'], subm['assignment']['name'] + '.ipynb')
+                                                     config.grading_student_folder_prefix+student['id'],
+                                                     assignment['name'], assignment['name'] + '.ipynb')
             subm['autograded_assignment_path'] = os.path.join(subm['grader']['autograded_folder'],
-                                                     config.grading_student_folder_prefix+subm['student']['id'],
-                                                     subm['assignment']['name'], subm['assignment']['name'] + '.ipynb')
+                                                     config.grading_student_folder_prefix+student['id'],
+                                                     assignment['name'], assignment['name'] + '.ipynb')
             subm['feedback_path'] = os.path.join(subm['grader']['feedback_folder'],
-                                                     config.grading_student_folder_prefix+subm['student']['id'],
-                                                     subm['assignment']['name'], subm['assignment']['name'] + '.html')
+                                                     config.grading_student_folder_prefix+student['id'],
+                                                     assignment['name'], assignment['name'] + '.html')
             subm['status'] = GradingStatus.ASSIGNED
     return subm_set
 
@@ -357,6 +358,8 @@ def collect_submissions(config, subm_set):
     for course_name in subm_set:
         if course_name == '__name__':
             continue
+        course_info = subm_set[course_name]['course_info']
+        assignment = subm_set[course_name]['assignment']
         for subm in subm_set[course_name]['submissions']:
             student = subm['student']
 
@@ -370,7 +373,7 @@ def collect_submissions(config, subm_set):
                     logger.info(f"Submission {subm['name']} is missing. Uploading score of 0.")
                     subm['status'] = GradingStatus.MISSING
                     subm['score'] = 0.
-                    put_grade(config, subm)
+                    put_grade(config, course_info['id'], student, assignment, subm['score'])
                 else:
                     try:
                         shutil.copy(subm['snapped_assignment_path'], subm['collected_assignment_path'])
@@ -604,7 +607,7 @@ def return_feedback(config, pastdue_frac, subm):
     return
 
 
-def _compute_max_score(subm):
+def _compute_max_score(grader, assignment):
   #for some incredibly annoying reason, nbgrader refuses to compute a max_score for anything (so we cannot easily convert scores to percentages)
   #let's compute the max_score from the notebook manually then....
   release_nb_path = os.path.join(subm['grader']['folder'], 'release', subm['assignment']['name'], subm['assignment']['name']+'.ipynb')
@@ -630,7 +633,9 @@ def upload_grades(config, subm_set):
         if course_name == '__name__':
             continue
         assignment = subm_set[course_name]['assignment']
+        course_info = subm_set[course_name]['course_info']
         for subm in subm_set[course_name]['submissions']:
+            student = subm['student']
             logger.info(f"Uploading grade for submission {subm['name']}")
             if subm['score'] is not None:
                 logger.info(f"Grade already uploaded.")
@@ -639,7 +644,7 @@ def upload_grades(config, subm_set):
             logger.info(f"Obtaining score from the gradebook")
             try:
                 gb = Gradebook('sqlite:///'+os.path.join(subm['grader']['folder'] , 'gradebook.db'))
-                gb_subm = gb.find_submission(subm['assignment']['name'], config.grading_student_folder_prefix+subm['student']['id'])
+                gb_subm = gb.find_submission(assignment['name'], config.grading_student_folder_prefix+student['id'])
                 score = gb_subm.score
             except Exception as e:
                 sig = signals.FAIL(f"Error when accessing the gradebook score for submission {subm['name']}; error {str(e)}")
@@ -652,7 +657,7 @@ def upload_grades(config, subm_set):
 
             logger.info(f"Computing the max score from the release notebook")
             try:
-                max_score = _compute_max_score(subm)
+                max_score = _compute_max_score(subm['grader'], assignment)
             except Exception as e:
                 sig = signals.FAIL(f"Error when trying to compute the max score for submission {subm['name']}; error {str(e)}")
                 sig.e = e
@@ -667,7 +672,7 @@ def upload_grades(config, subm_set):
 
             logger.info(f"Uploading to Canvas...")
             subm['score'] = pct
-            put_grade(config, subm)
+            put_grade(config, course_info['id'], student, assignment, subm['score'])
     return subm_set
 
 
