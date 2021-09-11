@@ -216,7 +216,7 @@ def build_grading_flows(config, args):
             submission_sets = subm.clean_submissions.map(submission_sets)
 
             ## Autograde submissions
-            submission_sets = subm.autograde_submission.map(unmapped(config), submission_sets)
+            submission_sets = subm.autograde.map(unmapped(config), submission_sets)
 
             ## Wait for manual grading
             submission_sets = subm.check_manual_grading.map(unmapped(config), submission_sets)
