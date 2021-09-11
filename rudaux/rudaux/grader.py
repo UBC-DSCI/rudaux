@@ -14,6 +14,7 @@ from .container import run_container
 from .utilities import get_logger
 
 def _recursive_chown(path, uid):
+    os.chown(path, uid, uid)
     for root, dirs, files in os.walk(path):
         for di in dirs:
           os.chown(os.path.join(root, di), uid, uid)
@@ -43,7 +44,7 @@ def _clean_jhub_uname(s):
     return ''.join(ch for ch in s if ch.isalnum())
 
 def _grader_account_name(group_name, assignment_name, user):
-    return _clean_jhub_uname(group_name)+'-'+_clean_jhub_uname(assignment_name)+'-'+_clean_jhub_uname(user)
+    return _clean_jhub_uname(group_name) + _clean_jhub_uname(assignment_name) + _clean_jhub_uname(user)
 
 def generate_build_grading_team_name(subm_set, **kwargs):
     return 'build-grdteam-'+subm_set['__name__']
@@ -150,12 +151,15 @@ def initialize_volumes(config, graders):
 
         aname = grader['assignment_name']
 
+        # reassign ownership to jupyter user
+        _recursive_chown(grader['folder'], grader['unix_uid'])
+
         # if the assignment hasn't been generated yet, generate it
-        logger.info(f"Checking if assignment {aname} has been generated for grader {grader}")
+        logger.info(f"Checking if assignment {aname} has been generated for grader {grader['name']}")
         # TODO error handling if the container fails
         generated_asgns = run_container(config, 'nbgrader db assignment list', grader['folder'])
         if aname not in generated_asgns['log']:
-            logger.info(f"Assignment {aname} not yet generated for grader {grader}")
+            logger.info(f"Assignment {aname} not yet generated for grader {grader['name']}")
             output = run_container(config, 'nbgrader generate_assignment --force '+aname, grader['folder'])
             logger.info(output['log'])
             if 'ERROR' in output['log']:
@@ -174,7 +178,7 @@ def initialize_volumes(config, graders):
         else:
             logger.info(f"Solution for {aname} already generated")
 
-        # finally, transfer ownership to the jupyterhub user
+        # transfer ownership to the jupyterhub user
         _recursive_chown(grader['folder'], grader['unix_uid'])
 
     return graders
@@ -186,7 +190,7 @@ def initialize_accounts(config, graders):
         # create the jupyterhub user
         logger.info(f"Checking if jupyterhub user {grader['name']} exists")
         Args = namedtuple('Args', 'directory')
-        args = Args(directory = config.grading_jupyterhub_config_dir)
+        args = Args(directory = config.jupyterhub_config_dir)
         output = [u[0] for u in get_users(args)]
         if grader['name'] not in output:
             logger.info(f"User {grader['name']} does not exist; creating")
@@ -197,8 +201,8 @@ def initialize_accounts(config, graders):
                         salt = None,
                         digest = None)
             add_user(args)
-            check_call(['systemctl', 'stop', 'jupyterhub'])
-            check_call(['systemctl', 'start', 'jupyterhub'])
+            check_output(['systemctl', 'stop', 'jupyterhub'])
+            check_output(['systemctl', 'start', 'jupyterhub'])
         else:
             logger.info(f"User {grader['name']} exists.")
     return graders

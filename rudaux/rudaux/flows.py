@@ -208,7 +208,7 @@ def build_grading_flows(config, args):
             grader_teams = grd.initialize_accounts.map(unmapped(config), grader_teams)
 
             # assign graders
-            submission_sets = subm.assign_graders.map(submission_sets, grader_teams)
+            submission_sets = subm.assign_graders.map(unmapped(config), submission_sets, grader_teams)
 
             # compute the fraction of submissions past due for each assignment,
             # and then return solutions for all assignments past the threshold

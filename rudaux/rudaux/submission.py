@@ -259,7 +259,7 @@ def generate_assign_graders_name(subm_set, graders, **kwargs):
     return 'asgn-graders-'+subm_set['__name__']
 
 @task(checkpoint=False,task_run_name=generate_assign_graders_name)
-def assign_graders(subm_set, graders):
+def assign_graders(config, subm_set, graders):
     for course_name in subm_set:
         if course_name == '__name__':
             continue

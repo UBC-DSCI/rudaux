@@ -1,7 +1,11 @@
 import docker
 import time
+from .utilities import get_logger
+from prefect.engine import signals
 
 def run_container(config, command, homedir = None):
+    client = docker.from_env()
+    logger = get_logger()
     ctr = None
     result = {}
     n_tries = 5
@@ -10,47 +14,38 @@ def run_container(config, command, homedir = None):
         n_tries -= 1
         try:
             #start the container
-            ctr = self.client.containers.run(config.grading_docker_image, command,
+            ctr = client.containers.run(config.docker_image, command,
                                                 detach = True,
                                                 remove = False,
                                                 stderr = True,
                                                 stdout = True,
-                                                mem_limit = config.grading_docker_memory,
-                                                volumes = {homedir : {'bind': config.grading_docker_bind_folder, 'mode': 'rw'}} if homedir else {}
+                                                mem_limit = config.docker_memory,
+                                                volumes = {homedir : {'bind': config.docker_bind_folder, 'mode': 'rw'}} if homedir else {}
                                              )
         except docker.errors.APIError as e:
             if n_tries == 0:
-                print('Docker APIError exception encountered when starting docker container')
-                print('Command: ' + command)
-                print('Homedir: ' + homedir)
-            result['exit_status'] = 'never_started'
-            result['log'] = 'ERROR: Docker APIError, ' + str(e)
+                raise signals.FAIL(f"Docker APIError exception encountered when starting docker container. command {command} homedir {homedir}. error message {str(e)}")
             ctr = None
             time.sleep(10.)
             if n_tries > 0:
-                print('Failed to start container. Attempting again; ' + str(n_tries) + ' attempts remaining.')
+                logger.info(f"Docker APIError exception encountered when starting docker container. command {command} homedir {homedir}. error message {str(e)}")
+                logger.info(f"Failed to start container. Attempting again; {n_tries} attempts remaining.")
         except docker.errors.ImageNotFound as e:
             if n_tries == 0:
-                print('Docker ImageNotFound exception encountered when starting docker container')
-                print('Command: ' + command)
-                print('Homedir: ' + homedir)
-            result['exit_status'] = 'never_started'
-            result['log'] = 'ERROR: Docker ImageNotFound, ' + str(e)
+                raise signals.FAIL(f"Docker ImageNotFound exception encountered when starting docker container. command {command} homedir {homedir}. error message {str(e)}")
             ctr = None
             time.sleep(10.)
             if n_tries > 0:
-                print('Failed to start container. Attempting again; ' + str(n_tries) + ' attempts remaining.')
+                logger.info(f"Docker ImageNotFound exception encountered when starting docker container. command {command} homedir {homedir}. error message {str(e)}")
+                logger.info(f"Failed to start container. Attempting again; {n_tries} attempts remaining.")
         except Exception as e:
             if n_tries == 0:
-                print('Unknown exception encountered when starting docker container')
-                print('Command: ' + command)
-                print('Homedir: ' + homedir)
-            result['exit_status'] = 'never_started'
-            result['log'] = 'ERROR: Unknown exception, ' + str(e) 
+                raise signals.FAIL(f"Docker unknown exception encountered when starting docker container. command {command} homedir {homedir}. error message {str(e)}")
             ctr = None
             time.sleep(10.)
             if n_tries > 0:
-                print('Failed to start container. Attempting again; ' + str(n_tries) + ' attempts remaining.')
+                logger.info(f"Docker unknown exception encountered when starting docker container. command {command} homedir {homedir}. error message {str(e)}")
+                logger.info(f"Failed to start container. Attempting again; {n_tries} attempts remaining.")
     
     # if the container started successfully, poll until it is finished
     if ctr:
