@@ -10,6 +10,7 @@ from traitlets.config.loader import PyFileConfigLoader
 import pendulum as plm
 from requests.exceptions import ConnectionError
 import logging
+from subprocess import check_output, STDOUT, CalledProcessError
 
 import threading
 
@@ -171,6 +172,11 @@ def build_autoext_flows(config, args):
 # assignments there are until runtime. So doing it by group is the
 # right strategy.
 def build_grading_flows(config, args):
+    try:
+        check_output(['sudo', '-n', 'true'])
+    except CalledProcessError as e:
+        raise signals.FAIL(f"You must have sudo permissions to run the flow. Note: DO NOT run this script using sudo; we just use sudo internally to create ZFS volumes. Command: {e.cmd}. returncode: {e.returncode}. output {e.output}. stdout {e.stdout}. stderr {e.stderr}")
+
     flows = []
     for group in config.course_groups:
         with Flow(group+"-grading") as flow:

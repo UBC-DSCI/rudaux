@@ -1,5 +1,6 @@
 import pendulum as plm
 import pwd
+import getpass
 import prefect
 from prefect import task
 from prefect.engine import signals
@@ -116,9 +117,10 @@ def initialize_volumes(config, graders):
             logger.info("Folder doesn't exist, creating...")
             try:
                 check_output(['sudo', config.zfs_path, 'create', "-o", "refquota="+grader['unix_quota'], grader['folder'].lstrip('/')], stderr=STDOUT)
+                check_output(['sudo', 'chown', getpass.getuser(), grader['folder']], stderr=STDOUT)
             except CalledProcessError as e:
                 raise signals.FAIL(f"Error running command {e.cmd}. returncode {e.returncode}. output {e.output}. stdout {e.stdout}. stderr {e.stderr}")
-            _recursive_chown(grader['folder'], grader['unix_uid'])
+            logger.info("Created!")
         else:
             logger.info("Folder exists.")
 
@@ -139,19 +141,19 @@ def initialize_volumes(config, graders):
         if not repo_valid:
             logger.info(f"{grader['folder']} is not a valid course repo. Cloning course repository from {config.instructor_repo_url}")
             git.Repo.clone_from(config.instructor_repo_url, grader['folder'])
-            _recursive_chown(grader['folder'], grader['unix_uid'])
+            logger.info("Cloned!")
         else:
             logger.info(f"{grader['folder']} is a valid course repo.")
 
         # create the submissions folder
         if not os.path.exists(grader['submissions_folder']):
             os.makedirs(grader['submissions_folder'], exist_ok=True)
-            _recursive_chown(grader['submissions_folder'], grader['unix_uid'])
 
         aname = grader['assignment_name']
 
         # if the assignment hasn't been generated yet, generate it
         logger.info(f"Checking if assignment {aname} has been generated for grader {grader}")
+        # TODO error handling if the container fails
         generated_asgns = run_container(config, 'nbgrader db assignment list', grader['folder'])
         if aname not in generated_asgns['log']:
             logger.info(f"Assignment {aname} not yet generated for grader {grader}")
@@ -172,6 +174,9 @@ def initialize_volumes(config, graders):
                 raise signals.FAIL(f"Error generating solution for {aname} for grader {grader['name']} at path {grader['folder']}")
         else:
             logger.info(f"Solution for {aname} already generated")
+
+        # finally, transfer ownership to the jupyterhub user
+        _recursive_chown(grader['folder'], grader['unix_uid'])
 
     return graders
 
