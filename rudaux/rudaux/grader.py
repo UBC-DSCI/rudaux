@@ -117,7 +117,6 @@ def initialize_volumes(config, graders):
             logger.info("Folder doesn't exist, creating...")
             try:
                 check_output(['sudo', config.zfs_path, 'create', "-o", "refquota="+grader['unix_quota'], grader['folder'].lstrip('/')], stderr=STDOUT)
-                check_output(['sudo', 'chown', getpass.getuser(), grader['folder']], stderr=STDOUT)
             except CalledProcessError as e:
                 raise signals.FAIL(f"Error running command {e.cmd}. returncode {e.returncode}. output {e.output}. stdout {e.stdout}. stderr {e.stderr}")
             logger.info("Created!")
