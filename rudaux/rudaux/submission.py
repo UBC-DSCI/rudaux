@@ -227,15 +227,15 @@ def get_latereg_overrides(extension_days, subm_set):
             to_remove = None
             to_create = None
             if regdate > assignment['unlock_at']:
-                logger.info(f"Student {student['name']} gets an extension on assignment {assignment['name']}")
-                logger.info(f"Student registration date: {regdate}    Status: {student['status']}")
-                logger.info(f"Assignment unlock: {assignment['unlock_at']}    Assignment deadline: {assignment['due_at']}")
                 #the late registration due date
                 latereg_date = regdate.add(days=extension_days).in_timezone(tz).end_of('day').set(microsecond=0)
-                logger.info("Current student-specific due date: " + subm['due_at'].in_timezone(tz).format(fmt) + " from override: " + str(True if (override is not None) else False))
-                logger.info('Late registration extension date: ' + latereg_date.in_timezone(tz).format(fmt))
                 if latereg_date > subm['due_at']:
-                    logger.info('Creating automatic late registration extension to ' + latereg_date.in_timezone(tz).format(fmt))
+                    logger.info(f"Student {student['name']} needs an extension on assignment {assignment['name']}")
+                    logger.info(f"Student registration date: {regdate}    Status: {student['status']}")
+                    logger.info(f"Assignment unlock: {assignment['unlock_at']}    Assignment deadline: {assignment['due_at']}")
+                    logger.info("Current student-specific due date: " + subm['due_at'].in_timezone(tz).format(fmt) + " from override: " + str(True if (override is not None) else False))
+                    logger.info('Late registration extension date: ' + latereg_date.in_timezone(tz).format(fmt))
+                    logger.info('Creating automatic late registration extension.')
                     if override is not None:
                         logger.info("Need to remove old override " + str(override['id']))
                         to_remove = override
@@ -245,7 +245,7 @@ def get_latereg_overrides(extension_days, subm_set):
                                  'unlock_at' : assignment['unlock_at'],
                                  'title' : student['name']+'-'+assignment['name']+'-latereg'}
                 else:
-                    logger.info("Current extension meets or exceeds the late registration extension.")
+                    #logger.info("Current extension meets or exceeds the late registration extension.")
                     continue
                     #raise signals.SKIP("Current due date for student {student['name']}, assignment {assignment['name']} after late registration date; no override modifications required.")
             else:
