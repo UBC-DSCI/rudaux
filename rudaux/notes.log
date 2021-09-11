@@ -1,7 +1,8 @@
 - create a .prefect/config.toml file, set backend="server"
 - add (threadName) to config.toml in .prefect
 - set checkpointing=FAlse in config.toml
-- give student machine user permissions to snapshot via zfs allow [user] snapshot tank
+- give student machine user permissions to snapshot via zfs allow [user] snapshot tank/home/dsci100
+- (apparently this is not possible....) give instructor machine user permissions to create volumes via zfs allow [user] create tank/home/dsci100
 - put a deploy key for instructor repo
 - cleanup docker volumes (new one each server restart...)
 - make sure to ssh -A into instructor machine to enable auth into student machine before running rudaux

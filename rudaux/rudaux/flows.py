@@ -234,11 +234,11 @@ def build_grading_flows(config, args):
             ## Upload grades
             submission_sets = subm.upload_grades.map(unmapped(config), submission_sets)
 
-            ## collect posting notifications
-            notifications = subm.collect_posting_notifications(notifications, submission_sets)
+            ### collect posting notifications
+            #notifications = subm.collect_posting_notifications(notifications, submission_sets)
 
-            ## send notifications
-            ntfy.notify(notifications)
+            ### send notifications
+            #ntfy.notify(notifications)
 
         flows.append(flow)
     return flows

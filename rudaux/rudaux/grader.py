@@ -4,7 +4,7 @@ import prefect
 from prefect import task
 from prefect.engine import signals
 import os
-from subprocess import check_output, STDOUT
+from subprocess import check_output, STDOUT, CalledProcessError
 from dictauth.users import add_user, remove_user, get_users
 from collections import namedtuple
 import git
@@ -41,8 +41,8 @@ def validate_config(config):
 def _clean_jhub_uname(s):
     return ''.join(ch for ch in s if ch.isalnum())
 
-def _grader_account_name(assignment_name, user):
-    return _clean_jhub_uname(assignment_name)+'-'+_clean_jhub_uname(user)
+def _grader_account_name(group_name, assignment_name, user):
+    return _clean_jhub_uname(group_name)+'-'+_clean_jhub_uname(assignment_name)+'-'+_clean_jhub_uname(user)
 
 def generate_build_grading_team_name(subm_set, **kwargs):
     return 'build-grdteam-'+subm_set['__name__']
@@ -72,28 +72,32 @@ def build_grading_team(config, course_group, subm_set):
     asgn_name = subm_set['__name__']
 
     logger.info(f"Initializing grading team for assignment {asgn_name}")
+    # get list of users from dictauth
+    Args = namedtuple('Args', 'directory')
+    args = Args(directory = config.jupyterhub_config_dir)
+    user_tuples = get_users(args)
+    dictauth_users = [u[0] for u in user_tuples]
+    config_users = config.assignments[course_group][asgn_name]
     graders = []
-    dictauth_users = config.assignments[course_group][asgn_name]
-    for user in dictauth_users:
+    for user in config_users:
         # ensure user exists
-        Args = namedtuple('Args', 'directory')
-        args = Args(directory = config.jupyterhub_config_dir)
-        output = get_users(args)
-        if user not in output:
-            raise signals.FAIL(f"Dictauth user account {user} does not exist! Make sure to use dictauth to create a grader account for each of the TA/instructorss listed in config.assignments")
+        if user not in dictauth_users:
+            raise signals.FAIL(f"User account {user} listed in rudaux_config does not exist in dictauth: {dictauth_users} . Make sure to use dictauth to create a grader account for each of the TA/instructorss listed in config.assignments")
         grader = {}
         # initialize any values in the grader that are *not* potential failure points here
         grader['user'] = user
         grader['assignment_name'] = asgn_name
-        grader['name'] = _grader_account_name(asgn_name,user)
-        grader['unix_uid'] = pwd.getpwnam(config.jupyter_user).pw_uid
+        grader['name'] = _grader_account_name(course_group,asgn_name,user)
+        grader['unix_uid'] = pwd.getpwnam(config.jupyterhub_user).pw_uid
         grader['unix_quota'] = config.user_quota
         grader['folder'] = os.path.join(config.user_root, grader['name']).rstrip('/')
         grader['local_source_path'] = os.path.join('source', asgn_name, asgn_name+'.ipynb')
         grader['submissions_folder'] = os.path.join(grader['folder'], config.submissions_folder)
         grader['autograded_folder'] = os.path.join(grader['folder'], config.autograded_folder)
         grader['feedback_folder'] = os.path.join(grader['folder'], config.feedback_folder)
-        grader['workload'] = len([f for f in os.listdir(grader['submissions_folder']) if os.path.isdir(f)])
+        grader['workload'] = 0
+        if os.path.exists(grader['submissions_folder']):
+            grader['workload'] = len([f for f in os.listdir(grader['submissions_folder']) if os.path.isdir(f)])
         grader['soln_name'] = asgn_name + '_solution.html'
         grader['soln_path'] = os.path.join(grader['folder'], grader['soln_name'])
         graders.append(grader)
@@ -104,13 +108,16 @@ def build_grading_team(config, course_group, subm_set):
 def initialize_volumes(config, graders):
     logger = get_logger()
     for grader in graders:
-        logger.info("Creating volume for grader {grader['name']}")
+        logger.info(f"Creating volume for grader {grader['name']}")
 
         # create the zfs volume
-        logger.info('Checking if grader folder exists..')
+        logger.info("Checking if grader folder {grader['folder']} exists..")
         if not os.path.exists(grader['folder']):
             logger.info("Folder doesn't exist, creating...")
-            check_output([config.zfs_path, 'create', "-o", "refquota="+grader['unix_quota'], grader['folder'].lstrip('/')], stderr=STDOUT)
+            try:
+                check_output(['sudo', config.zfs_path, 'create', "-o", "refquota="+grader['unix_quota'], grader['folder'].lstrip('/')], stderr=STDOUT)
+            except CalledProcessError as e:
+                raise signals.FAIL(f"Error running command {e.cmd}. returncode {e.returncode}. output {e.output}. stdout {e.stdout}. stderr {e.stderr}")
             _recursive_chown(grader['folder'], grader['unix_uid'])
         else:
             logger.info("Folder exists.")
@@ -176,7 +183,7 @@ def initialize_accounts(config, graders):
         logger.info(f"Checking if jupyterhub user {grader['name']} exists")
         Args = namedtuple('Args', 'directory')
         args = Args(directory = config.grading_jupyterhub_config_dir)
-        output = get_users(args)
+        output = [u[0] for u in get_users(args)]
         if grader['name'] not in output:
             logger.info(f"User {grader['name']} does not exist; creating")
             Args = namedtuple('Args', 'username directory copy_creds salt digest')
