@@ -137,16 +137,7 @@ def generate_build_subm_set_name(config, subm_set, **kwargs):
 @task(checkpoint=False,task_run_name=generate_build_subm_set_name)
 def build_submission_set(config, subm_set):
     logger = get_logger()
-    # check whether any of the assignment deadlines are in the future. If so, skip
-    for course_name in subm_set:
-        if course_name == '__name__':
-            continue
-        assignment = subm_set[course_name]['assignment']
-
-        # skip the assignment if it isn't due yet
-        if assignment['due_at'] > plm.now():
-            raise signals.SKIP(f"Assignment {assignment['name']} ({assignment['id']}) due date {assignment['due_at']} is in the future. Skipping.")
-
+    # check assignment date validity and build subm list
     for course_name in subm_set:
         if course_name == '__name__':
             continue
@@ -208,6 +199,7 @@ def build_submission_set(config, subm_set):
 
     return subm_set
 
+
 def generate_latereg_overrides_name(extension_days, subm_set, **kwargs):
     return 'lateregs-'+subm_set['__name__']
 
@@ -222,6 +214,11 @@ def get_latereg_overrides(extension_days, subm_set):
         assignment = subm_set[course_name]['assignment']
         course_info = subm_set[course_name]['course_info']
         tz = course_info['time_zone']
+
+        # skip the assignment if it isn't unlocked yet
+        if assignment['unlock_at'] > plm.now():
+            raise signals.SKIP(f"Assignment {assignment['name']} ({assignment['id']}) unlock date {assignment['unlock_at']} is in the future. Skipping.")
+
         for subm in subm_set[course_name]['submissions']:
             student = subm['student']
             regdate = student['reg_date']

@@ -164,11 +164,12 @@ def build_autoext_flows(config, args):
     return flows
 
 
-# TODO this creates one flow per grading group,
+# this creates one flow per grading group,
 # not one flow per assignment. In the future we might
 # not load assignments/graders from the rudaux config but
 # rather dynamically from LMS; there we dont know what
-# assignments there are until runtime.
+# assignments there are until runtime. So doing it by group is the
+# right strategy.
 def build_grading_flows(config, args):
     flows = []
     for group in config.course_groups:
