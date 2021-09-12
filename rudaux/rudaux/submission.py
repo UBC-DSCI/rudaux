@@ -299,7 +299,7 @@ def assign_graders(config, subm_set, graders):
             subm['autograded_assignment_path'] = os.path.join(subm['grader']['autograded_folder'],
                                                      config.grading_student_folder_prefix+student['id'],
                                                      assignment['name'], assignment['name'] + '.ipynb')
-            subm['feedback_path'] = os.path.join(subm['grader']['feedback_folder'],
+            subm['generated_feedback_path'] = os.path.join(subm['grader']['feedback_folder'],
                                                      config.grading_student_folder_prefix+student['id'],
                                                      assignment['name'], assignment['name'] + '.html')
             subm['status'] = GradingStatus.ASSIGNED
@@ -561,8 +561,7 @@ def generate_feedback(config, subm_set):
             continue
         assignment = subm_set[course_name]['assignment']
         for subm in subm_set[course_name]['submissions']:
-            if os.path.exists(subm['feedback_path']):
-                logger.info('Feedback generated previously.')
+            if subm['status'] == GradingStatus.MISSING or os.path.exists(subm['generated_feedback_path']):
                 continue
             res = run_container(config, 'nbgrader generate_feedback --force '+
                                         '--assignment=' + assignment['name'] +
@@ -572,8 +571,8 @@ def generate_feedback(config, subm_set):
             # validate the results
             if 'ERROR' in res['log']:
                 raise signals.FAIL(f"Docker error generating feedback for submission {subm['name']}: exited with status {res['exit_status']},  {res['log']}")
-            if not os.path.exists(subm['feedback_path']):
-                raise signals.FAIL(f"Docker error generating feedback for submission {subm['name']}: did not generate expected file at {subm['feedback_path']}")
+            if not os.path.exists(subm['generated_feedback_path']):
+                raise signals.FAIL(f"Docker error generating feedback for submission {subm['name']}: did not generate expected file at {subm['generated_feedback_path']}")
     return subm_set
 
 
@@ -598,13 +597,13 @@ def return_feedback(config, pastdue_frac, subm):
         for subm in subm_set[course_name]['submissions']:
             student = subm['student']
             #logger.info(f"Checking whether feedback for submission {subm['name']} can be returned")
-            if subm['due_at'] < plm.now():
-                if not os.path.exists(fdbk_path_student):
+            if subm['due_at'] < plm.now() and subm['status'] != GradingStatus.MISSING:
+                if not os.path.exists(subm['fdbk_path']):
                     logger.info(f"Returning feedback for submission {subm['name']}")
-                    if os.path.exists(fdbk_folder_student):
+                    if os.path.exists(subm['student_folder']):
                         try:
-                            shutil.copy(fdbk_path_grader, fdbk_path_student)
-                            os.chown(fdbk_path_student, subm['grader']['unix_uid'], subm['grader']['unix_uid'])
+                            shutil.copy(subm['generated_feedback_path'], subm['fdbk_path'])
+                            os.chown(subm['fdbk_path'], subm['grader']['unix_uid'], subm['grader']['unix_uid'])
                         except Exception as e:
                             raise signals.FAIL(str(e))
                     else:
