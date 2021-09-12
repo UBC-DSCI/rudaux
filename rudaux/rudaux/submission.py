@@ -378,7 +378,7 @@ def collect_submissions(config, subm_set):
             if not os.path.exists(subm['collected_assignment_path']):
                 if not os.path.exists(subm['snapped_assignment_path']):
                     subm['status'] = GradingStatus.MISSING
-                    if subm['score'] != 0:
+                    if subm['score'] is None:
                         logger.info(f"Submission {subm['name']} is missing. Uploading score of 0.")
                         subm['score'] = 0.
                         put_grade(config, course_info['id'], student, assignment, subm['score'])
@@ -643,41 +643,40 @@ def upload_grades(config, subm_set):
         course_info = subm_set[course_name]['course_info']
         for subm in subm_set[course_name]['submissions']:
             student = subm['student']
-            logger.info(f"Uploading grade for submission {subm['name']}")
-            if subm['score'] is not None:
-                logger.info(f"Grade already uploaded.")
-                continue
+            if subm['status'] == GradingStatus.DONE_GRADING:
+                if subm['score'] is None:
+                    continue
+                logger.info(f"Uploading grade for submission {subm['name']}")
+                logger.info(f"Obtaining score from the gradebook")
+                try:
+                    gb = Gradebook('sqlite:///'+os.path.join(subm['grader']['folder'] , 'gradebook.db'))
+                    gb_subm = gb.find_submission(assignment['name'], config.grading_student_folder_prefix+student['id'])
+                    score = gb_subm.score
+                except Exception as e:
+                    sig = signals.FAIL(f"Error when accessing the gradebook score for submission {subm['name']}; error {str(e)}")
+                    sig.e = e
+                    sig.subm = subm
+                    raise sig
+                finally:
+                    gb.close()
+                logger.info(f"Score: {score}")
 
-            logger.info(f"Obtaining score from the gradebook")
-            try:
-                gb = Gradebook('sqlite:///'+os.path.join(subm['grader']['folder'] , 'gradebook.db'))
-                gb_subm = gb.find_submission(assignment['name'], config.grading_student_folder_prefix+student['id'])
-                score = gb_subm.score
-            except Exception as e:
-                sig = signals.FAIL(f"Error when accessing the gradebook score for submission {subm['name']}; error {str(e)}")
-                sig.e = e
-                sig.subm = subm
-                raise sig
-            finally:
-                gb.close()
-            logger.info(f"Score: {score}")
+                logger.info(f"Computing the max score from the release notebook")
+                try:
+                    max_score = _compute_max_score(subm['grader'], assignment)
+                except Exception as e:
+                    sig = signals.FAIL(f"Error when trying to compute the max score for submission {subm['name']}; error {str(e)}")
+                    sig.e = e
+                    sig.subm = subm
+                    raise sig
+                logger.info(f"Max Score: {max_score}")
 
-            logger.info(f"Computing the max score from the release notebook")
-            try:
-                max_score = _compute_max_score(subm['grader'], assignment)
-            except Exception as e:
-                sig = signals.FAIL(f"Error when trying to compute the max score for submission {subm['name']}; error {str(e)}")
-                sig.e = e
-                sig.subm = subm
-                raise sig
-            logger.info(f"Max Score: {max_score}")
+                pct = "{:.2f}".format(100*score/max_score)
+                logger.info(f"Percent grade: {pct}")
 
-            pct = "{:.2f}".format(100*score/max_score)
-            logger.info(f"Percent grade: {pct}")
-
-            logger.info(f"Uploading to Canvas...")
-            subm['score'] = pct
-            put_grade(config, course_info['id'], student, assignment, subm['score'])
+                logger.info(f"Uploading to Canvas...")
+                subm['score'] = pct
+                put_grade(config, course_info['id'], student, assignment, subm['score'])
     return subm_set
 
 
