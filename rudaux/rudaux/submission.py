@@ -335,7 +335,7 @@ def return_solutions(config, pastdue_frac, subm_set):
         for subm in subm_set[course_name]['submissions']:
             student = subm['student']
             logger.info(f"Checking whether solution for submission {subm['name']} can be returned")
-            if subm['due_at'] > plm.now():
+            if subm['due_at'] < plm.now():
                 logger.info(f"Returning solution submission {subm['name']}")
                 if not os.path.exists(subm['soln_path']):
                     if os.path.exists(subm['student_folder']):
@@ -376,6 +376,7 @@ def collect_submissions(config, subm_set):
                     subm['score'] = 0.
                     put_grade(config, course_info['id'], student, assignment, subm['score'])
                 else:
+                    logger.info(f"Submission {subm['name']} not yet collected. Collecting...")
                     try:
                         os.makedirs(os.path.dirname(subm['collected_assignment_path']), exist_ok=True)
                         shutil.copy(subm['snapped_assignment_path'], subm['collected_assignment_path'])
@@ -383,9 +384,9 @@ def collect_submissions(config, subm_set):
                         subm['status'] = GradingStatus.COLLECTED
                     except Exception as e:
                         raise signals.FAIL(str(e))
-                    logger.info("Submission collected.")
+                    #logger.info("Submission collected.")
             else:
-                logger.info("Submission already collected.")
+                #logger.info("Submission already collected.")
                 subm['status'] = GradingStatus.COLLECTED
     return subm_set
 
@@ -593,7 +594,7 @@ def return_feedback(config, pastdue_frac, subm):
         for subm in subm_set[course_name]['submissions']:
             student = subm['student']
             logger.info(f"Checking whether feedback for submission {subm['name']} can be returned")
-            if subm['due_at'] > plm.now():
+            if subm['due_at'] < plm.now():
                 logger.info(f"Returning feedback for submission {subm['name']}")
                 if not os.path.exists(fdbk_path_student):
                     if os.path.exists(fdbk_folder_student):
