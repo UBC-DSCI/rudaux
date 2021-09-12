@@ -643,9 +643,7 @@ def upload_grades(config, subm_set):
         course_info = subm_set[course_name]['course_info']
         for subm in subm_set[course_name]['submissions']:
             student = subm['student']
-            if subm['status'] == GradingStatus.DONE_GRADING:
-                if subm['score'] is None:
-                    continue
+            if subm['status'] == GradingStatus.DONE_GRADING and subm['score'] is None:
                 logger.info(f"Uploading grade for submission {subm['name']}")
                 logger.info(f"Obtaining score from the gradebook")
                 try:
