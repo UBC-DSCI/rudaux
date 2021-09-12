@@ -461,13 +461,11 @@ def autograde(config, subm_set):
         assignment = subm_set[course_name]['assignment']
         for subm in subm_set[course_name]['submissions']:
             if subm['status'] == GradingStatus.PREPARED:
-                logger.info(f"Autograding submission {subm['name']}")
-
                 if os.path.exists(subm['autograded_assignment_path']):
-                    logger.info('Assignment previously autograded & validated.')
                     subm['status'] = GradingStatus.AUTOGRADED
                     continue
 
+                logger.info(f"Autograding submission {subm['name']}")
                 logger.info('Removing old autograding result from DB if it exists')
                 try:
                     gb = Gradebook('sqlite:///'+os.path.join(subm['grader']['folder'], 'gradebook.db'))
@@ -547,7 +545,7 @@ def await_completion(subm_set):
         if course_name == '__name__':
             continue
         assignment = subm_set[course_name]['assignment']
-        all_done = all_done and all([subm['status'] != GradinStatus.NEEDS_MANUAL_GRADE for subm in subm_set[course_name]['submissions']])
+        all_done = all_done and all([subm['status'] != GradingStatus.NEEDS_MANUAL_GRADE for subm in subm_set[course_name]['submissions']])
     if not all_done:
         raise signals.SKIP(f"Submission set {subm_set['__name__']} not done grading yet. Skipping uploading grades / returning feedback")
     return subm_set
