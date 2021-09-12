@@ -43,6 +43,11 @@ def _build_flows(args):
     grd.validate_config(config)
     ntfy.validate_config(config)
 
+    if c.debug:
+        print("***DEBUG MODE***")
+        print("***DEBUG MODE***")
+        print("***DEBUG MODE***")
+
     print("Creating the executor")
     executor = LocalExecutor()
     # LocalDaskExecutor(num_workers = args.dask_threads)
@@ -50,19 +55,20 @@ def _build_flows(args):
 
     flow_builders = []
     if args.snap or args.all_flows:
-        flow_builders.append((build_snapshot_flows, 'snapshot', args.snapshot_interval))
+        flow_builders.append((build_snapshot_flows, 'snapshot', config.snapshot_interval, config.snapshot_minute))
     if args.autoext or args.all_flows:
-        flow_builders.append((build_autoext_flows, 'autoextension', args.autoext_interval))
+        flow_builders.append((build_autoext_flows, 'autoextension', config.autoext_interval, config.autoext_minute))
     if args.grade or args.all_flows:
-        flow_builders.append((build_grading_flows, 'grading', args.grading_interval))
+        flow_builders.append((build_grading_flows, 'grading', config.grade_interval, config.grade_minute))
 
     flows = []
-    for build_func, flow_name, interval in flow_builders:
+    for build_func, flow_name, interval, minute in flow_builders:
         print(f"Building/registering the {flow_name} flow...")
         _flows = build_func(config, args)
         for flow in _flows:
             flow.executor = executor
-            flow.schedule = IntervalSchedule(start_date = plm.now('UTC').set(minute=3),
+            if not c.debug:
+                flow.schedule = IntervalSchedule(start_date = plm.now('UTC').set(minute=minute),
                                    interval = plm.duration(minutes=interval))
             flows.append(flow)
     return flows

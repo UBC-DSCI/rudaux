@@ -47,34 +47,6 @@ reg_parser.add_argument(
   action='store_true',
   help="Register the grading flow"
 )
-reg_parser.add_argument(
-  '--grading_interval',
-  dest='grading_interval',
-  action='store',
-  default=1,
-  help="The interval (minutes) to reg the Rudaux flow"
-)
-reg_parser.add_argument(
-  '--autoext_interval',
-  dest='autoext_interval',
-  action='store',
-  default=60,
-  help="The interval (minutes) to reg the autoextension flow"
-)
-reg_parser.add_argument(
-  '--snapshot_interval',
-  dest='snapshot_interval',
-  action='store',
-  default=30,
-  help="The interval (minutes) to take snapshots"
-)
-#reg_parser.add_argument(
-#  '--dask_threads',
-#  dest='dask_threads',
-#  action='store',
-#  default=8,
-#  help="The number of local dask executor threads"
-#)
 
 #---------------------------------------------
 #           Run workflows in threads locally
@@ -111,27 +83,6 @@ run_parser.add_argument(
   dest='grade',
   action='store_true',
   help="Run the grading flow"
-)
-run_parser.add_argument(
-  '--grading_interval',
-  dest='grading_interval',
-  action='store',
-  default=1,
-  help="The interval (minutes) to reg the Rudaux flow"
-)
-run_parser.add_argument(
-  '--autoext_interval',
-  dest='autoext_interval',
-  action='store',
-  default=60,
-  help="The interval (minutes) to reg the autoextension flow"
-)
-run_parser.add_argument(
-  '--snapshot_interval',
-  dest='snapshot_interval',
-  action='store',
-  default=30,
-  help="The interval (minutes) to take snapshots"
 )
 
 #---------------------------------------------
