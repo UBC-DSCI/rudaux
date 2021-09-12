@@ -672,8 +672,6 @@ def upload_grades(config, subm_set):
                 raise sig
             logger.info(f"Max Score: {max_score}")
 
-            self.score = score
-            self.max_score = max_score
             pct = "{:.2f}".format(100*score/max_score)
             logger.info(f"Percent grade: {pct}")
 
