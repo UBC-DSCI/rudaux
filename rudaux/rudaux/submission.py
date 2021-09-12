@@ -377,9 +377,9 @@ def collect_submissions(config, subm_set):
 
             if not os.path.exists(subm['collected_assignment_path']):
                 if not os.path.exists(subm['snapped_assignment_path']):
-                    if subm['score'] is None:
+                    subm['status'] = GradingStatus.MISSING
+                    if subm['score'] != 0:
                         logger.info(f"Submission {subm['name']} is missing. Uploading score of 0.")
-                        subm['status'] = GradingStatus.MISSING
                         subm['score'] = 0.
                         put_grade(config, course_info['id'], student, assignment, subm['score'])
                 else:
