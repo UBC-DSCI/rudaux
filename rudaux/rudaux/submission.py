@@ -334,10 +334,10 @@ def return_solutions(config, pastdue_frac, subm_set):
             continue
         for subm in subm_set[course_name]['submissions']:
             student = subm['student']
-            logger.info(f"Checking whether solution for submission {subm['name']} can be returned")
+            #logger.info(f"Checking whether solution for submission {subm['name']} can be returned")
             if subm['due_at'] < plm.now():
-                logger.info(f"Returning solution submission {subm['name']}")
                 if not os.path.exists(subm['soln_path']):
+                    logger.info(f"Returning solution submission {subm['name']}")
                     if os.path.exists(subm['student_folder']):
                         try:
                             shutil.copy(subm['grader']['soln_path'], subm['soln_path'])
@@ -594,10 +594,10 @@ def return_feedback(config, pastdue_frac, subm):
             continue
         for subm in subm_set[course_name]['submissions']:
             student = subm['student']
-            logger.info(f"Checking whether feedback for submission {subm['name']} can be returned")
+            #logger.info(f"Checking whether feedback for submission {subm['name']} can be returned")
             if subm['due_at'] < plm.now():
-                logger.info(f"Returning feedback for submission {subm['name']}")
                 if not os.path.exists(fdbk_path_student):
+                    logger.info(f"Returning feedback for submission {subm['name']}")
                     if os.path.exists(fdbk_folder_student):
                         try:
                             shutil.copy(fdbk_path_grader, fdbk_path_student)
