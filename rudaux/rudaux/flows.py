@@ -236,12 +236,12 @@ def build_grading_flows(config, args):
             ## Collect grading notifications
             notifications = subm.collect_grading_notifications(submission_sets)
 
-            ## Skip submissions for assignments with incomplete grading
+            ## Skip assignments with incomplete manual grading
             submission_sets = subm.await_completion.map(submission_sets)
 
-            ## generate & return feedback (separate tasks for these; dont block grade upload)
-            submission_sets_fdbk = subm.generate_feedback.map(unmapped(config), submission_sets)
-            subm.return_feedback.map(unmapped(config), pastdue_fracs, submission_sets_fdbk)
+            ## generate & return feedback
+            submission_sets = subm.generate_feedback.map(unmapped(config), submission_sets)
+            subm.return_feedback.map(unmapped(config), pastdue_fracs, submission_sets)
 
             ## Upload grades
             submission_sets = subm.upload_grades.map(unmapped(config), submission_sets)

@@ -547,9 +547,9 @@ def await_completion(subm_set):
         if course_name == '__name__':
             continue
         assignment = subm_set[course_name]['assignment']
-        all_done = all_done and all([subm['status'] in [GradingStatus.MISSING, GradingStatus.DONE_GRADING] for subm in subm_set[course_name]['submissions']])
+        all_done = all_done and all([subm['status'] != GradinStatus.NEEDS_MANUAL_GRADE for subm in subm_set[course_name]['submissions']])
     if not all_done:
-        raise signals.SKIP("Submission set {subm_set['__name__']} not done grading yet. Skipping uploading grades / returning feedback")
+        raise signals.SKIP(f"Submission set {subm_set['__name__']} not done grading yet. Skipping uploading grades / returning feedback")
     return subm_set
 
 def generate_genfeedback_name(subm_set, **kwargs):
