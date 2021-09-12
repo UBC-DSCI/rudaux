@@ -62,7 +62,7 @@ def _build_flows(args):
         _flows = build_func(config, args)
         for flow in _flows:
             flow.executor = executor
-            flow.schedule = IntervalSchedule(start_date = plm.now('UTC').add(seconds=1),
+            flow.schedule = IntervalSchedule(start_date = plm.now('UTC').set(minute=3),
                                    interval = plm.duration(minutes=interval))
             flows.append(flow)
     return flows
