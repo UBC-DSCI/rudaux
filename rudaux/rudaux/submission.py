@@ -371,10 +371,11 @@ def collect_submissions(config, subm_set):
 
             if not os.path.exists(subm['collected_assignment_path']):
                 if not os.path.exists(subm['snapped_assignment_path']):
-                    logger.info(f"Submission {subm['name']} is missing. Uploading score of 0.")
-                    subm['status'] = GradingStatus.MISSING
-                    subm['score'] = 0.
-                    put_grade(config, course_info['id'], student, assignment, subm['score'])
+                    if subm['score'] is None:
+                        logger.info(f"Submission {subm['name']} is missing. Uploading score of 0.")
+                        subm['status'] = GradingStatus.MISSING
+                        subm['score'] = 0.
+                        put_grade(config, course_info['id'], student, assignment, subm['score'])
                 else:
                     logger.info(f"Submission {subm['name']} not yet collected. Collecting...")
                     try:
@@ -464,14 +465,14 @@ def autograde(config, subm_set):
                 logger.info('Removing old autograding result from DB if it exists')
                 try:
                     gb = Gradebook('sqlite:///'+os.path.join(subm['grader']['folder'], 'gradebook.db'))
-                    gb.remove_submission(subm['assignment']['name'], config.grading_student_folder_prefix+subm['student']['id'])
+                    gb.remove_submission(assignment['name'], config.grading_student_folder_prefix+subm['student']['id'])
                 except MissingEntry as e:
                     pass
                 finally:
                     gb.close()
                 logger.info('Autograding...')
                 res = run_container(config, 'nbgrader autograde --force '+
-                                            '--assignment=' + subm['assignment']['name'] +
+                                            '--assignment=' + assignment['name'] +
                                             ' --student='+config.grading_student_folder_prefix+subm['student']['id'],
                                     subm['grader']['folder'])
 
@@ -501,7 +502,7 @@ def check_manual_grading(config, subm_set):
                 # check if the submission needs manual grading
                 try:
                     gb = Gradebook('sqlite:///'+os.path.join(subm['grader']['folder'], 'gradebook.db'))
-                    gb_subm = gb.find_submission(subm['assignment']['name'], config.grading_student_folder_prefix+subm['student']['id'])
+                    gb_subm = gb.find_submission(assignment['name'], config.grading_student_folder_prefix+subm['student']['id'])
                     flag = gb_subm.needs_manual_grade
                 except Exception as e:
                     sig = signals.FAIL(f"Error when checking whether submission {subm['name']} needs manual grading; error {str(e)}")
@@ -561,7 +562,7 @@ def generate_feedback(config, subm_set):
                 logger.info('Feedback generated previously.')
                 continue
             res = run_container(config, 'nbgrader generate_feedback --force '+
-                                        '--assignment=' + subm['assignment']['name'] +
+                                        '--assignment=' + assignment['name'] +
                                         ' --student=' + config.grading_student_folder_prefix+subm['student']['id'],
                                 subm['grader']['folder'])
 
@@ -613,7 +614,7 @@ def return_feedback(config, pastdue_frac, subm):
 def _compute_max_score(grader, assignment):
   #for some incredibly annoying reason, nbgrader refuses to compute a max_score for anything (so we cannot easily convert scores to percentages)
   #let's compute the max_score from the notebook manually then....
-  release_nb_path = os.path.join(subm['grader']['folder'], 'release', subm['assignment']['name'], subm['assignment']['name']+'.ipynb')
+  release_nb_path = os.path.join(grader['folder'], 'release', assignment['name'], assignment['name']+'.ipynb')
   f = open(release_nb_path, 'r')
   parsed_json = json.load(f)
   f.close()
