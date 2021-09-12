@@ -43,7 +43,7 @@ def _build_flows(args):
     grd.validate_config(config)
     ntfy.validate_config(config)
 
-    if c.debug:
+    if config.debug:
         print("***DEBUG MODE***")
         print("***DEBUG MODE***")
         print("***DEBUG MODE***")
@@ -67,7 +67,7 @@ def _build_flows(args):
         _flows = build_func(config, args)
         for flow in _flows:
             flow.executor = executor
-            if not c.debug:
+            if not config.debug:
                 flow.schedule = IntervalSchedule(start_date = plm.now('UTC').set(minute=minute),
                                    interval = plm.duration(minutes=interval))
             flows.append(flow)

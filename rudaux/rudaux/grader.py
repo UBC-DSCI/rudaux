@@ -11,15 +11,7 @@ from collections import namedtuple
 import git
 import shutil
 from .container import run_container
-from .utilities import get_logger
-
-def _recursive_chown(path, uid):
-    os.chown(path, uid, uid)
-    for root, dirs, files in os.walk(path):
-        for di in dirs:
-          os.chown(os.path.join(root, di), uid, uid)
-        for fi in files:
-          os.chown(os.path.join(root, fi), uid, uid)
+from .utilities import get_logger, recursive_chown
 
 def validate_config(config):
     pass
@@ -152,7 +144,7 @@ def initialize_volumes(config, graders):
         aname = grader['assignment_name']
 
         # reassign ownership to jupyter user
-        _recursive_chown(grader['folder'], grader['unix_uid'])
+        recursive_chown(grader['folder'], grader['unix_uid'])
 
         # if the assignment hasn't been generated yet, generate it
         logger.info(f"Checking if assignment {aname} has been generated for grader {grader['name']}")
@@ -179,7 +171,7 @@ def initialize_volumes(config, graders):
             logger.info(f"Solution for {aname} already generated")
 
         # transfer ownership to the jupyterhub user
-        _recursive_chown(grader['folder'], grader['unix_uid'])
+        recursive_chown(grader['folder'], grader['unix_uid'])
 
     return graders
 

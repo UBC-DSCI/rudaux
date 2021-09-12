@@ -10,7 +10,7 @@ import prefect
 from prefect import task
 from prefect.engine import signals
 from .snapshot import _get_snap_name
-from .utilities import get_logger
+from .utilities import get_logger, recursive_chown
 
 class GradingStatus(IntEnum):
     ASSIGNED = 0
@@ -286,6 +286,7 @@ def assign_graders(config, subm_set, graders):
                 subm['grader'] = min_grader
 
             # fill in the submission details that depend on a grader
+            subm['collected_assignment_folder'] = os.path.join(grader['submissions_folder'], config.grading_student_folder_prefix+student['id'])
             subm['collected_assignment_path'] = os.path.join(subm['grader']['submissions_folder'],
                                                      config.grading_student_folder_prefix+student['id'],
                                                      assignment['name'], assignment['name'] + '.ipynb')
@@ -310,7 +311,7 @@ def get_pastdue_fraction(subm_set):
         if course_name == '__name__':
             continue
         asgn_total += len(subm_set[course_name]['submissions'])
-        asgn_outstanding += len([None for subm in subm_set if subm['due_at'] > plm.now()])
+        asgn_outstanding += len([None for subm in subm_set[course_name]['submissions'] if subm['due_at'] > plm.now()])
     return (asgn_total - asgn_outstanding)/asgn_total
 
 def generate_return_solns_name(config, pastdue_frac, subm_set, **kwargs):
@@ -376,8 +377,9 @@ def collect_submissions(config, subm_set):
                     put_grade(config, course_info['id'], student, assignment, subm['score'])
                 else:
                     try:
+                        os.makedirs(os.path.dirname(subm['collected_assignment_path']), exist_ok=True)
                         shutil.copy(subm['snapped_assignment_path'], subm['collected_assignment_path'])
-                        os.chown(subm['collected_assignment_path'], subm['grader']['unix_uid'], subm['grader']['unix_uid'])
+                        recursive_chown(subm['collected_assignment_folder'], subm['grader']['unix_uid'])
                         subm['status'] = GradingStatus.COLLECTED
                     except Exception as e:
                         raise signals.FAIL(str(e))
