@@ -191,9 +191,15 @@ def build_submission_set(config, subm_set):
     for course_name in subm_set:
         if course_name == '__name__':
             continue
+        #check that all grades are posted
         all_posted = all_posted and all([subm['posted_at'] is not None for subm in subm_set[course_name]['submissions']])
-        all_returned = all_returned and all([os.path.exists(subm['soln_path']) for subm in subm_set[course_name]['submissions']])
-        all_returned = all_returned and all([os.path.exists(subm['fdbk_path']) for subm in subm_set[course_name]['submissions']])
+        for subm in subm_set[course_name]['submissions']:
+            # only check feedback/soln if student folder exists, i.e., they've logged into JHub
+            if os.path.exists(subm['student_folder']):
+                # check that soln was returned
+                all_returned = all_returned and os.path.exists(subm['soln_path'])
+                # check that fdbk was returned or assignment missing + score 0
+                all_returned = all_returned and (os.path.exists(subm['fdbk_path']) or (subm['score'] == 0 and not os.path.exists(subm['snapped_assignment_path']))
     if all_posted and all_returned:
         raise signals.SKIP(f"All grades are posted, all solutions returned, and all feedback returned for assignment {subm_set['__name__']}. Workflow done. Skipping.")
 
