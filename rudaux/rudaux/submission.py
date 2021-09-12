@@ -563,6 +563,7 @@ def generate_feedback(config, subm_set):
         for subm in subm_set[course_name]['submissions']:
             if subm['status'] == GradingStatus.MISSING or os.path.exists(subm['generated_feedback_path']):
                 continue
+            logger.info(f"Generating feedback for submission {subm['name']}")
             res = run_container(config, 'nbgrader generate_feedback --force '+
                                         '--assignment=' + assignment['name'] +
                                         ' --student=' + config.grading_student_folder_prefix+subm['student']['id'],
