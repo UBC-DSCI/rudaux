@@ -8,7 +8,7 @@ class Storage(Configurable):
     def get_snapshots(self):
         raise NotImplementedError
 
-    def take_snapshot(self, snapshot, student, relative_path):
+    def take_snapshot(self, snapshot, student, assignment):
         raise NotImplementedError
 
     def read(self, snapshot, student, relative_path):

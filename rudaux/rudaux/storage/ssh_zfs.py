@@ -40,17 +40,23 @@ class SSH_ZFS_Storage(Storage):
         logger.info(f"Found {len(snaps)} ZFS snapshots")
         return snaps
 
-    def take_snapshot(self, snapshot, student, assignment):
+    def take_snapshot(self, snapshot, student=None, assignment=None):
         # execute the snapshot
-        stdout, stderr = self._command(zfs_path + ' snapshot -r ' + snap_path)
+        # if no specific student, snap the whole volume
+        if student is None:
+            stdout, stderr = self._command(f"{zfs_path} snapshot -r {tank_volume}@{snapshot}") 
+        else:
+            stdout, stderr = self._command(f"{zfs_path} snapshot -r {self.get_student_folder(student).strip('/')}@{snapshot}")
 
         # verify the snapshot
         snaps = self.get_snapshots()
-        if snap_path not in [snap[0]+'@'+snap[1] for snap in snaps]:
+        if snap_path not in [f"{snap['volume']}@{snap['name']}" for snap in snaps]:
             sig = signals.FAIL(f"Failed to take snapshot {snap_name}. Existing snaps: {snaps}")
             raise sig
 
     def read(self, snapshot, student, remote_relative_path, local_relative_path):
+        remote_path = os.path.join(self.get_student_folder(student), '.zfs/snapshot/{snapshot}', remote_relative_path)
+        
         return datetime
         raise NotImplementedError
 
@@ -103,5 +109,5 @@ class SSH_ZFS_Storage(Storage):
                 volume, remaining = line.split('@', 1)
                 name, remaining = remaining.split(' ', 1)
                 datetime = plm.from_format(remaining.strip(), 'ddd MMM D H:mm YYYY')
-                snaps.append( (volume, name, datetime) ) 
+                snaps.append( {'volume' : volume, 'name' : name, 'datetime':datetime} ) 
         return snaps
