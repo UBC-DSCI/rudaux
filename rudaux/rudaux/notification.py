@@ -40,7 +40,7 @@ class SendMail(Notification):
         self.contact_info = config.sendmail.contact_info
         self.message_template = '\r\n'.join(['From: '+self.address,
                                   'To: {}',
-                                  'Subject: ['+config.name+'] Notifications',
+                                  'Subject: [Rudaux] Notifications',
                                   '',
                                   'Greetings Human {},',
                                   '',
@@ -48,7 +48,7 @@ class SendMail(Notification):
                                   '',
                                   '',
                                   'Beep boop,',
-                                  config.name + ' Bot'])
+                                  'Rudaux Bot'])
 
     def notify(self, recipient, message):
         # -i flag: do NOT treat bare dot as EOF
