@@ -234,7 +234,7 @@ def build_grading_flows(config, args):
             submission_sets = subm.check_manual_grading.map(unmapped(config), submission_sets)
 
             ## Collect grading notifications
-            notifications = subm.collect_grading_notifications(submission_sets)
+            grading_notifications = subm.collect_grading_notifications(submission_sets)
 
             ## Skip assignments with incomplete manual grading
             submission_sets = subm.await_completion.map(submission_sets)
@@ -246,11 +246,11 @@ def build_grading_flows(config, args):
             ## Upload grades
             submission_sets = subm.upload_grades.map(unmapped(config), submission_sets)
 
-            ### collect posting notifications
-            #notifications = subm.collect_posting_notifications(notifications, submission_sets)
+            ## collect posting notifications
+            posting_notifications = subm.collect_posting_notifications(submission_sets)
 
-            ### send notifications
-            #ntfy.notify(notifications)
+            ## send notifications
+            ntfy.notify(config, grading_notifications, posting_notifications)
 
         flows.append(flow)
     return flows

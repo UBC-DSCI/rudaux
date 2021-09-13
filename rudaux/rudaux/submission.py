@@ -523,17 +523,37 @@ def check_manual_grading(config, subm_set):
 
 @task(checkpoint=False)
 def collect_grading_notifications(subm_sets):
+    logger = get_logger()
+    notifications = {}
     for subm_set in subm_sets:
-        #TODO
-        pass
-    return 0
+        for course_name in subm_set:
+            if course_name == '__name__':
+                continue
+            assignment = subm_set[course_name]['assignment']
+            for subm in subm_set[course_name]['submissions']:
+                if subm['status'] == GradingStatus.NEEDS_MANUAL_GRADE:
+                    guser = subm['grader']['user']
+                    gnm = subm['grader']['name']
+                    if guser not in notifications:
+                        notifications[guser] = {}
+                    if gnm not in notifications[guser]:
+                        notifications[guser][gnm] = 0
+                    notifications[guser][gnm] += 1
+    return notifications
 
 @task(checkpoint=False)
 def collect_posting_notifications(notifications, subm_sets):
+    logger = get_logger()
+    notifications = []
     for subm_set in subm_sets:
-        #TODO
-        pass
-    return 0
+        for course_name in subm_set:
+            if course_name == '__name__':
+                continue
+            assignment = subm_set[course_name]['assignment']
+            for subm in subm_set[course_name]['submissions']:
+                if subm['status'] == GradingStatus.DONE_GRADING and subm['posted_at'] == None:
+                    notifications.append( (course_name, assignment['name']) )
+    return notifications
 
 def generate_awaitcompletion_name(subm_set, **kwargs):
     return 'await-compl-'+subm_set['__name__']

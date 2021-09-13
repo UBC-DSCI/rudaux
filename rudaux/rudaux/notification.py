@@ -70,59 +70,64 @@ class SendMail(Notification):
     def close(self):
         pass
 
-class SMTP(Notification):
-    def __init__(self, config):
-        super().__init__(config)
-        self.hostname = config.smtp.hostname
-        self.username = config.smtp.username
-        self.passwd = config.smtp.passwd
-        self.address = config.smtp.address
-        self.contact_info = config.smtp.contact_info
-        self.connected = False
-        self.message_template = '\r\n'.join(['From: '+self.address,
-                                  'To: {}',
-                                  'Subject: ['+config.name+'] Notifications',
-                                  '',
-                                  'Greetings Human {},',
-                                  '',
-                                  '{}'
-                                  '',
-                                  '',
-                                  'Beep boop,',
-                                  config.name + ' Bot'])
-
-    #TODO deal with smtplib exceptions
-    def connect(self):
-        self.server = smtplib.SMTP(self.hostname)
-        self.server.ehlo()
-        self.server.starttls()
-        self.server.login(self.username, self.passwd)
-        self.connected = True
-
-    #TODO implement saving messages to disk with timestamp if send fails
-    #TODO deal with smtplib exceptions
-    def notify(self, recipient, message):
-        if not self.connected:
-            raise NotifyError('Not connected to SMTP server; cannot send notifications')
-        self.server.sendmail(self.address,
-				self.contact_info[recipient]['address'],
-				self.message_template.format(self.contact_info[recipient]['address'], self.contact_info[recipient]['name'], message)
-                            )
-
-    #TODO deal with smtplib exceptions
-    def close(self):
-        if self.connected:
-            self.server.quit()
-            self.connected = False
-
 
 def validate_config(config):
     pass
 
 @task(checkpoint=False)
-def notify(config, notifications):
-    pass
-    #sm = SendMail(config)
-    #sm.notify(recipient, message)
+def notify(config, grading_notifications, posting_notifications):
+    sm = SendMail(config)
+    msg = '\r\n'.join(['You have grades to post!', '-------------------'] + [ f"{note[0]}: {note[1]}" for note in posting_notifications])
+    sm.submit(config.instructor_user, msg)
+    for grader in grading_notifications:
+        post_msg = '\r\n'.join(['You have assignments to grade!', '-------------------'] + [ f"{grd}: {grading_notifications[grader][grd]}" for grd in grading_notifications[grader]])
+        sm.submit(grader, msg)
+    sm.notify_all()
+
+
+#class SMTP(Notification):
+#    def __init__(self, config):
+#        super().__init__(config)
+#        self.hostname = config.smtp.hostname
+#        self.username = config.smtp.username
+#        self.passwd = config.smtp.passwd
+#        self.address = config.smtp.address
+#        self.contact_info = config.smtp.contact_info
+#        self.connected = False
+#        self.message_template = '\r\n'.join(['From: '+self.address,
+#                                  'To: {}',
+#                                  'Subject: ['+config.name+'] Notifications',
+#                                  '',
+#                                  'Greetings Human {},',
+#                                  '',
+#                                  '{}'
+#                                  '',
+#                                  '',
+#                                  'Beep boop,',
+#                                  config.name + ' Bot'])
+#
+#    #TODO deal with smtplib exceptions
+#    def connect(self):
+#        self.server = smtplib.SMTP(self.hostname)
+#        self.server.ehlo()
+#        self.server.starttls()
+#        self.server.login(self.username, self.passwd)
+#        self.connected = True
+#
+#    #TODO implement saving messages to disk with timestamp if send fails
+#    #TODO deal with smtplib exceptions
+#    def notify(self, recipient, message):
+#        if not self.connected:
+#            raise NotifyError('Not connected to SMTP server; cannot send notifications')
+#        self.server.sendmail(self.address,
+#				self.contact_info[recipient]['address'],
+#				self.message_template.format(self.contact_info[recipient]['address'], self.contact_info[recipient]['name'], message)
+#                            )
+#
+#    #TODO deal with smtplib exceptions
+#    def close(self):
+#        if self.connected:
+#            self.server.quit()
+#            self.connected = False
 
 
