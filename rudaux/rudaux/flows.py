@@ -77,7 +77,7 @@ def fail_handler_gen(config):
     def fail_handler(flow, state, ref_task_states):
         if state.is_failed():
             sm = ntfy.SendMail(config)
-            sm.notify(config.instructor_user, "Hi Instructor, \r\n Flow failed!\r\n Message:\r\n{state.message}")
+            sm.notify(config.instructor_user, f"Hi Instructor, \r\n Flow failed!\r\n Message:\r\n{state.message}")
     return fail_handler
 
 def register(args):
