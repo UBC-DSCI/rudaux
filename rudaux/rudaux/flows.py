@@ -73,6 +73,13 @@ def _build_flows(args):
             flows.append(flow)
     return flows
 
+def fail_handler_gen(config):
+    def fail_handler(obj, old_state, new_state):
+        if new_state.is_failed():
+            sm = ntfy.SendMail(config)
+            sm.notify(config.instructor_user, "Hi Instructor, \r\n Flow {new_state.message} failed!")
+    return fail_hander
+
 def register(args):
     print("Creating/running flows via server orchestration")
     try:
@@ -120,7 +127,7 @@ def build_snapshot_flows(config, args):
     flows = []
     for group in config.course_groups:
         for course_id in config.course_groups[group]:
-            with Flow(config.course_names[course_id]+"-snap") as flow:
+            with Flow(config.course_names[course_id]+"-snap", terminal_state_handler = fail_handler_gen(config)) as flow:
                 # Obtain course/student/assignment/etc info from the course API
                 course_info = api.get_course_info(config, course_id)
                 assignments = api.get_assignments(config, course_id, list(config.assignments[group].keys()))
@@ -144,7 +151,7 @@ def build_autoext_flows(config, args):
     flows = []
     for group in config.course_groups:
         for course_id in config.course_groups[group]:
-            with Flow(config.course_names[course_id]+"-autoext") as flow:
+            with Flow(config.course_names[course_id]+"-autoext", terminal_state_handler = fail_handler_gen(config)) as flow:
                 assignment_names = list(config.assignments[group].keys())
                 # Obtain course/student/assignment/etc info from the course API
                 course_info = api.get_course_info(config, course_id)
@@ -181,11 +188,11 @@ def build_grading_flows(config, args):
     try:
         check_output(['sudo', '-n', 'true'])
     except CalledProcessError as e:
-        raise signals.FAIL(f"You must have sudo permissions to run the flow. Note: DO NOT run this script using sudo; we just use sudo internally to create ZFS volumes. Command: {e.cmd}. returncode: {e.returncode}. output {e.output}. stdout {e.stdout}. stderr {e.stderr}")
+        assert False, f"You must have sudo permissions to run the flow. Command: {e.cmd}. returncode: {e.returncode}. output {e.output}. stdout {e.stdout}. stderr {e.stderr}"
 
     flows = []
     for group in config.course_groups:
-        with Flow(group+"-grading") as flow:
+        with Flow(group+"-grading", terminal_state_handler = fail_handler_gen(config)) as flow:
             # get the course ids in this group
             course_ids = config.course_groups[group]
             assignment_names = list(config.assignments[group].keys())
