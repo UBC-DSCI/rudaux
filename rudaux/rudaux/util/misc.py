@@ -11,5 +11,3 @@ def recursive_chown(path, uid):
           os.chown(os.path.join(root, di), uid, uid)
         for fi in files:
           os.chown(os.path.join(root, fi), uid, uid)
-
-
