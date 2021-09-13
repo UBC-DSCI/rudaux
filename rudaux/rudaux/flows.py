@@ -78,7 +78,7 @@ def fail_handler_gen(config):
         if new_state.is_failed():
             sm = ntfy.SendMail(config)
             sm.notify(config.instructor_user, "Hi Instructor, \r\n Flow {new_state.message} failed!")
-    return fail_hander
+    return fail_handler
 
 def register(args):
     print("Creating/running flows via server orchestration")
