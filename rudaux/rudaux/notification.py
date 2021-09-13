@@ -2,6 +2,7 @@ import smtplib
 import subprocess
 import time
 from prefect import task
+import pendulum as plm
 
 class NotifyError(Exception):
     def __init__(self, message):
@@ -76,13 +77,14 @@ def validate_config(config):
 
 @task(checkpoint=False)
 def notify(config, grading_notifications, posting_notifications):
-    sm = SendMail(config)
-    msg = '\r\n'.join(['You have grades to post!', '-------------------'] + [ f"{note[0]}: {note[1]}" for note in posting_notifications])
-    sm.submit(config.instructor_user, msg)
-    for grader in grading_notifications:
-        post_msg = '\r\n'.join(['You have assignments to grade!', '-------------------'] + [ f"{grd}: {grading_notifications[grader][grd]}" for grd in grading_notifications[grader]])
-        sm.submit(grader, msg)
-    sm.notify_all()
+    if plm.now().in_timezone(config.notify_timezone).format('dddd') in config.notify_days:
+        sm = SendMail(config)
+        msg = '\r\n'.join(['You have grades to post!', '-------------------'] + [ f"{note[0]}: {note[1]}" for note in posting_notifications])
+        sm.submit(config.instructor_user, msg)
+        for grader in grading_notifications:
+            post_msg = '\r\n'.join(['You have assignments to grade!', '-------------------'] + [ f"{grd}: {grading_notifications[grader][grd]}" for grd in grading_notifications[grader]])
+            sm.submit(grader, msg)
+        sm.notify_all()
 
 
 #class SMTP(Notification):

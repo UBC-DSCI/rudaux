@@ -542,7 +542,7 @@ def collect_grading_notifications(subm_sets):
     return notifications
 
 @task(checkpoint=False)
-def collect_posting_notifications(notifications, subm_sets):
+def collect_posting_notifications(subm_sets):
     logger = get_logger()
     notifications = []
     for subm_set in subm_sets:
