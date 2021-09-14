@@ -3,7 +3,7 @@ import paramiko as pmk
 from scp import SCPClient
 import pendulum as plm
 import re
-from traitlets import TraitType, Unicode, Callable
+from traitlets import TraitType, Unicode, Dict, Callable
 from .utilities import get_logger
 from .utilities.traits import SSHAddress
 import os
@@ -11,7 +11,7 @@ import tempfile
 
 class RemoteZFS(Storage):
 
-    ssh_info = SSHAddress().tag(config=True)
+    ssh = Dict(default_value={'host': '127.0.0.1', 'port' : 22, 'user' : 'root'}, help="The dict of SSH connection information: must specify ssh.host, ssh.port, ssh.user").tag(config=True)
     zfs_path = Unicode("/usr/sbin/zfs",
                         help="The path to the zfs executable").tag(config=True)
     tank_volume = Unicode("tank/home/dsci100",
@@ -22,10 +22,8 @@ class RemoteZFS(Storage):
                         help="A function that takes a student object and assignment object and returns a list of remote paths to collect").tag(config=True)
     tz = Unicode("UTC",
                         help="The timezone that the storage machine uses to unix timestamp its files").tag(config=True)
-    unix_user = Unicode("jupyter",
-                        help="The unix user that should own files written to the storage").tag(config=True)
-    unix_group = Unicode("users",
-                        help="The unix group that should own files written to the storage").tag(config=True)
+    unix = Dict(default_value={'user' : 'jupyter', 'group' : 'users'},
+                            help="The dict of unix permissions for files written to storage: must specify unix.user and unix.group").tag(config=True)
 
     def __init__(self):
         logger = get_logger()
