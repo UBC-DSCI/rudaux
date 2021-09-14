@@ -6,14 +6,26 @@ import re
 from traitlets import TraitType, Unicode, Callable
 from .utilities import get_logger
 from .utilities.traits import SSHAddress
+import os
+import tempfile
 
 class SSH_ZFS_Storage(Storage):
 
-    ssh_info = SSHAddress()
-    zfs_path = Unicode()
-    tank_volume = Unicode()
-    get_student_folder = Callable()
-    local_uid = Unicode()
+    ssh_info = SSHAddress().tag(config=True)
+    zfs_path = Unicode("/usr/sbin/zfs",
+                        help="The path to the zfs executable").tag(config=True)
+    tank_volume = Unicode("tank/home/dsci100",
+                        help="The ZFS volume where student folders are stored").tag(config=True)
+    get_student_folder = Callable(lambda stu : os.path.join("/tank/home/dsci100/", stu['id']),
+                        help="A function that takes a student object and returns their work folder").tag(config=True)
+    get_collectable_paths = Callable(lambda asgn : [f"{asgn['name']}/{asgn['name']}.ipynb"],
+                        help="A function that takes a student object and assignment object and returns a list of remote paths to collect").tag(config=True)
+    tz = Unicode("UTC",
+                        help="The timezone that the storage machine uses to unix timestamp its files").tag(config=True)
+    unix_user = Unicode("jupyter",
+                        help="The unix user that should own files written to the storage").tag(config=True)
+    unix_group = Unicode("users",
+                        help="The unix group that should own files written to the storage").tag(config=True)
 
     def __init__(self):
         logger = get_logger()
@@ -44,9 +56,11 @@ class SSH_ZFS_Storage(Storage):
         # execute the snapshot
         # if no specific student, snap the whole volume
         if student is None:
-            stdout, stderr = self._command(f"{zfs_path} snapshot -r {tank_volume}@{snapshot}")
+            cmd = f"{zfs_path} snapshot -r {tank_volume}@{snapshot}"
         else:
-            stdout, stderr = self._command(f"{zfs_path} snapshot -r {self.get_student_folder(student).strip('/')}@{snapshot}")
+            cmd = f"{zfs_path} snapshot -r {self.get_student_folder(student).strip('/')}@{snapshot}"
+
+        stdout, stderr = self._command(cmd)
 
         # verify the snapshot
         snaps = self.get_snapshots()
@@ -54,16 +68,42 @@ class SSH_ZFS_Storage(Storage):
             sig = signals.FAIL(f"Failed to take snapshot {snap_name}. Existing snaps: {snaps}")
             raise sig
 
-    def read(self, student, remote_relative_path, local_relative_path, snapshot=None):
+    def read(self, student, assignment, snapshot=None):
+        base_path = self.get_student_folder(student)
         if snapshot:
-            remote_path = os.path.join(self.get_student_folder(student), '.zfs/snapshot/{snapshot}', remote_relative_path)
-        else:
-            remote_path = os.path.join(self.get_student_folder(student), remote_relative_path)
+            base_path = os.path.join(base_path, f".zfs/snapshot/{snapshot}")
+        remote_relative_paths = self.get_collectable_paths(assignment)
 
-        return datetime
-        raise NotImplementedError
+        results = {}
+        for rel in remote_relative_paths:
+            # create a temporary randomized filename
+            tmp_fn = next(tempfile._get_candidate_names())
+            # construct the remote path
+            remote_path = os.path.join(base_path, rel)
+            # scp get to the tmp filename, preserve modified/created dates
+            self.scp.get(remote_path, tmp_fn, preserve_times=True)
+            # get the unix timestamp of modification
+            modified_datetime = plm.from_timestamp(os.path.getmtime(tmp_fn), tz=self.storage_tz)
+            # get the file contents
+            tmp_f = open(tmp_fn, 'r')
+            lines = tmp_f.readlines()
+            tmp_f.close()
+            # append to the results object
+            results[rel] = {'data' : lines, 'datetime' : modified_datetime}
+            # delete the temporary file
+            os.remove(tmp_fn)
 
-    def write(self, student, local_relative_path, remote_relative_path):
+        return results
+
+    def write(self, student, lines, remote_relative_path):
+        remote_path = os.path.join(self.get_student_folder(student), remote_relative_path)
+        # make directories required to put the file if needed
+        #TODO
+        # put the file
+        # TODO
+        # change ownership to unix_user, unix_group
+        # TODO
+
         self.scp.put(local_relative_path, os.path.join(self.get_student_folder(student), remote_relative_path))
         stdout, stderr = self._command(f"ls {os.path.join(self.get_student_folder(student), remote_relative_path)}", status_fail=False)
         if "No such file" in stdout:
