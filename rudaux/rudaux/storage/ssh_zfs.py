@@ -44,7 +44,7 @@ class SSH_ZFS_Storage(Storage):
         # execute the snapshot
         # if no specific student, snap the whole volume
         if student is None:
-            stdout, stderr = self._command(f"{zfs_path} snapshot -r {tank_volume}@{snapshot}") 
+            stdout, stderr = self._command(f"{zfs_path} snapshot -r {tank_volume}@{snapshot}")
         else:
             stdout, stderr = self._command(f"{zfs_path} snapshot -r {self.get_student_folder(student).strip('/')}@{snapshot}")
 
@@ -54,9 +54,12 @@ class SSH_ZFS_Storage(Storage):
             sig = signals.FAIL(f"Failed to take snapshot {snap_name}. Existing snaps: {snaps}")
             raise sig
 
-    def read(self, snapshot, student, remote_relative_path, local_relative_path):
-        remote_path = os.path.join(self.get_student_folder(student), '.zfs/snapshot/{snapshot}', remote_relative_path)
-        
+    def read(self, student, remote_relative_path, local_relative_path, snapshot=None):
+        if snapshot:
+            remote_path = os.path.join(self.get_student_folder(student), '.zfs/snapshot/{snapshot}', remote_relative_path)
+        else:
+            remote_path = os.path.join(self.get_student_folder(student), remote_relative_path)
+
         return datetime
         raise NotImplementedError
 
@@ -64,7 +67,7 @@ class SSH_ZFS_Storage(Storage):
         self.scp.put(local_relative_path, os.path.join(self.get_student_folder(student), remote_relative_path))
         stdout, stderr = self._command(f"ls {os.path.join(self.get_student_folder(student), remote_relative_path)}", status_fail=False)
         if "No such file" in stdout:
-            sig = signals.FAIL(f"Failed to write file to storage: {remote_relative_path}") 
+            sig = signals.FAIL(f"Failed to write file to storage: {remote_relative_path}")
             raise sig
 
     def _command(self, cmd, status_fail=True):
@@ -78,7 +81,7 @@ class SSH_ZFS_Storage(Storage):
         err_status = stderr.channel.recv_exit_status()
 
         logger.info(f"Command exit codes: out = {out_status}  err = {err_status}")
- 
+
         # get output
         stdout_lines = []
         for line in stdout:
@@ -109,5 +112,5 @@ class SSH_ZFS_Storage(Storage):
                 volume, remaining = line.split('@', 1)
                 name, remaining = remaining.split(' ', 1)
                 datetime = plm.from_format(remaining.strip(), 'ddd MMM D H:mm YYYY')
-                snaps.append( {'volume' : volume, 'name' : name, 'datetime':datetime} ) 
+                snaps.append( {'volume' : volume, 'name' : name, 'datetime':datetime} )
         return snaps
