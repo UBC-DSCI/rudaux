@@ -9,7 +9,7 @@ from .utilities.traits import SSHAddress
 import os
 import tempfile
 
-class SSH_ZFS_Storage(Storage):
+class RemoteZFS(Storage):
 
     ssh_info = SSHAddress().tag(config=True)
     zfs_path = Unicode("/usr/sbin/zfs",
