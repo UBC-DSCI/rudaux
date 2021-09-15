@@ -9,6 +9,11 @@ from .utilities.traits import SSHAddress
 import os
 import tempfile
 
+
+# TODO write tempfiles to tmp/
+# use tempfile.mkstemp()
+
+
 class RemoteZFS(Storage):
 
     ssh = Dict(default_value={'host': '127.0.0.1', 'port' : 22, 'user' : 'root'}, help="The dict of SSH connection information: must specify ssh.host, ssh.port, ssh.user").tag(config=True)
