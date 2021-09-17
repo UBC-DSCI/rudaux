@@ -8,29 +8,39 @@ from .utilities import get_logger
 from .lms import LMS
 
 class Canvas(LMS):
-    def __init__(self):
-        self.type_map = {'TA' : 'TaEnrollment',
-                    'Instructor' : 'TeacherEnrollment',
-                    'Student' : 'StudentEnrollment',
 
+    info = Dict(help = "The dictionary of course info. Each key is a human-readable "+
+                       "course name (e.g. dsci100-004), and values are dicts with "+
+                       "'domain','id', and 'token' attributes for base URL, course Canvas ID, and API token")
+
+    def __init__(self, course_name):
+        self.course_name = course_name
 
     def get_course_info(self):
-        info = _canvas_get(config, course_id, '')[0]
+        canvas_id = self.info[self.course_name]['id']
+
+        # TODO use self.info throughout the below code, starting with rewriting _canvas_get
+
+        course_info = _canvas_get(course_id, '')[0]
         processed_info = {
-                 "id" : str(info['id']),
-                 "name" : info['name'],
-                 "code" : info['course_code'],
-                 "start_at" : None if info['start_at'] is None else plm.parse(info['start_at']),
-                 "end_at" : None if info['end_at'] is None else plm.parse(info['end_at']),
-                 "time_zone" : info['time_zone']
+                 "id" : str(course_info['id']),
+                 "name" : course_info['name'],
+                 "code" : course_info['course_code'],
+                 "start_at" : None if course_info['start_at'] is None else plm.parse(course_info['start_at']),
+                 "end_at" : None if course_info['end_at'] is None else plm.parse(course_info['end_at']),
+                 "time_zone" : course_info['time_zone']
         }
         logger = get_logger()
         logger.info(f"Retrieved course info for {config.course_names[course_id]}")
         return processed_info
 
     def get_people(self, enrollment_type):
+        type_map = {'ta' : 'TaEnrollment',
+                    'instructor' : 'TeacherEnrollment',
+                    'student' : 'StudentEnrollment'
+                    }
         people = _canvas_get(config, course_id, 'enrollments')
-        ppl_typ = [p for p in people if p['type'] == self.type_map[enrollment_type]]
+        ppl_typ = [p for p in people if p['type'] == type_map[enrollment_type]]
         ppl = [ { 'id' : str(p['user']['id']),
                    'name' : p['user']['name'],
                    'sortable_name' : p['user']['sortable_name'],
@@ -136,16 +146,16 @@ class Canvas(LMS):
         group_url = urllib.parse.urljoin(config.canvas_domain, 'api/v1/groups/')
         base_url = urllib.parse.urljoin(config.canvas_domain, 'api/v1/courses/'+course_id+'/')
         token = config.course_tokens[course_id]
-    
+
         if use_group_base:
             url = urllib.parse.urljoin(group_url, path_suffix)
         else:
             url = urllib.parse.urljoin(base_url, path_suffix)
-    
-    
+
+
         logger = get_logger()
         logger.info(f"GET request to URL: {url}")
-    
+
         resp = None
         resp_items = []
         #see https://community.canvaslms.com/t5/Question-Forum/Why-is-the-Assignment-due-at-value-that-of-the-last-override/m-p/209593
@@ -161,20 +171,20 @@ class Canvas(LMS):
                 json = {'per_page' : 100},
                 params = {'override_assignment_dates' : False}
             )
-    
+
             if resp.status_code < 200 or resp.status_code > 299:
                 sig = signals.FAIL(f"failed GET response status code {resp.status_code} for URL {url}\nText:{resp.text}")
                 sig.url = url
                 sig.resp = resp
                 raise sig
-    
+
             json_data = resp.json()
             if isinstance(json_data, list):
                 resp_items.extend(resp.json())
             else:
                 resp_items.append(resp.json())
         return resp_items
-    
+
     def _canvas_upload(self, config, course_id, path_suffix, json_data, typ):
         base_url = urllib.parse.urljoin(config.canvas_domain, 'api/v1/courses/'+course_id+'/')
         token = config.course_tokens[course_id]
@@ -182,10 +192,10 @@ class Canvas(LMS):
                  'post': requests.post,
                  'delete': requests.delete}
         url = urllib.parse.urljoin(base_url, path_suffix)
-    
+
         logger = get_logger()
         logger.info(f"{typ.upper()} request to URL: {url}")
-    
+
         resp = rfuncs[typ](
             url = url,
             headers = {
@@ -200,13 +210,13 @@ class Canvas(LMS):
             sig.resp = resp
             raise sig
         return
-    
+
     def _canvas_put(self, config, course_id, path_suffix, json_data):
         self._canvas_upload(config, course_id, path_suffix, json_data, 'put')
-    
+
     def _canvas_post(self, config, course_id, path_suffix, json_data):
         self._canvas_upload(config, course_id, path_suffix, json_data, 'post')
-    
+
     def _canvas_delete(self, config, course_id, path_suffix):
         self._canvas_upload(config, course_id, path_suffix, None, 'delete')
 
@@ -232,18 +242,18 @@ class Canvas(LMS):
                 sig.override = override
                 sig.missing_key = rk
                 raise sig
-    
+
         #convert student ids to integers
         override['student_ids'] = list(map(int, override['student_ids']))
-    
+
         #convert dates to canvas date time strings in the course local timezone
         for dk in ['unlock_at', 'due_at', 'lock_at']:
             override[dk] = str(override[dk])
-    
+
         #post the override
         post_json = {'assignment_override' : override}
         _canvas_post(config, course_id, 'assignments/'+assignment['id']+'/overrides', post_json)
-    
+
         #check that it posted properly
         overs = _canvas_get_overrides(config, course_id, assignment)
         n_match = len([over for over in overs if over['title'] == override['title']])
@@ -253,10 +263,10 @@ class Canvas(LMS):
             sig.attempted_override = override
             sig.overrides = overs
             raise sig
-    
+
     def _remove_override(config, course_id, assignment, override):
         _canvas_delete(config, course_id, 'assignments/'+assignment['id']+'/overrides/'+override['id'])
-    
+
         #check that it was removed properly
         overs = _canvas_get_overrides(config, course_id, assignment)
         n_match = len([over for over in overs if over['id'] == override['id']])

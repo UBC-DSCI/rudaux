@@ -26,3 +26,4 @@ class SSHAddress(TraitType):
         ip, port = remaining.split(':', 1)
         port = int(port)
         return {'host' : user, 'port' : ip, 'user' : port}
+
