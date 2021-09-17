@@ -601,7 +601,7 @@ def generate_retfeedback_name(subm_set, **kwargs):
     return 'retrn-fdbk-'+subm_set['__name__']
 
 @task(checkpoint=False,task_run_name=generate_retfeedback_name)
-def return_feedback(config, pastdue_frac, subm):
+def return_feedback(config, pastdue_frac, subm_set):
     logger = get_logger()
     # skip if pastdue frac not high enough or we haven't reached the earlist return date
     if pastdue_frac < config.return_solution_threshold:
