@@ -1,5 +1,5 @@
 from enum import IntEnum
-import os, shutil, pwd
+import os, shutil
 import json
 from nbgrader.api import Gradebook, MissingEntry
 #from .course_api import GradeNotUploadedError
@@ -292,7 +292,7 @@ def assign_graders(config, subm_set, graders):
                 subm['grader'] = min_grader
 
             # fill in the submission details that depend on a grader
-            subm['collected_assignment_folder'] = os.path.join(grader['submissions_folder'], config.grading_student_folder_prefix+student['id'])
+            subm['collected_assignment_folder'] = os.path.join(subm['grader']['submissions_folder'], config.grading_student_folder_prefix+student['id'])
             subm['collected_assignment_path'] = os.path.join(subm['grader']['submissions_folder'],
                                                      config.grading_student_folder_prefix+student['id'],
                                                      assignment['name'], assignment['name'] + '.ipynb')
@@ -347,7 +347,7 @@ def return_solutions(config, pastdue_frac, subm_set):
                     if os.path.exists(subm['student_folder']):
                         try:
                             shutil.copy(subm['grader']['soln_path'], subm['soln_path'])
-                            os.chown(subm['soln_path'], subm['grader']['unix_uid'], subm['grader']['unix_uid'])
+                            os.chown(subm['soln_path'], subm['grader']['unix_user'], subm['grader']['unix_group'])
                         except Exception as e:
                             raise signals.FAIL(str(e))
                     else:
@@ -385,9 +385,12 @@ def collect_submissions(config, subm_set):
                 else:
                     logger.info(f"Submission {subm['name']} not yet collected. Collecting...")
                     try:
+                        logger.info(f"Making dir {os.path.dirname(subm['collected_assignment_path'])}")
                         os.makedirs(os.path.dirname(subm['collected_assignment_path']), exist_ok=True)
+                        logger.info(f"Copying {subm['snapped_assignment_path']} to {subm['collected_assignment_path']}")
                         shutil.copy(subm['snapped_assignment_path'], subm['collected_assignment_path'])
-                        recursive_chown(subm['collected_assignment_folder'], subm['grader']['unix_uid'])
+                        logger.info(f"Recursive chowning {subm['collected_assignment_folder']} to {subm['grader']['unix_user']}")
+                        recursive_chown(subm['collected_assignment_folder'], subm['grader']['unix_user'], subm['grader']['unix_group'])
                         subm['status'] = GradingStatus.COLLECTED
                     except Exception as e:
                         raise signals.FAIL(str(e))
@@ -624,7 +627,7 @@ def return_feedback(config, pastdue_frac, subm_set):
                     if os.path.exists(subm['student_folder']):
                         try:
                             shutil.copy(subm['generated_feedback_path'], subm['fdbk_path'])
-                            os.chown(subm['fdbk_path'], subm['grader']['unix_uid'], subm['grader']['unix_uid'])
+                            os.chown(subm['fdbk_path'], subm['grader']['unix_user'], subm['grader']['unix_group'])
                         except Exception as e:
                             raise signals.FAIL(str(e))
                     else:

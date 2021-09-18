@@ -1,5 +1,4 @@
 import pendulum as plm
-import pwd
 import getpass
 import prefect
 from prefect import task
@@ -82,7 +81,8 @@ def build_grading_team(config, course_group, subm_set):
         grader['user'] = user
         grader['assignment_name'] = asgn_name
         grader['name'] = _grader_account_name(course_group,asgn_name,user)
-        grader['unix_uid'] = pwd.getpwnam(config.jupyterhub_user).pw_uid
+        grader['unix_user'] = config.jupyterhub_user
+        grader['unix_group'] = config.jupyterhub_group
         grader['unix_quota'] = config.user_quota
         grader['folder'] = os.path.join(config.user_root, grader['name']).rstrip('/')
         grader['local_source_path'] = os.path.join('source', asgn_name, asgn_name+'.ipynb')
@@ -144,7 +144,7 @@ def initialize_volumes(config, graders):
         aname = grader['assignment_name']
 
         # reassign ownership to jupyter user
-        recursive_chown(grader['folder'], grader['unix_uid'])
+        recursive_chown(grader['folder'], grader['unix_user'], grader['unix_group'])
 
         # if the assignment hasn't been generated yet, generate it
         logger.info(f"Checking if assignment {aname} has been generated for grader {grader['name']}")
@@ -171,7 +171,7 @@ def initialize_volumes(config, graders):
             logger.info(f"Solution for {aname} already generated")
 
         # transfer ownership to the jupyterhub user
-        recursive_chown(grader['folder'], grader['unix_uid'])
+        recursive_chown(grader['folder'], grader['unix_user'], grader['unix_group'])
 
     return graders
 
