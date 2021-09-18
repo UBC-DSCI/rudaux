@@ -331,3 +331,49 @@ def status(args):
     flowruns = result.get("data", {}).get("flow_run", None)
     for flowrun in flowruns:
         print(FlowRunView.from_flow_run_id(flowrun['id']))
+
+def print_list(args):
+    course = rudaux.Course(args.directory)
+    printouts = {'students' : 'Students', 'groups' : 'Groups', 'instructors' : 'Instructors', 'tas' : 'Teaching Assistants', 'assignments' : 'Assignments'}
+    none_selected = not any([vars(args)[po] for po in printouts])
+    for po in printouts:
+        if vars(args)[po] or none_selected:
+            title = printouts[po]
+            if len(course.__dict__[po]) > 0:
+                tbl = [type(course.__dict__[po][0]).table_headings()]
+                for obj in course.__dict__[po]:
+                    tbl.append(obj.table_items())
+            else:
+                tbl = []
+            print(ttbl.AsciiTable(tbl, title).table)
+
+def list(args):
+    print("Loading the rudaux_config.py file...")
+    if not os.path.exists(os.path.join(args.directory, 'rudaux_config.py')):
+            sys.exit(
+              f"""
+              There is no rudaux_config.py in the directory {args.directory},
+              and no course directory was specified on the command line. Please
+              specify a directory with a valid rudaux_config.py file.
+              """
+            )
+    config = Config()
+    config.merge(PyFileConfigLoader('rudaux_config.py', path=args.directory).load_config())
+
+    # validate the config file
+    print("Validating the config file...")
+    api.validate_config(config)
+    asgns = []
+    studs = []
+    for group in config.course_groups:
+        for course_id in config.course_groups[group]:
+            course_name = config.course_names[course_id]
+            asgns.extend([(course_name, a) for a in api._canvas_get(config, course_id, 'assignments')])
+            studs.extend([(course_name, s) for s in api._canvas_get_people_by_type(config, course_id, 'StudentEnrollment')])
+    print('ASSIGNMENTS')
+    print('-----------')
+    print('\n'.join([f"{c[0]} : {c[1]['name']} {c[1]['id']}" for c in asgns]))
+
+    print('STUDENTS')
+    print('--------')
+    print('\n'.join([f"{c[0]} : {c[1]['name']} {c[1]['id']}" for c in studs]))
