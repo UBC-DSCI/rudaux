@@ -5,6 +5,7 @@ from prefect.engine import signals
 from prefect.schedules import IntervalSchedule
 from prefect.executors import LocalExecutor, DaskExecutor, LocalDaskExecutor
 from prefect.backend import FlowView, FlowRunView
+from prefect.tasks.control_flow.filter import FilterTask
 from traitlets.config import Config
 from traitlets.config.loader import PyFileConfigLoader
 import pendulum as plm
@@ -19,6 +20,11 @@ from . import submission as subm
 from . import course_api as api
 from . import grader as grd
 from . import notification as ntfy
+
+
+filter_skip = FilterTask(
+    filter_func=lambda x: not isinstance(x, (signals.SKIP, type(None)))
+)
 
 __PROJECT_NAME = "rudaux"
 
@@ -241,7 +247,7 @@ def build_grading_flows(config, args):
             submission_sets = subm.check_manual_grading.map(unmapped(config), submission_sets)
 
             ## Collect grading notifications
-            grading_notifications = subm.collect_grading_notifications(submission_sets)
+            grading_notifications = subm.collect_grading_notifications.map(submission_sets)
 
             ## Skip assignments with incomplete manual grading
             submission_sets = subm.await_completion.map(submission_sets)
@@ -254,9 +260,11 @@ def build_grading_flows(config, args):
             submission_sets = subm.upload_grades.map(unmapped(config), submission_sets)
 
             ## collect posting notifications
-            posting_notifications = subm.collect_posting_notifications(submission_sets)
+            posting_notifications = subm.collect_posting_notifications.map(submission_sets)
 
             ## send notifications
+            grading_notifications = filter_skip(grading_notifications)
+            posting_notifications = filter_skip(posting_notifications)
             ntfy.notify(config, grading_notifications, posting_notifications)
 
         flows.append(flow)

@@ -3,6 +3,7 @@ import subprocess
 import time
 from prefect import task
 import pendulum as plm
+from .utilities import get_logger
 
 class NotifyError(Exception):
     def __init__(self, message):
@@ -77,15 +78,24 @@ def validate_config(config):
 
 @task(checkpoint=False)
 def notify(config, grading_notifications, posting_notifications):
+    logger = get_logger()
     if plm.now().in_timezone(config.notify_timezone).format('dddd') in config.notify_days:
+        logger.info(f"Today ({plm.now().in_timezone(config.notify_timezone).format('dddd')}) is a notification day")
         sm = SendMail(config)
-        msg = '\r\n'.join(['You have grades to post!', '-------------------'] + [ f"{note[0]}: {note[1]}" for note in posting_notifications])
-        sm.submit(config.instructor_user, msg)
-        for grader in grading_notifications:
-            post_msg = '\r\n'.join(['You have assignments to grade!', '-------------------'] + [ f"{grd}: {grading_notifications[grader][grd]}" for grd in grading_notifications[grader]])
-            sm.submit(grader, msg)
+        flat_posting_notifications = list(set([item for sublist in posting_notifications for item in sublist]))
+        if len(flat_posting_notifications)>0:
+            logger.info(f"There are grades to post. Notifying instructor user ({config.instructor_user})")
+            msg = '\r\n'.join(['You have grades to post!', '-------------------'] + [ f"{note[0]}: {note[1]}" for note in flat_posting_notifications])
+            sm.submit(config.instructor_user, msg)
+        for notification_set in grading_notifications:
+            for grader in notification_set:
+                logger.info(f"TA user {grader} has {notification_set[grader][grd]['count']} left to grade for assignment {notification_set[grader][grd]['assignment']} in account {grd}.")
+                msg = '\r\n'.join([ f"Grading Assignment---" +
+                                    f"Account: {grd} -- "+
+                                    f"Assignment: {notification_set[grader][grd]['assignment']} -- "+
+                                    f"# Remaining to Grade: {notification_set[grader][grd]['count']}" for grd in notification_set[grader]])
+                sm.submit(grader, msg)
         sm.notify_all()
-
 
 #class SMTP(Notification):
 #    def __init__(self, config):

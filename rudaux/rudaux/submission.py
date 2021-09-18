@@ -251,14 +251,10 @@ def get_latereg_overrides(extension_days, subm_set):
                                  'unlock_at' : assignment['unlock_at'],
                                  'title' : student['name']+'-'+assignment['name']+'-latereg'}
                 else:
-                    #logger.info("Current extension meets or exceeds the late registration extension.")
                     continue
-                    #raise signals.SKIP("Current due date for student {student['name']}, assignment {assignment['name']} after late registration date; no override modifications required.")
             else:
                 continue
-                #raise signals.SKIP("Assignment {assignment['name']} unlocks after student {student['name']} registration date; no extension required.")
             overrides.append((assignment, to_create, to_remove))
-            #return (assignment, to_create, to_remove)
     return overrides
 
 def generate_assign_graders_name(subm_set, graders, **kwargs):
@@ -507,38 +503,43 @@ def check_manual_grading(config, subm_set):
                     subm['status'] = GradingStatus.DONE_GRADING
     return subm_set
 
-@task(checkpoint=False)
-def collect_grading_notifications(subm_sets):
+def generate_collectgradingntfy_name(notifications, subm_set, **kwargs):
+    return 'collect-grding-ntfy-'+subm_set['__name__']
+
+@task(checkpoint=False,task_run_name=generate_collectgradingntfy_name)
+def collect_grading_notifications(subm_set):
     logger = get_logger()
     notifications = {}
-    for subm_set in subm_sets:
-        for course_name in subm_set:
-            if course_name == '__name__':
-                continue
-            assignment = subm_set[course_name]['assignment']
-            for subm in subm_set[course_name]['submissions']:
-                if subm['status'] == GradingStatus.NEEDS_MANUAL_GRADE:
-                    guser = subm['grader']['user']
-                    gnm = subm['grader']['name']
-                    if guser not in notifications:
-                        notifications[guser] = {}
-                    if gnm not in notifications[guser]:
-                        notifications[guser][gnm] = 0
-                    notifications[guser][gnm] += 1
+    for course_name in subm_set:
+        if course_name == '__name__':
+            continue
+        assignment = subm_set[course_name]['assignment']
+        for subm in subm_set[course_name]['submissions']:
+            if subm['status'] == GradingStatus.NEEDS_MANUAL_GRADE:
+                guser = subm['grader']['user']
+                gnm = subm['grader']['name']
+                anm = assignment['name']
+                if guser not in notifications:
+                    notifications[guser] = {}
+                if gnm not in notifications[guser]:
+                    notifications[guser][gnm] = {'assignment' : anm, 'count' : 0}
+                notifications[guser][gnm]['count'] += 1
     return notifications
 
-@task(checkpoint=False)
-def collect_posting_notifications(subm_sets):
+def generate_collectpostingntfy_name(notifications, subm_set, **kwargs):
+    return 'collect-psting-ntfy-'+subm_set['__name__']
+
+@task(checkpoint=False,task_run_name=generate_collectpostingntfy_name)
+def collect_posting_notifications(subm_set):
     logger = get_logger()
     notifications = []
-    for subm_set in subm_sets:
-        for course_name in subm_set:
-            if course_name == '__name__':
-                continue
-            assignment = subm_set[course_name]['assignment']
-            for subm in subm_set[course_name]['submissions']:
-                if subm['status'] == GradingStatus.DONE_GRADING and subm['posted_at'] == None:
-                    notifications.append( (course_name, assignment['name']) )
+    for course_name in subm_set:
+        if course_name == '__name__':
+            continue
+        assignment = subm_set[course_name]['assignment']
+        for subm in subm_set[course_name]['submissions']:
+            if subm['status'] == GradingStatus.DONE_GRADING and subm['posted_at'] == None:
+                notifications.append( (course_name, assignment['name']) )
     return notifications
 
 def generate_awaitcompletion_name(subm_set, **kwargs):
