@@ -345,11 +345,8 @@ def return_solutions(config, pastdue_frac, subm_set):
                 if not os.path.exists(subm['soln_path']):
                     logger.info(f"Returning solution submission {subm['name']}")
                     if os.path.exists(subm['student_folder']):
-                        try:
-                            shutil.copy(subm['grader']['soln_path'], subm['soln_path'])
-                            os.chown(subm['soln_path'], subm['grader']['unix_user'], subm['grader']['unix_group'])
-                        except Exception as e:
-                            raise signals.FAIL(str(e))
+                        shutil.copy(subm['grader']['soln_path'], subm['soln_path'])
+                        os.chown(subm['soln_path'], subm['grader']['unix_user'], subm['grader']['unix_group'])
                     else:
                         logger.warning(f"Warning: student folder {subm['student_folder']} doesnt exist. Skipping solution return.")
             else:
@@ -384,19 +381,11 @@ def collect_submissions(config, subm_set):
                         put_grade(config, course_info['id'], student, assignment, subm['score'])
                 else:
                     logger.info(f"Submission {subm['name']} not yet collected. Collecting...")
-                    try:
-                        logger.info(f"Making dir {os.path.dirname(subm['collected_assignment_path'])}")
-                        os.makedirs(os.path.dirname(subm['collected_assignment_path']), exist_ok=True)
-                        logger.info(f"Copying {subm['snapped_assignment_path']} to {subm['collected_assignment_path']}")
-                        shutil.copy(subm['snapped_assignment_path'], subm['collected_assignment_path'])
-                        logger.info(f"Recursive chowning {subm['collected_assignment_folder']} to {subm['grader']['unix_user']}")
-                        recursive_chown(subm['collected_assignment_folder'], subm['grader']['unix_user'], subm['grader']['unix_group'])
-                        subm['status'] = GradingStatus.COLLECTED
-                    except Exception as e:
-                        raise signals.FAIL(str(e))
-                    #logger.info("Submission collected.")
+                    os.makedirs(os.path.dirname(subm['collected_assignment_path']), exist_ok=True)
+                    shutil.copy(subm['snapped_assignment_path'], subm['collected_assignment_path'])
+                    recursive_chown(subm['collected_assignment_folder'], subm['grader']['unix_user'], subm['grader']['unix_group'])
+                    subm['status'] = GradingStatus.COLLECTED
             else:
-                #logger.info("Submission already collected.")
                 subm['status'] = GradingStatus.COLLECTED
     return subm_set
 
@@ -420,12 +409,9 @@ def clean_submissions(subm_set):
                 #need to check for duplicate cell ids, see
                 #https://github.com/jupyter/nbgrader/issues/1083
                 #open the student's notebook
-                try:
-                    f = open(subm['collected_assignment_path'], 'r')
-                    nb = json.load(f)
-                    f.close()
-                except Exception as e:
-                    raise signals.FAIL(str(e))
+                f = open(subm['collected_assignment_path'], 'r')
+                nb = json.load(f)
+                f.close()
                 #go through and delete the nbgrader metadata from any duplicated cells
                 cell_ids = set()
                 for cell in nb['cells']:
@@ -441,12 +427,9 @@ def clean_submissions(subm_set):
                     cell_ids.add(cell_id)
 
                 #write the sanitized notebook back to the submitted folder
-                try:
-                    f = open(subm['collected_assignment_path'], 'w')
-                    json.dump(nb, f)
-                    f.close()
-                except Exception as e:
-                    raise signals.FAIL(str(e))
+                f = open(subm['collected_assignment_path'], 'w')
+                json.dump(nb, f)
+                f.close()
 
                 subm['status'] = GradingStatus.PREPARED
     return subm_set
@@ -625,11 +608,8 @@ def return_feedback(config, pastdue_frac, subm_set):
                 if not os.path.exists(subm['fdbk_path']):
                     logger.info(f"Returning feedback for submission {subm['name']}")
                     if os.path.exists(subm['student_folder']):
-                        try:
-                            shutil.copy(subm['generated_feedback_path'], subm['fdbk_path'])
-                            os.chown(subm['fdbk_path'], subm['grader']['unix_user'], subm['grader']['unix_group'])
-                        except Exception as e:
-                            raise signals.FAIL(str(e))
+                        shutil.copy(subm['generated_feedback_path'], subm['fdbk_path'])
+                        os.chown(subm['fdbk_path'], subm['grader']['unix_user'], subm['grader']['unix_group'])
                     else:
                         logger.warning(f"Warning: student folder {subm['student_folder']} doesnt exist. Skipping solution return.")
             else:
