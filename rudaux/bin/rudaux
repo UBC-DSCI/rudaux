@@ -96,7 +96,7 @@ status_parser.set_defaults(func=flows.status)
 #           List
 #------------------------------------
 list_parser = subparsers.add_parser('list', help='Print a list of assignments, students, etc')
-list_parser.set_defaults(func=flows.list)
+list_parser.set_defaults(func=flows.list_course_info)
 list_parser.add_argument(
   '--dir',
   dest='directory',

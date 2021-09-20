@@ -347,7 +347,7 @@ def print_list(args):
                 tbl = []
             print(ttbl.AsciiTable(tbl, title).table)
 
-def list(args):
+def list_course_info(args):
     print("Loading the rudaux_config.py file...")
     if not os.path.exists(os.path.join(args.directory, 'rudaux_config.py')):
             sys.exit(
