@@ -365,15 +365,31 @@ def list_course_info(args):
     api.validate_config(config)
     asgns = []
     studs = []
+    tas = []
+    insts = []
     for group in config.course_groups:
         for course_id in config.course_groups[group]:
             course_name = config.course_names[course_id]
             asgns.extend([(course_name, a) for a in api._canvas_get(config, course_id, 'assignments')])
             studs.extend([(course_name, s) for s in api._canvas_get_people_by_type(config, course_id, 'StudentEnrollment')])
-    print('ASSIGNMENTS')
-    print('-----------')
+            tas.extend([(course_name, s) for s in api._canvas_get_people_by_type(config, course_id, 'TaEnrollment')])
+            insts.extend([(course_name, s) for s in api._canvas_get_people_by_type(config, course_id, 'TeacherEnrollment')])
+    print()
+    print('Assignments')
+    print()
     print('\n'.join([f"{c[0]} : {c[1]['name']} {c[1]['id']}" for c in asgns]))
 
-    print('STUDENTS')
-    print('--------')
-    print('\n'.join([f"{c[0]} : {c[1]['name']} {c[1]['id']}" for c in studs]))
+    print()
+    print('Students')
+    print()
+    print('\n'.join([f"{c[0]} : {c[1]['name']} {c[1]['id']} {c[1]['reg_date']} {c[1]['status']}" for c in studs]))
+
+    print()
+    print('Teaching Assistants')
+    print()
+    print('\n'.join([f"{c[0]} : {c[1]['name']} {c[1]['id']} {c[1]['reg_date']} {c[1]['status']}" for c in tas]))
+
+    print()
+    print('Instructors')
+    print()
+    print('\n'.join([f"{c[0]} : {c[1]['name']} {c[1]['id']} {c[1]['reg_date']} {c[1]['status']}" for c in insts]))
