@@ -64,7 +64,6 @@ def build_grading_team(config, course_group, subm_set):
 
     asgn_name = subm_set['__name__']
 
-    logger.info(f"Initializing grading team for assignment {asgn_name}")
     # get list of users from dictauth
     Args = namedtuple('Args', 'directory')
     args = Args(directory = config.jupyterhub_config_dir)
@@ -102,24 +101,18 @@ def build_grading_team(config, course_group, subm_set):
 def initialize_volumes(config, graders):
     logger = get_logger()
     for grader in graders:
-        logger.info(f"Creating volume for grader {grader['name']}")
-
         # create the zfs volume
-        logger.info("Checking if grader folder {grader['folder']} exists..")
         if not os.path.exists(grader['folder']):
-            logger.info("Folder doesn't exist, creating...")
+            logger.info(f"Grader folder {grader['folder']} doesn't exist, creating...")
             try:
                 check_output(['sudo', config.zfs_path, 'create', "-o", "refquota="+grader['unix_quota'], grader['folder'].lstrip('/')], stderr=STDOUT)
             except CalledProcessError as e:
                 raise signals.FAIL(f"Error running command {e.cmd}. returncode {e.returncode}. output {e.output}. stdout {e.stdout}. stderr {e.stderr}")
             logger.info("Created!")
-        else:
-            logger.info("Folder exists.")
 
         # clone the git repository
         #TODO if there's an error cloning the repo or an unknown error when doing the initial test repo create
         # email instructor and print a message to tell the user to create a deploy key
-        logger.info(f"Checking if {grader['folder']} is a valid course git repository")
         repo_valid = False
         #allow no such path or invalid repo errors; everything else should raise
         try:
@@ -134,8 +127,6 @@ def initialize_volumes(config, graders):
             logger.info(f"{grader['folder']} is not a valid course repo. Cloning course repository from {config.instructor_repo_url}")
             git.Repo.clone_from(config.instructor_repo_url, grader['folder'])
             logger.info("Cloned!")
-        else:
-            logger.info(f"{grader['folder']} is a valid course repo.")
 
         # create the submissions folder
         if not os.path.exists(grader['submissions_folder']):
@@ -147,7 +138,6 @@ def initialize_volumes(config, graders):
         recursive_chown(grader['folder'], grader['unix_user'], grader['unix_group'])
 
         # if the assignment hasn't been generated yet, generate it
-        logger.info(f"Checking if assignment {aname} has been generated for grader {grader['name']}")
         # TODO error handling if the container fails
         generated_asgns = run_container(config, 'nbgrader db assignment list', grader['folder'])
         if aname not in generated_asgns['log']:
@@ -156,19 +146,14 @@ def initialize_volumes(config, graders):
             logger.info(output['log'])
             if 'ERROR' in output['log']:
                 raise signals.FAIL(f"Error generating assignment {aname} for grader {grader['name']} at path {grader['folder']}")
-        else:
-            logger.info(f"Assignment {aname} already generated")
 
         # if the solution hasn't been generated yet, generate it
-        logger.info(f"Checking if solution for {aname} has been generated for grader {grader['name']}")
         if not os.path.exists(grader['soln_path']):
             logger.info(f"Solution for {aname} not yet generated for grader {grader['name']}")
             output = run_container(config, 'jupyter nbconvert ' + grader['local_source_path'] + ' --output=' + grader['soln_name'] + ' --output-dir=.', grader['folder'])
             logger.info(output['log'])
             if 'ERROR' in output['log']:
                 raise signals.FAIL(f"Error generating solution for {aname} for grader {grader['name']} at path {grader['folder']}")
-        else:
-            logger.info(f"Solution for {aname} already generated")
 
         # transfer ownership to the jupyterhub user
         recursive_chown(grader['folder'], grader['unix_user'], grader['unix_group'])
@@ -180,7 +165,6 @@ def initialize_accounts(config, graders):
     logger = get_logger()
     for grader in graders:
         # create the jupyterhub user
-        logger.info(f"Checking if jupyterhub user {grader['name']} exists")
         Args = namedtuple('Args', 'directory')
         args = Args(directory = config.jupyterhub_config_dir)
         output = [u[0] for u in get_users(args)]
@@ -195,6 +179,4 @@ def initialize_accounts(config, graders):
             add_user(args)
             check_output(['systemctl', 'stop', 'jupyterhub'])
             check_output(['systemctl', 'start', 'jupyterhub'])
-        else:
-            logger.info(f"User {grader['name']} exists.")
     return graders
