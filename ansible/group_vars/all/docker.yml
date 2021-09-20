@@ -1,3 +1,0 @@
----
-docker_interface: 'docker0'
-docker_install_compose: false

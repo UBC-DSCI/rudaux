@@ -1,4 +1,0 @@
----
-- name: Set /etc/hostname
-  hostname:
-    name: "{{ inventory_hostname }}"

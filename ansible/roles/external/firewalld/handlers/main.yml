@@ -1,4 +1,0 @@
----
-# 'service reload' was not always working, needs complete reload
-- name: firewalld complete reload
-  command: firewall-cmd --complete-reload

@@ -1,3 +1,0 @@
----
-- name: Install jupyterhub-ltiauthenticator
-  pip: name=jupyterhub-ltiauthenticator executable=pip3.6

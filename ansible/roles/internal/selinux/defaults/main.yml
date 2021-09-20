@@ -1,7 +1,0 @@
----
-selinux_packages:
-  - { name: 'libselinux', state: 'present' }
-  - { name: 'libselinux-python', state: 'present' }
-
-selinux_policy: targeted
-selinux_state: permissive

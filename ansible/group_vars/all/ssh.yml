@@ -1,3 +1,0 @@
-sshd_PasswordAuthenticaton: no
-sshd_PermitRootLogin: no
-sshd_AllowUsers: "{{ ansible_ssh_user }} jupyter"
