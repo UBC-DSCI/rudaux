@@ -8,7 +8,7 @@ with open('requirements.txt', 'r') as in_:
 setup(
   name='rudaux',
   version=__version__,
-  description='Course management with Canvas and Jupyterhub.',
+  description='Course management software for orchestrating auto/manual grading workflows.',
   author='Trevor Campbell',
   author_email='trevor.d.campbell@gmail.com',
   license='BSD',
