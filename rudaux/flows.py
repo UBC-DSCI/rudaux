@@ -377,19 +377,19 @@ def list_course_info(args):
     print()
     print('Assignments')
     print()
-    print('\n'.join([f"{c[0]} : {c[1]['name']} {c[1]['id']}" for c in asgns]))
+    print('\n'.join([f"{c[0] : <16}{c[1]['name'] : <32}{c[1]['id'] : <16}" for c in asgns]))
 
     print()
     print('Students')
     print()
-    print('\n'.join([f"{c[0]} : {c[1]['name']} {c[1]['id']} {c[1]['reg_date']} {c[1]['status']}" for c in studs]))
+    print('\n'.join([f"{c[0] : <16}{c[1]['name'] : <32}{c[1]['id'] : <16}{str(c[1]['reg_date'].in_timezone(config.notify_timezone)) : <32}{c[1]['status'] : <16}" for c in studs]))
 
     print()
     print('Teaching Assistants')
     print()
-    print('\n'.join([f"{c[0]} : {c[1]['name']} {c[1]['id']} {c[1]['reg_date']} {c[1]['status']}" for c in tas]))
+    print('\n'.join([f"{c[0] : <16}{c[1]['name'] : <32}{c[1]['id'] : <16}{str(c[1]['reg_date'].in_timezone(config.notify_timezone)) : <32}{c[1]['status'] : <16}" for c in tas]))
 
     print()
     print('Instructors')
     print()
-    print('\n'.join([f"{c[0]} : {c[1]['name']} {c[1]['id']} {c[1]['reg_date']} {c[1]['status']}" for c in insts]))
+    print('\n'.join([f"{c[0] : <16}{c[1]['name'] : <32}{c[1]['id'] : <16}{str(c[1]['reg_date'].in_timezone(config.notify_timezone)) : <32}{c[1]['status'] : <16}" for c in insts]))
