@@ -342,7 +342,7 @@ def return_solutions(config, pastdue_frac, subm_set):
                     logger.info(f"Returning solution submission {subm['name']}")
                     if os.path.exists(subm['student_folder']):
                         shutil.copy(subm['grader']['soln_path'], subm['soln_path'])
-                        os.chown(subm['soln_path'], subm['grader']['unix_user'], subm['grader']['unix_group'])
+                        recursive_chown(subm['soln_path'], subm['grader']['unix_user'], subm['grader']['unix_group'])
                     else:
                         logger.warning(f"Warning: student folder {subm['student_folder']} doesnt exist. Skipping solution return.")
             else:
@@ -610,7 +610,7 @@ def return_feedback(config, pastdue_frac, subm_set):
                     logger.info(f"Returning feedback for submission {subm['name']}")
                     if os.path.exists(subm['student_folder']):
                         shutil.copy(subm['generated_feedback_path'], subm['fdbk_path'])
-                        os.chown(subm['fdbk_path'], subm['grader']['unix_user'], subm['grader']['unix_group'])
+                        recursive_chown(subm['fdbk_path'], subm['grader']['unix_user'], subm['grader']['unix_group'])
                     else:
                         logger.warning(f"Warning: student folder {subm['student_folder']} doesnt exist. Skipping solution return.")
             else:
