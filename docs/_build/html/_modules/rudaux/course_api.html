@@ -1,0 +1,450 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>rudaux.course_api &#8212; Rudaux  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css" />
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for rudaux.course_api</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">requests</span>
+<span class="kn">import</span> <span class="nn">urllib.parse</span>
+<span class="kn">import</span> <span class="nn">pendulum</span> <span class="k">as</span> <span class="nn">plm</span>
+<span class="kn">import</span> <span class="nn">prefect</span>
+<span class="kn">from</span> <span class="nn">prefect</span> <span class="kn">import</span> <span class="n">task</span>
+<span class="kn">from</span> <span class="nn">prefect.engine</span> <span class="kn">import</span> <span class="n">signals</span>
+<span class="kn">from</span> <span class="nn">.utilities</span> <span class="kn">import</span> <span class="n">get_logger</span>
+
+<span class="c1"># TODO replace &quot;course api&quot; with &quot;LMS&quot;</span>
+
+<span class="k">def</span> <span class="nf">_canvas_get</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">,</span> <span class="n">path_suffix</span><span class="p">,</span> <span class="n">use_group_base</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="n">group_url</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">urljoin</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">canvas_domain</span><span class="p">,</span> <span class="s1">&#39;api/v1/groups/&#39;</span><span class="p">)</span>
+    <span class="n">base_url</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">urljoin</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">canvas_domain</span><span class="p">,</span> <span class="s1">&#39;api/v1/courses/&#39;</span><span class="o">+</span><span class="n">course_id</span><span class="o">+</span><span class="s1">&#39;/&#39;</span><span class="p">)</span>
+    <span class="n">token</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">course_tokens</span><span class="p">[</span><span class="n">course_id</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="n">use_group_base</span><span class="p">:</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">urljoin</span><span class="p">(</span><span class="n">group_url</span><span class="p">,</span> <span class="n">path_suffix</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">urljoin</span><span class="p">(</span><span class="n">base_url</span><span class="p">,</span> <span class="n">path_suffix</span><span class="p">)</span>
+
+
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">()</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;GET request to URL: </span><span class="si">{</span><span class="n">url</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="n">resp</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">resp_items</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="c1">#see https://community.canvaslms.com/t5/Question-Forum/Why-is-the-Assignment-due-at-value-that-of-the-last-override/m-p/209593</span>
+    <span class="c1">#for why we have to set override_assignment_dates = false below -- basically due_at below gets set really weirdly if</span>
+    <span class="c1">#the assignment has overrides unless you include this param</span>
+    <span class="k">while</span> <span class="n">resp</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="s1">&#39;next&#39;</span> <span class="ow">in</span> <span class="n">resp</span><span class="o">.</span><span class="n">links</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">resp</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+            <span class="n">url</span> <span class="o">=</span> <span class="n">url</span> <span class="k">if</span> <span class="n">resp</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">resp</span><span class="o">.</span><span class="n">links</span><span class="p">[</span><span class="s1">&#39;next&#39;</span><span class="p">][</span><span class="s1">&#39;url&#39;</span><span class="p">],</span>
+            <span class="n">headers</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s1">&#39;Authorization&#39;</span><span class="p">:</span> <span class="sa">f</span><span class="s1">&#39;Bearer </span><span class="si">{</span><span class="n">token</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;Accept&#39;</span><span class="p">:</span> <span class="s1">&#39;application/json&#39;</span>
+                <span class="p">},</span>
+            <span class="n">json</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;per_page&#39;</span> <span class="p">:</span> <span class="mi">100</span><span class="p">},</span>
+            <span class="n">params</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;override_assignment_dates&#39;</span> <span class="p">:</span> <span class="kc">False</span><span class="p">}</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">resp</span><span class="o">.</span><span class="n">status_code</span> <span class="o">&lt;</span> <span class="mi">200</span> <span class="ow">or</span> <span class="n">resp</span><span class="o">.</span><span class="n">status_code</span> <span class="o">&gt;</span> <span class="mi">299</span><span class="p">:</span>
+            <span class="n">sig</span> <span class="o">=</span> <span class="n">signals</span><span class="o">.</span><span class="n">FAIL</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;failed GET response status code </span><span class="si">{</span><span class="n">resp</span><span class="o">.</span><span class="n">status_code</span><span class="si">}</span><span class="s2"> for URL </span><span class="si">{</span><span class="n">url</span><span class="si">}</span><span class="se">\n</span><span class="s2">Text:</span><span class="si">{</span><span class="n">resp</span><span class="o">.</span><span class="n">text</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">sig</span><span class="o">.</span><span class="n">url</span> <span class="o">=</span> <span class="n">url</span>
+            <span class="n">sig</span><span class="o">.</span><span class="n">resp</span> <span class="o">=</span> <span class="n">resp</span>
+            <span class="k">raise</span> <span class="n">sig</span>
+
+        <span class="n">json_data</span> <span class="o">=</span> <span class="n">resp</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">json_data</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="n">resp_items</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">resp</span><span class="o">.</span><span class="n">json</span><span class="p">())</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">resp_items</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">resp</span><span class="o">.</span><span class="n">json</span><span class="p">())</span>
+    <span class="k">return</span> <span class="n">resp_items</span>
+
+<span class="k">def</span> <span class="nf">_canvas_upload</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">,</span> <span class="n">path_suffix</span><span class="p">,</span> <span class="n">json_data</span><span class="p">,</span> <span class="n">typ</span><span class="p">):</span>
+    <span class="n">base_url</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">urljoin</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">canvas_domain</span><span class="p">,</span> <span class="s1">&#39;api/v1/courses/&#39;</span><span class="o">+</span><span class="n">course_id</span><span class="o">+</span><span class="s1">&#39;/&#39;</span><span class="p">)</span>
+    <span class="n">token</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">course_tokens</span><span class="p">[</span><span class="n">course_id</span><span class="p">]</span>
+    <span class="n">rfuncs</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;put&#39;</span> <span class="p">:</span> <span class="n">requests</span><span class="o">.</span><span class="n">put</span><span class="p">,</span>
+             <span class="s1">&#39;post&#39;</span><span class="p">:</span> <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">,</span>
+             <span class="s1">&#39;delete&#39;</span><span class="p">:</span> <span class="n">requests</span><span class="o">.</span><span class="n">delete</span><span class="p">}</span>
+    <span class="n">url</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">urljoin</span><span class="p">(</span><span class="n">base_url</span><span class="p">,</span> <span class="n">path_suffix</span><span class="p">)</span>
+
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">()</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">typ</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span><span class="si">}</span><span class="s2"> request to URL: </span><span class="si">{</span><span class="n">url</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="n">resp</span> <span class="o">=</span> <span class="n">rfuncs</span><span class="p">[</span><span class="n">typ</span><span class="p">](</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="n">url</span><span class="p">,</span>
+        <span class="n">headers</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;Authorization&#39;</span><span class="p">:</span> <span class="sa">f</span><span class="s1">&#39;Bearer </span><span class="si">{</span><span class="n">token</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;Accept&#39;</span><span class="p">:</span> <span class="s1">&#39;application/json&#39;</span>
+            <span class="p">},</span>
+        <span class="n">json</span><span class="o">=</span><span class="n">json_data</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="n">resp</span><span class="o">.</span><span class="n">status_code</span> <span class="o">&lt;</span> <span class="mi">200</span> <span class="ow">or</span> <span class="n">resp</span><span class="o">.</span><span class="n">status_code</span> <span class="o">&gt;</span> <span class="mi">299</span><span class="p">:</span>
+        <span class="n">sig</span> <span class="o">=</span> <span class="n">signals</span><span class="o">.</span><span class="n">FAIL</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;failed upload (</span><span class="si">{</span><span class="n">typ</span><span class="si">}</span><span class="s2">) response status code </span><span class="si">{</span><span class="n">resp</span><span class="o">.</span><span class="n">status_code</span><span class="si">}</span><span class="s2"> for URL </span><span class="si">{</span><span class="n">url</span><span class="si">}</span><span class="se">\n</span><span class="s2">Text:</span><span class="si">{</span><span class="n">resp</span><span class="o">.</span><span class="n">text</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">sig</span><span class="o">.</span><span class="n">url</span> <span class="o">=</span> <span class="n">url</span>
+        <span class="n">sig</span><span class="o">.</span><span class="n">resp</span> <span class="o">=</span> <span class="n">resp</span>
+        <span class="k">raise</span> <span class="n">sig</span>
+    <span class="k">return</span>
+
+<span class="k">def</span> <span class="nf">_canvas_put</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">,</span> <span class="n">path_suffix</span><span class="p">,</span> <span class="n">json_data</span><span class="p">):</span>
+    <span class="n">_canvas_upload</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">,</span> <span class="n">path_suffix</span><span class="p">,</span> <span class="n">json_data</span><span class="p">,</span> <span class="s1">&#39;put&#39;</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">_canvas_post</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">,</span> <span class="n">path_suffix</span><span class="p">,</span> <span class="n">json_data</span><span class="p">):</span>
+    <span class="n">_canvas_upload</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">,</span> <span class="n">path_suffix</span><span class="p">,</span> <span class="n">json_data</span><span class="p">,</span> <span class="s1">&#39;post&#39;</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">_canvas_delete</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">,</span> <span class="n">path_suffix</span><span class="p">):</span>
+    <span class="n">_canvas_upload</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">,</span> <span class="n">path_suffix</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="s1">&#39;delete&#39;</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">_canvas_get_people_by_type</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">,</span> <span class="n">typ</span><span class="p">):</span>
+    <span class="n">people</span> <span class="o">=</span> <span class="n">_canvas_get</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">,</span> <span class="s1">&#39;enrollments&#39;</span><span class="p">)</span>
+    <span class="n">ppl_typ</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">people</span> <span class="k">if</span> <span class="n">p</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">typ</span><span class="p">]</span>
+    <span class="k">return</span> <span class="p">[</span> <span class="p">{</span> <span class="s1">&#39;id&#39;</span> <span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">p</span><span class="p">[</span><span class="s1">&#39;user&#39;</span><span class="p">][</span><span class="s1">&#39;id&#39;</span><span class="p">]),</span>
+               <span class="s1">&#39;name&#39;</span> <span class="p">:</span> <span class="n">p</span><span class="p">[</span><span class="s1">&#39;user&#39;</span><span class="p">][</span><span class="s1">&#39;name&#39;</span><span class="p">],</span>
+               <span class="s1">&#39;sortable_name&#39;</span> <span class="p">:</span> <span class="n">p</span><span class="p">[</span><span class="s1">&#39;user&#39;</span><span class="p">][</span><span class="s1">&#39;sortable_name&#39;</span><span class="p">],</span>
+               <span class="s1">&#39;school_id&#39;</span> <span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">p</span><span class="p">[</span><span class="s1">&#39;user&#39;</span><span class="p">][</span><span class="s1">&#39;sis_user_id&#39;</span><span class="p">]),</span>
+               <span class="s1">&#39;reg_date&#39;</span> <span class="p">:</span> <span class="n">plm</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">p</span><span class="p">[</span><span class="s1">&#39;updated_at&#39;</span><span class="p">])</span> <span class="k">if</span> <span class="p">(</span><span class="n">plm</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">p</span><span class="p">[</span><span class="s1">&#39;updated_at&#39;</span><span class="p">])</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span> <span class="k">else</span> <span class="n">plm</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">p</span><span class="p">[</span><span class="s1">&#39;created_at&#39;</span><span class="p">]),</span>
+               <span class="s1">&#39;status&#39;</span> <span class="p">:</span> <span class="n">p</span><span class="p">[</span><span class="s1">&#39;enrollment_state&#39;</span><span class="p">]</span>
+              <span class="p">}</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">ppl_typ</span>
+           <span class="p">]</span>
+
+<span class="k">def</span> <span class="nf">_canvas_get_overrides</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">,</span> <span class="n">assignment</span><span class="p">):</span>
+    <span class="n">overs</span> <span class="o">=</span> <span class="n">_canvas_get</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">,</span> <span class="s1">&#39;assignments/&#39;</span><span class="o">+</span><span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]</span><span class="o">+</span><span class="s1">&#39;/overrides&#39;</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">over</span> <span class="ow">in</span> <span class="n">overs</span><span class="p">:</span>
+        <span class="n">over</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">over</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">])</span>
+        <span class="n">over</span><span class="p">[</span><span class="s1">&#39;student_ids&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">over</span><span class="p">[</span><span class="s1">&#39;student_ids&#39;</span><span class="p">]))</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;due_at&#39;</span><span class="p">,</span> <span class="s1">&#39;lock_at&#39;</span><span class="p">,</span> <span class="s1">&#39;unlock_at&#39;</span><span class="p">]:</span>
+            <span class="k">if</span> <span class="n">over</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">over</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">plm</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">over</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">over</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">return</span> <span class="n">overs</span>
+
+<span class="k">def</span> <span class="nf">_create_override</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">,</span> <span class="n">assignment</span><span class="p">,</span> <span class="n">override</span><span class="p">):</span>
+    <span class="c1">#check all required keys</span>
+    <span class="n">required_keys</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;student_ids&#39;</span><span class="p">,</span> <span class="s1">&#39;unlock_at&#39;</span><span class="p">,</span> <span class="s1">&#39;due_at&#39;</span><span class="p">,</span> <span class="s1">&#39;lock_at&#39;</span><span class="p">,</span> <span class="s1">&#39;title&#39;</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">rk</span> <span class="ow">in</span> <span class="n">required_keys</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">override</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">rk</span><span class="p">):</span>
+            <span class="n">sig</span> <span class="o">=</span> <span class="n">signals</span><span class="o">.</span><span class="n">FAIL</span><span class="p">(</span><span class="s2">&quot;invalid override for assignment </span><span class="si">{assignment[&#39;name&#39;]}</span><span class="s2"> (</span><span class="si">{assignment[&#39;id&#39;]}</span><span class="s2">): dict missing required key </span><span class="si">{rk}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">sig</span><span class="o">.</span><span class="n">assignment</span> <span class="o">=</span> <span class="n">assignment</span>
+            <span class="n">sig</span><span class="o">.</span><span class="n">override</span> <span class="o">=</span> <span class="n">override</span>
+            <span class="n">sig</span><span class="o">.</span><span class="n">missing_key</span> <span class="o">=</span> <span class="n">rk</span>
+            <span class="k">raise</span> <span class="n">sig</span>
+
+    <span class="c1">#convert student ids to integers</span>
+    <span class="n">override</span><span class="p">[</span><span class="s1">&#39;student_ids&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">override</span><span class="p">[</span><span class="s1">&#39;student_ids&#39;</span><span class="p">]))</span>
+
+    <span class="c1">#convert dates to canvas date time strings in the course local timezone</span>
+    <span class="k">for</span> <span class="n">dk</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;unlock_at&#39;</span><span class="p">,</span> <span class="s1">&#39;due_at&#39;</span><span class="p">,</span> <span class="s1">&#39;lock_at&#39;</span><span class="p">]:</span>
+        <span class="n">override</span><span class="p">[</span><span class="n">dk</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">override</span><span class="p">[</span><span class="n">dk</span><span class="p">])</span>
+
+    <span class="c1">#post the override</span>
+    <span class="n">post_json</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;assignment_override&#39;</span> <span class="p">:</span> <span class="n">override</span><span class="p">}</span>
+    <span class="n">_canvas_post</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">,</span> <span class="s1">&#39;assignments/&#39;</span><span class="o">+</span><span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]</span><span class="o">+</span><span class="s1">&#39;/overrides&#39;</span><span class="p">,</span> <span class="n">post_json</span><span class="p">)</span>
+
+    <span class="c1">#check that it posted properly</span>
+    <span class="n">overs</span> <span class="o">=</span> <span class="n">_canvas_get_overrides</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">,</span> <span class="n">assignment</span><span class="p">)</span>
+    <span class="n">n_match</span> <span class="o">=</span> <span class="nb">len</span><span class="p">([</span><span class="n">over</span> <span class="k">for</span> <span class="n">over</span> <span class="ow">in</span> <span class="n">overs</span> <span class="k">if</span> <span class="n">over</span><span class="p">[</span><span class="s1">&#39;title&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">override</span><span class="p">[</span><span class="s1">&#39;title&#39;</span><span class="p">]])</span>
+    <span class="k">if</span> <span class="n">n_match</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">sig</span> <span class="o">=</span> <span class="n">signals</span><span class="o">.</span><span class="n">FAIL</span><span class="p">(</span><span class="s2">&quot;override for assignment </span><span class="si">{assignment[&#39;name&#39;]}</span><span class="s2"> ({assignment[&#39;id&#39;])}) failed to upload to Canvas&quot;</span><span class="p">)</span>
+        <span class="n">sig</span><span class="o">.</span><span class="n">assignment</span> <span class="o">=</span> <span class="n">assignment</span>
+        <span class="n">sig</span><span class="o">.</span><span class="n">attempted_override</span> <span class="o">=</span> <span class="n">override</span>
+        <span class="n">sig</span><span class="o">.</span><span class="n">overrides</span> <span class="o">=</span> <span class="n">overs</span>
+        <span class="k">raise</span> <span class="n">sig</span>
+
+<span class="k">def</span> <span class="nf">_remove_override</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">,</span> <span class="n">assignment</span><span class="p">,</span> <span class="n">override</span><span class="p">):</span>
+    <span class="n">_canvas_delete</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">,</span> <span class="s1">&#39;assignments/&#39;</span><span class="o">+</span><span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]</span><span class="o">+</span><span class="s1">&#39;/overrides/&#39;</span><span class="o">+</span><span class="n">override</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">])</span>
+
+    <span class="c1">#check that it was removed properly</span>
+    <span class="n">overs</span> <span class="o">=</span> <span class="n">_canvas_get_overrides</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">,</span> <span class="n">assignment</span><span class="p">)</span>
+    <span class="n">n_match</span> <span class="o">=</span> <span class="nb">len</span><span class="p">([</span><span class="n">over</span> <span class="k">for</span> <span class="n">over</span> <span class="ow">in</span> <span class="n">overs</span> <span class="k">if</span> <span class="n">over</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">override</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]])</span>
+    <span class="k">if</span> <span class="n">n_match</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">sig</span> <span class="o">=</span> <span class="n">signals</span><span class="o">.</span><span class="n">FAIL</span><span class="p">(</span><span class="s2">&quot;override </span><span class="si">{override[&#39;title&#39;]}</span><span class="s2"> for assignment </span><span class="si">{assignment[&#39;name&#39;]}</span><span class="s2"> (</span><span class="si">{assignment[&#39;id&#39;]}</span><span class="s2">) failed to be removed from Canvas&quot;</span><span class="p">)</span>
+        <span class="n">sig</span><span class="o">.</span><span class="n">override</span> <span class="o">=</span> <span class="n">override</span>
+        <span class="n">sig</span><span class="o">.</span><span class="n">assignment</span> <span class="o">=</span> <span class="n">assignment</span>
+        <span class="n">sig</span><span class="o">.</span><span class="n">overrides</span> <span class="o">=</span> <span class="n">overs</span>
+        <span class="k">raise</span> <span class="n">sig</span>
+
+
+<div class="viewcode-block" id="validate_config"><a class="viewcode-back" href="../../rudaux.html#rudaux.course_api.validate_config">[docs]</a><span class="k">def</span> <span class="nf">validate_config</span><span class="p">(</span><span class="n">config</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+    <span class="c1">#TODO validate these all strings, format, etc</span>
+    <span class="c1">#config.canvas_domain</span>
+    <span class="c1">#config.canvas_token</span>
+    <span class="c1">#config.canvas_id</span>
+    <span class="c1">#config.ignored_assignments</span>
+    <span class="c1"># duplicate assignment names, etc</span>
+
+<span class="nd">@task</span><span class="p">(</span><span class="n">checkpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">get_course_info</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">):</span>
+    <span class="n">info</span> <span class="o">=</span> <span class="n">_canvas_get</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">processed_info</span> <span class="o">=</span> <span class="p">{</span>
+             <span class="s2">&quot;id&quot;</span> <span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">info</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]),</span>
+             <span class="s2">&quot;name&quot;</span> <span class="p">:</span> <span class="n">info</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">],</span>
+             <span class="s2">&quot;code&quot;</span> <span class="p">:</span> <span class="n">info</span><span class="p">[</span><span class="s1">&#39;course_code&#39;</span><span class="p">],</span>
+             <span class="s2">&quot;start_at&quot;</span> <span class="p">:</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">info</span><span class="p">[</span><span class="s1">&#39;start_at&#39;</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">plm</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">info</span><span class="p">[</span><span class="s1">&#39;start_at&#39;</span><span class="p">]),</span>
+             <span class="s2">&quot;end_at&quot;</span> <span class="p">:</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">info</span><span class="p">[</span><span class="s1">&#39;end_at&#39;</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">plm</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">info</span><span class="p">[</span><span class="s1">&#39;end_at&#39;</span><span class="p">]),</span>
+             <span class="s2">&quot;time_zone&quot;</span> <span class="p">:</span> <span class="n">info</span><span class="p">[</span><span class="s1">&#39;time_zone&#39;</span><span class="p">]</span>
+    <span class="p">}</span>
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">()</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Retrieved course info for </span><span class="si">{</span><span class="n">config</span><span class="o">.</span><span class="n">course_names</span><span class="p">[</span><span class="n">course_id</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">processed_info</span>
+
+<span class="nd">@task</span><span class="p">(</span><span class="n">checkpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">get_students</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">):</span>
+    <span class="n">ppl</span> <span class="o">=</span> <span class="n">_canvas_get_people_by_type</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">,</span> <span class="s1">&#39;StudentEnrollment&#39;</span><span class="p">)</span>
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">()</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Retrieved </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">ppl</span><span class="p">)</span><span class="si">}</span><span class="s2"> students from LMS for </span><span class="si">{</span><span class="n">config</span><span class="o">.</span><span class="n">course_names</span><span class="p">[</span><span class="n">course_id</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">ppl</span>
+
+<span class="nd">@task</span><span class="p">(</span><span class="n">checkpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">get_instructors</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">):</span>
+    <span class="n">ppl</span> <span class="o">=</span> <span class="n">_canvas_get_people_by_type</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">,</span> <span class="s1">&#39;TeacherEnrollment&#39;</span><span class="p">)</span>
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">()</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Retrieved </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">ppl</span><span class="p">)</span><span class="si">}</span><span class="s2"> instructors from LMS for </span><span class="si">{</span><span class="n">config</span><span class="o">.</span><span class="n">course_names</span><span class="p">[</span><span class="n">course_id</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">ppl</span>
+
+<span class="nd">@task</span><span class="p">(</span><span class="n">checkpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">get_tas</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">):</span>
+    <span class="n">ppl</span> <span class="o">=</span> <span class="n">_canvas_get_people_by_type</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">,</span> <span class="s1">&#39;TaEnrollment&#39;</span><span class="p">)</span>
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">()</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Retrieved </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">ppl</span><span class="p">)</span><span class="si">}</span><span class="s2"> TAs from LMS for </span><span class="si">{</span><span class="n">config</span><span class="o">.</span><span class="n">course_names</span><span class="p">[</span><span class="n">course_id</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">ppl</span>
+
+<span class="nd">@task</span><span class="p">(</span><span class="n">checkpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">get_groups</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">):</span>
+    <span class="n">grps</span> <span class="o">=</span> <span class="n">_canvas_get</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">,</span><span class="s1">&#39;groups&#39;</span><span class="p">)</span>
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">()</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Retrieved </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">grps</span><span class="p">)</span><span class="si">}</span><span class="s2"> groups from LMS for </span><span class="si">{</span><span class="n">config</span><span class="o">.</span><span class="n">course_names</span><span class="p">[</span><span class="n">course_id</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">[{</span>
+             <span class="s1">&#39;name&#39;</span> <span class="p">:</span> <span class="n">g</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">],</span>
+             <span class="s1">&#39;id&#39;</span> <span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">g</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]),</span>
+             <span class="s1">&#39;members&#39;</span> <span class="p">:</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">m</span><span class="p">[</span><span class="s1">&#39;user_id&#39;</span><span class="p">])</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">_canvas_get</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">g</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">])</span><span class="o">+</span><span class="s1">&#39;/memberships&#39;</span><span class="p">,</span> <span class="n">use_group_base</span><span class="o">=</span><span class="kc">True</span><span class="p">)]</span>
+            <span class="p">}</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">grps</span><span class="p">]</span>
+
+<span class="nd">@task</span><span class="p">(</span><span class="n">checkpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">get_assignments</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">,</span> <span class="n">assignment_names</span><span class="p">):</span>
+    <span class="n">asgns</span> <span class="o">=</span> <span class="n">_canvas_get</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">,</span> <span class="s1">&#39;assignments&#39;</span><span class="p">)</span>
+    <span class="n">processed_asgns</span> <span class="o">=</span> <span class="p">[</span> <span class="p">{</span>
+               <span class="s1">&#39;id&#39;</span> <span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]),</span>
+               <span class="s1">&#39;name&#39;</span> <span class="p">:</span> <span class="n">a</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">],</span>
+               <span class="s1">&#39;due_at&#39;</span> <span class="p">:</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">a</span><span class="p">[</span><span class="s1">&#39;due_at&#39;</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">plm</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="s1">&#39;due_at&#39;</span><span class="p">]),</span>
+               <span class="s1">&#39;lock_at&#39;</span> <span class="p">:</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">a</span><span class="p">[</span><span class="s1">&#39;lock_at&#39;</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">plm</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="s1">&#39;lock_at&#39;</span><span class="p">]),</span>
+               <span class="s1">&#39;unlock_at&#39;</span> <span class="p">:</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">a</span><span class="p">[</span><span class="s1">&#39;unlock_at&#39;</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">plm</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="s1">&#39;unlock_at&#39;</span><span class="p">]),</span>
+               <span class="s1">&#39;has_overrides&#39;</span> <span class="p">:</span> <span class="n">a</span><span class="p">[</span><span class="s1">&#39;has_overrides&#39;</span><span class="p">],</span>
+               <span class="s1">&#39;overrides&#39;</span> <span class="p">:</span> <span class="p">[],</span>
+               <span class="s1">&#39;published&#39;</span> <span class="p">:</span> <span class="n">a</span><span class="p">[</span><span class="s1">&#39;published&#39;</span><span class="p">]</span>
+             <span class="p">}</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">asgns</span> <span class="k">if</span> <span class="n">a</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span> <span class="ow">in</span> <span class="n">assignment_names</span><span class="p">]</span>
+
+    <span class="c1"># fill out overrides</span>
+    <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">processed_asgns</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">a</span><span class="p">[</span><span class="s1">&#39;has_overrides&#39;</span><span class="p">]:</span>
+            <span class="n">a</span><span class="p">[</span><span class="s1">&#39;overrides&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_canvas_get_overrides</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">,</span> <span class="n">a</span><span class="p">)</span>
+
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">()</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Retrieved </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">processed_asgns</span><span class="p">)</span><span class="si">}</span><span class="s2"> assignments from LMS for </span><span class="si">{</span><span class="n">config</span><span class="o">.</span><span class="n">course_names</span><span class="p">[</span><span class="n">course_id</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="c1"># check for duplicate IDs and names</span>
+    <span class="c1"># we require both of these to be unique (snapshots, grader accounts, etc all depend on unique human-readable names)</span>
+    <span class="n">ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">a</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">processed_asgns</span><span class="p">]</span>
+    <span class="n">names</span> <span class="o">=</span> <span class="p">[</span><span class="n">a</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">processed_asgns</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">ids</span><span class="p">))</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ids</span><span class="p">):</span>
+        <span class="n">sig</span> <span class="o">=</span> <span class="n">signals</span><span class="o">.</span><span class="n">FAIL</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Course ID </span><span class="si">{</span><span class="n">course_id</span><span class="si">}</span><span class="s2">: Two assignments detected with the same ID. IDs: </span><span class="si">{</span><span class="n">ids</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">sig</span><span class="o">.</span><span class="n">course_id</span> <span class="o">=</span> <span class="n">course_id</span>
+        <span class="k">raise</span> <span class="n">sig</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">names</span><span class="p">))</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">names</span><span class="p">):</span>
+        <span class="n">sig</span> <span class="o">=</span> <span class="n">signals</span><span class="o">.</span><span class="n">FAIL</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Course ID </span><span class="si">{</span><span class="n">course_id</span><span class="si">}</span><span class="s2">: Two assignments detected with the same name. Names: </span><span class="si">{</span><span class="n">names</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">sig</span><span class="o">.</span><span class="n">course_id</span> <span class="o">=</span> <span class="n">course_id</span>
+        <span class="k">raise</span> <span class="n">sig</span>
+    <span class="c1"># make sure anything listed in the rudaux_config appears on canvas</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">names</span><span class="p">)</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">assignment_names</span><span class="p">):</span>
+        <span class="n">sig</span> <span class="o">=</span> <span class="n">signals</span><span class="o">.</span><span class="n">FAIL</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Assignments from config missing in the course LMS.</span><span class="se">\n</span><span class="s2">Config: </span><span class="si">{</span><span class="n">assignment_names</span><span class="si">}</span><span class="se">\n</span><span class="s2">LMS: </span><span class="si">{</span><span class="n">names</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">sig</span><span class="o">.</span><span class="n">course_id</span> <span class="o">=</span> <span class="n">course_id</span>
+        <span class="k">raise</span> <span class="n">sig</span>
+
+    <span class="k">return</span> <span class="n">processed_asgns</span>
+
+<div class="viewcode-block" id="generate_get_submissions_name"><a class="viewcode-back" href="../../rudaux.html#rudaux.course_api.generate_get_submissions_name">[docs]</a><span class="k">def</span> <span class="nf">generate_get_submissions_name</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">,</span> <span class="n">assignment</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">return</span> <span class="s1">&#39;get-subms-&#39;</span><span class="o">+</span><span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span></div>
+
+<span class="nd">@task</span><span class="p">(</span><span class="n">checkpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span><span class="n">task_run_name</span><span class="o">=</span><span class="n">generate_get_submissions_name</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">get_submissions</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">,</span> <span class="n">assignment</span><span class="p">):</span>
+    <span class="n">subms</span> <span class="o">=</span> <span class="n">_canvas_get</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">,</span> <span class="s1">&#39;assignments/&#39;</span><span class="o">+</span><span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]</span><span class="o">+</span><span class="s1">&#39;/submissions&#39;</span><span class="p">)</span>
+    <span class="n">processed_subms</span> <span class="o">=</span>  <span class="p">[</span> <span class="p">{</span>
+                   <span class="s1">&#39;student_id&#39;</span> <span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;user_id&#39;</span><span class="p">]),</span>
+                   <span class="s1">&#39;assignment_id&#39;</span> <span class="p">:</span> <span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">],</span>
+                   <span class="s1">&#39;score&#39;</span> <span class="p">:</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;score&#39;</span><span class="p">],</span>
+                   <span class="s1">&#39;posted_at&#39;</span> <span class="p">:</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;posted_at&#39;</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">plm</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;posted_at&#39;</span><span class="p">]),</span>
+                   <span class="s1">&#39;late&#39;</span> <span class="p">:</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;late&#39;</span><span class="p">],</span>
+                   <span class="s1">&#39;missing&#39;</span> <span class="p">:</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;missing&#39;</span><span class="p">],</span>
+                   <span class="s1">&#39;excused&#39;</span> <span class="p">:</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;excused&#39;</span><span class="p">],</span>
+            <span class="p">}</span> <span class="k">for</span> <span class="n">subm</span> <span class="ow">in</span> <span class="n">subms</span> <span class="p">]</span>
+
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">()</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Retrieved </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">processed_subms</span><span class="p">)</span><span class="si">}</span><span class="s2"> submissions for assignment </span><span class="si">{</span><span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> from LMS for </span><span class="si">{</span><span class="n">config</span><span class="o">.</span><span class="n">course_names</span><span class="p">[</span><span class="n">course_id</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="n">subms_map</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">subm</span> <span class="ow">in</span> <span class="n">processed_subms</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;assignment_id&#39;</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">subms_map</span><span class="p">:</span>
+            <span class="n">subms_map</span><span class="p">[</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;assignment_id&#39;</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">subms_map</span><span class="p">[</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;assignment_id&#39;</span><span class="p">]][</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;student_id&#39;</span><span class="p">]]</span> <span class="o">=</span> <span class="n">subm</span>
+    <span class="k">return</span> <span class="n">subms_map</span>
+
+<div class="viewcode-block" id="generate_update_override_name"><a class="viewcode-back" href="../../rudaux.html#rudaux.course_api.generate_update_override_name">[docs]</a><span class="k">def</span> <span class="nf">generate_update_override_name</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">,</span> <span class="n">override_update_tuple</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">return</span> <span class="s1">&#39;upd-override-&#39;</span><span class="o">+</span> <span class="n">override_update_tuple</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="s1">&#39;title&#39;</span><span class="p">]</span></div>
+
+<span class="nd">@task</span><span class="p">(</span><span class="n">checkpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span><span class="n">task_run_name</span><span class="o">=</span><span class="n">generate_update_override_name</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">update_override</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">,</span> <span class="n">override_update_tuple</span><span class="p">):</span>
+    <span class="n">assignment</span><span class="p">,</span> <span class="n">to_create</span><span class="p">,</span> <span class="n">to_remove</span> <span class="o">=</span> <span class="n">override_update_tuple</span>
+    <span class="k">if</span> <span class="n">to_remove</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">_remove_override</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">,</span> <span class="n">assignment</span><span class="p">,</span> <span class="n">to_remove</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">to_create</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">_create_override</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">,</span> <span class="n">assignment</span><span class="p">,</span> <span class="n">to_create</span><span class="p">)</span>
+
+
+<span class="c1"># TODO remove this function once https://github.com/PrefectHQ/prefect/issues/4084 is resolved</span>
+<span class="c1"># and fix where this gets called in flows.py</span>
+<div class="viewcode-block" id="generate_update_override_flatten_name"><a class="viewcode-back" href="../../rudaux.html#rudaux.course_api.generate_update_override_flatten_name">[docs]</a><span class="k">def</span> <span class="nf">generate_update_override_flatten_name</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">,</span> <span class="n">override_update_tuple</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">return</span> <span class="s1">&#39;upd-override-&#39;</span><span class="o">+</span> <span class="n">override_update_tuple</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="s1">&#39;title&#39;</span><span class="p">]</span></div>
+
+<span class="nd">@task</span><span class="p">(</span><span class="n">checkpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span><span class="n">task_run_name</span><span class="o">=</span><span class="n">generate_update_override_flatten_name</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">update_override_flatten</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">,</span> <span class="n">override_update_tuples</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">override_update_tuple</span> <span class="ow">in</span> <span class="n">override_update_tuples</span><span class="p">:</span>
+        <span class="n">assignment</span><span class="p">,</span> <span class="n">to_create</span><span class="p">,</span> <span class="n">to_remove</span> <span class="o">=</span> <span class="n">override_update_tuple</span>
+        <span class="k">if</span> <span class="n">to_remove</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">_remove_override</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">,</span> <span class="n">assignment</span><span class="p">,</span> <span class="n">to_remove</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">to_create</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">_create_override</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">,</span> <span class="n">assignment</span><span class="p">,</span> <span class="n">to_create</span><span class="p">)</span>
+
+<div class="viewcode-block" id="put_grade"><a class="viewcode-back" href="../../rudaux.html#rudaux.course_api.put_grade">[docs]</a><span class="k">def</span> <span class="nf">put_grade</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">,</span> <span class="n">subm</span><span class="p">):</span>
+    <span class="n">assignment</span> <span class="o">=</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;assignment&#39;</span><span class="p">]</span>
+    <span class="n">student</span> <span class="o">=</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;student&#39;</span><span class="p">]</span>
+    <span class="n">score</span> <span class="o">=</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;score&#39;</span><span class="p">]</span>
+
+    <span class="c1"># post the grade</span>
+    <span class="n">_canvas_put</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">,</span> <span class="s1">&#39;assignments/&#39;</span><span class="o">+</span><span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]</span><span class="o">+</span><span class="s1">&#39;/submissions/&#39;</span><span class="o">+</span><span class="n">student</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">],</span> <span class="p">{</span><span class="s1">&#39;submission&#39;</span> <span class="p">:</span> <span class="p">{</span><span class="s1">&#39;posted_grade&#39;</span> <span class="p">:</span> <span class="n">score</span><span class="p">}})</span>
+
+    <span class="c1"># check that it was posted properly</span>
+    <span class="n">canvas_grade</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">_canvas_get</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_id</span><span class="p">,</span> <span class="s1">&#39;assignments/&#39;</span><span class="o">+</span><span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]</span><span class="o">+</span><span class="s1">&#39;/submissions/&#39;</span><span class="o">+</span><span class="n">student</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">])[</span><span class="mi">0</span><span class="p">][</span><span class="s1">&#39;score&#39;</span><span class="p">])</span>
+    <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">score</span><span class="p">)</span> <span class="o">-</span> <span class="nb">float</span><span class="p">(</span><span class="n">canvas_grade</span><span class="p">))</span> <span class="o">&gt;</span> <span class="mf">0.01</span><span class="p">:</span>
+        <span class="n">sig</span> <span class="o">=</span> <span class="n">signals</span><span class="o">.</span><span class="n">FAIL</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;grade </span><span class="si">{</span><span class="n">score</span><span class="si">}</span><span class="s2"> failed to upload for submission </span><span class="si">{</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> ; grade on canvas is </span><span class="si">{</span><span class="n">canvas_grade</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">sig</span><span class="o">.</span><span class="n">assignment</span> <span class="o">=</span> <span class="n">assignment</span>
+        <span class="n">sig</span><span class="o">.</span><span class="n">student</span> <span class="o">=</span> <span class="n">student</span>
+        <span class="n">sig</span><span class="o">.</span><span class="n">score</span> <span class="o">=</span> <span class="n">score</span>
+        <span class="n">sig</span><span class="o">.</span><span class="n">canvas_score</span> <span class="o">=</span> <span class="n">canvas_grade</span>
+        <span class="k">raise</span> <span class="n">sig</span></div>
+
+<span class="c1"># TODO add these in???</span>
+<span class="c1">#def get_grades(course, assignment): #???</span>
+<span class="c1">#    &#39;&#39;&#39;Takes a course object, an assignment name, and get the grades for that assignment from Canvas.</span>
+<span class="c1">#</span>
+<span class="c1">#    Example:</span>
+<span class="c1">#    course.get_grades(course, &#39;worksheet_01&#39;)&#39;&#39;&#39;</span>
+<span class="c1">#    assignment_id = get_assignment_id(course, assignment)</span>
+<span class="c1">#    url_path = posixpath.join(&quot;api&quot;, &quot;v1&quot;, &quot;courses&quot;, course[&#39;course_id&#39;], &quot;assignments&quot;, assignment_id, &quot;submissions&quot;)</span>
+<span class="c1">#    api_url = urllib.parse.urljoin(course[&#39;hostname&#39;], url_path)</span>
+<span class="c1">#    token = course[&#39;token&#39;]</span>
+<span class="c1">#</span>
+<span class="c1">#    resp = None</span>
+<span class="c1">#    scores = {}</span>
+<span class="c1">#    while resp is None or resp.links[&#39;current&#39;][&#39;url&#39;] != resp.links[&#39;last&#39;][&#39;url&#39;]:</span>
+<span class="c1">#        resp = requests.get(</span>
+<span class="c1">#            url = api_url if resp is None else resp.links[&#39;next&#39;][&#39;url&#39;],</span>
+<span class="c1">#            headers = {</span>
+<span class="c1">#                &quot;Authorization&quot;: f&quot;Bearer {token}&quot;,</span>
+<span class="c1">#                &quot;Accept&quot;: &quot;application/json+canvas-string-ids&quot;</span>
+<span class="c1">#                },</span>
+<span class="c1">#            json={</span>
+<span class="c1">#              &quot;per_page&quot;:&quot;100&quot;</span>
+<span class="c1">#            }</span>
+<span class="c1">#        )</span>
+<span class="c1">#        scores.update( {res[&#39;user_id&#39;] : res[&#39;score&#39;] for res in resp.json()} )</span>
+<span class="c1">#    return scores</span>
+<span class="c1">#</span>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">Rudaux</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Trevor Campbell.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.2.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

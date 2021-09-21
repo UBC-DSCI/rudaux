@@ -1,0 +1,770 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>rudaux.submission &#8212; Rudaux  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css" />
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for rudaux.submission</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">IntEnum</span>
+<span class="kn">import</span> <span class="nn">os</span><span class="o">,</span> <span class="nn">shutil</span><span class="o">,</span> <span class="nn">pwd</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">from</span> <span class="nn">nbgrader.api</span> <span class="kn">import</span> <span class="n">Gradebook</span><span class="p">,</span> <span class="n">MissingEntry</span>
+<span class="c1">#from .course_api import GradeNotUploadedError</span>
+<span class="kn">import</span> <span class="nn">pendulum</span> <span class="k">as</span> <span class="nn">plm</span>
+<span class="kn">from</span> <span class="nn">.course_api</span> <span class="kn">import</span> <span class="n">put_grade</span>
+<span class="kn">from</span> <span class="nn">.container</span> <span class="kn">import</span> <span class="n">run_container</span>
+<span class="kn">import</span> <span class="nn">prefect</span>
+<span class="kn">from</span> <span class="nn">prefect</span> <span class="kn">import</span> <span class="n">task</span>
+<span class="kn">from</span> <span class="nn">prefect.engine</span> <span class="kn">import</span> <span class="n">signals</span>
+<span class="kn">from</span> <span class="nn">.snapshot</span> <span class="kn">import</span> <span class="n">_get_snap_name</span>
+<span class="kn">from</span> <span class="nn">.utilities</span> <span class="kn">import</span> <span class="n">get_logger</span>
+
+<div class="viewcode-block" id="GradingStatus"><a class="viewcode-back" href="../../rudaux.html#rudaux.submission.GradingStatus">[docs]</a><span class="k">class</span> <span class="nc">GradingStatus</span><span class="p">(</span><span class="n">IntEnum</span><span class="p">):</span>
+    <span class="n">ASSIGNED</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">NOT_DUE</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">MISSING</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="n">COLLECTED</span> <span class="o">=</span> <span class="mi">3</span>
+    <span class="n">PREPARED</span> <span class="o">=</span> <span class="mi">4</span>
+    <span class="n">AUTOGRADED</span> <span class="o">=</span> <span class="mi">6</span>
+    <span class="n">NEEDS_MANUAL_GRADE</span> <span class="o">=</span> <span class="mi">9</span>
+    <span class="n">DONE_GRADING</span> <span class="o">=</span> <span class="mi">10</span></div>
+
+<div class="viewcode-block" id="validate_config"><a class="viewcode-back" href="../../rudaux.html#rudaux.submission.validate_config">[docs]</a><span class="k">def</span> <span class="nf">validate_config</span><span class="p">(</span><span class="n">config</span><span class="p">):</span>
+    <span class="c1"># config.student_dataset_root</span>
+    <span class="c1"># config.student_local_assignment_folder</span>
+    <span class="k">return</span> <span class="n">config</span></div>
+
+
+<span class="c1"># keep this function separate despite how simple it is</span>
+<span class="c1"># in the future we may want to create 1 task per submission (right now it&#39;s 1 task per assignment to</span>
+<span class="c1"># avoid network IO blowup with current Prefect 0.15.5)</span>
+<span class="c1"># it would be great to do 1 task per submission so that we can individual signals.SKIP certain submissions.</span>
+<span class="c1"># if eventually it is possible to do 1 task per submission, then this is where</span>
+<span class="c1"># you would output a flattened list of every (student, assignment) pair</span>
+<span class="nd">@task</span><span class="p">(</span><span class="n">checkpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">initialize_submission_sets</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">course_infos</span><span class="p">,</span> <span class="n">assignments</span><span class="p">,</span> <span class="n">students</span><span class="p">,</span> <span class="n">subm_infos</span><span class="p">):</span>
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">()</span>
+    <span class="c1"># verify that each list is of length (# courses)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">course_infos</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">assignments</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">course_infos</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">students</span><span class="p">):</span>
+        <span class="n">sig</span> <span class="o">=</span> <span class="n">signals</span><span class="o">.</span><span class="n">FAIL</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;course_infos, assignments, and students lists must all have the same number &quot;</span><span class="o">+</span>
+                           <span class="sa">f</span><span class="s2">&quot;of elements (number of courses in the group). ids: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">course_infos</span><span class="p">)</span><span class="si">}</span><span class="s2"> assignments: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">assignments</span><span class="p">)</span><span class="si">}</span><span class="s2"> students: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">students</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">sig</span><span class="o">.</span><span class="n">course_infos</span> <span class="o">=</span> <span class="n">course_infos</span>
+        <span class="n">sig</span><span class="o">.</span><span class="n">assignments</span> <span class="o">=</span> <span class="n">assignments</span>
+        <span class="n">sig</span><span class="o">.</span><span class="n">students</span> <span class="o">=</span> <span class="n">students</span>
+        <span class="k">raise</span> <span class="n">sig</span>
+
+    <span class="c1"># if the lists are empty, just return empty submissions</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">course_infos</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">subms</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">return</span> <span class="n">subms</span>
+
+    <span class="c1"># build the map from assignment name to indices</span>
+    <span class="n">asgn_map</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">assignments</span><span class="p">)):</span>
+        <span class="n">a_list</span> <span class="o">=</span> <span class="n">assignments</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">a_list</span><span class="p">)):</span>
+            <span class="k">if</span> <span class="n">a_list</span><span class="p">[</span><span class="n">j</span><span class="p">][</span><span class="s1">&#39;name&#39;</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">asgn_map</span><span class="p">:</span>
+                <span class="n">asgn_map</span><span class="p">[</span><span class="n">a_list</span><span class="p">[</span><span class="n">j</span><span class="p">][</span><span class="s1">&#39;name&#39;</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">assignments</span><span class="p">)</span><span class="o">*</span><span class="p">[</span><span class="kc">None</span><span class="p">]</span>
+            <span class="n">asgn_map</span><span class="p">[</span><span class="n">a_list</span><span class="p">[</span><span class="n">j</span><span class="p">][</span><span class="s1">&#39;name&#39;</span><span class="p">]][</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">j</span>
+
+    <span class="c1"># if None is still present in any of the lists, then there is</span>
+    <span class="c1"># an assignment in one course not present in another; sig.FAIL</span>
+    <span class="k">if</span> <span class="nb">any</span><span class="p">([</span><span class="kc">None</span> <span class="ow">in</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">asgn_map</span><span class="o">.</span><span class="n">items</span><span class="p">()]):</span>
+        <span class="n">sig</span> <span class="o">=</span> <span class="n">signals</span><span class="o">.</span><span class="n">FAIL</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;one course has an assignment not present in another. Assignment index mapping: </span><span class="si">{</span><span class="n">asgn_map</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">sig</span><span class="o">.</span><span class="n">course_infos</span> <span class="o">=</span> <span class="n">course_infos</span>
+        <span class="n">sig</span><span class="o">.</span><span class="n">assignments</span> <span class="o">=</span> <span class="n">assignments</span>
+        <span class="n">sig</span><span class="o">.</span><span class="n">students</span> <span class="o">=</span> <span class="n">students</span>
+        <span class="k">raise</span> <span class="n">sig</span>
+
+    <span class="c1"># construct the list of grouped assignments</span>
+    <span class="c1"># data structure:</span>
+    <span class="c1"># list of dicts, one for each assignment</span>
+    <span class="c1">#     &#39;__name__&#39; : (assignment group name)</span>
+    <span class="c1">#     &#39;course_name&#39; : {</span>
+    <span class="c1">#              &#39;assignment&#39; : (assignment object)</span>
+    <span class="c1">#              &#39;submissions&#39; : [  {</span>
+    <span class="c1">#                                  &#39;student&#39; : (student object)</span>
+    <span class="c1">#                                  &#39;name&#39;    : (submission name)</span>
+    <span class="c1">#                                  &#39;score&#39;    : (score)</span>
+    <span class="c1">#                                  &#39;posted_at&#39;    : (date score was posted on LMS)</span>
+    <span class="c1">#                                  &#39;late&#39;    : (whether the subm is late)</span>
+    <span class="c1">#                                  &#39;missing&#39;    : (whether the subm is missing)</span>
+    <span class="n">subm_sets</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">asgn_map</span><span class="p">:</span>
+        <span class="n">subm_set</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">subm_set</span><span class="p">[</span><span class="s1">&#39;__name__&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">course_infos</span><span class="p">)):</span>
+            <span class="n">course_name</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">course_names</span><span class="p">[</span><span class="n">course_infos</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="s1">&#39;id&#39;</span><span class="p">]]</span>
+            <span class="n">course_info</span> <span class="o">=</span> <span class="n">course_infos</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">assignment</span> <span class="o">=</span> <span class="n">assignments</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">asgn_map</span><span class="p">[</span><span class="n">name</span><span class="p">][</span><span class="n">i</span><span class="p">]]</span>
+            <span class="n">subm_info</span> <span class="o">=</span> <span class="n">subm_infos</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">subm_set</span><span class="p">[</span><span class="n">course_name</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="n">subm_set</span><span class="p">[</span><span class="n">course_name</span><span class="p">][</span><span class="s1">&#39;course_info&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">course_info</span>
+            <span class="n">subm_set</span><span class="p">[</span><span class="n">course_name</span><span class="p">][</span><span class="s1">&#39;assignment&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">assignment</span>
+            <span class="n">subm_set</span><span class="p">[</span><span class="n">course_name</span><span class="p">][</span><span class="s1">&#39;submissions&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[{</span>
+                                        <span class="s1">&#39;student&#39;</span> <span class="p">:</span> <span class="n">stu</span><span class="p">,</span>
+                                        <span class="s1">&#39;name&#39;</span> <span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">course_name</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="n">course_info</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> : </span><span class="si">{</span><span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> : </span><span class="si">{</span><span class="n">stu</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="n">stu</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
+                                        <span class="p">}</span> <span class="k">for</span> <span class="n">stu</span> <span class="ow">in</span> <span class="n">students</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">if</span> <span class="n">stu</span><span class="p">[</span><span class="s1">&#39;status&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;active&#39;</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">subm</span> <span class="ow">in</span> <span class="n">subm_set</span><span class="p">[</span><span class="n">course_name</span><span class="p">][</span><span class="s1">&#39;submissions&#39;</span><span class="p">]:</span>
+                <span class="n">student</span> <span class="o">=</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;student&#39;</span><span class="p">]</span>
+                <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;score&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">subm_info</span><span class="p">[</span><span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]][</span><span class="n">student</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]][</span><span class="s1">&#39;score&#39;</span><span class="p">]</span>
+                <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;posted_at&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">subm_info</span><span class="p">[</span><span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]][</span><span class="n">student</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]][</span><span class="s1">&#39;posted_at&#39;</span><span class="p">]</span>
+                <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;late&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">subm_info</span><span class="p">[</span><span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]][</span><span class="n">student</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]][</span><span class="s1">&#39;late&#39;</span><span class="p">]</span>
+                <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;missing&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">subm_info</span><span class="p">[</span><span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]][</span><span class="n">student</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]][</span><span class="s1">&#39;missing&#39;</span><span class="p">]</span>
+        <span class="n">subm_sets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">subm_set</span><span class="p">)</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Built a list of </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">subm_sets</span><span class="p">)</span><span class="si">}</span><span class="s2"> submission sets&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">subm_sets</span>
+
+<span class="k">def</span> <span class="nf">_get_due_date</span><span class="p">(</span><span class="n">assignment</span><span class="p">,</span> <span class="n">student</span><span class="p">):</span>
+    <span class="n">basic_date</span> <span class="o">=</span> <span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;due_at&#39;</span><span class="p">]</span>
+
+    <span class="c1">#get overrides for the student</span>
+    <span class="n">overrides</span> <span class="o">=</span> <span class="p">[</span><span class="n">over</span> <span class="k">for</span> <span class="n">over</span> <span class="ow">in</span> <span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;overrides&#39;</span><span class="p">]</span> <span class="k">if</span> <span class="n">student</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]</span> <span class="ow">in</span> <span class="n">over</span><span class="p">[</span><span class="s1">&#39;student_ids&#39;</span><span class="p">]</span> <span class="ow">and</span> <span class="p">(</span><span class="n">over</span><span class="p">[</span><span class="s1">&#39;due_at&#39;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)]</span>
+
+    <span class="c1">#if there was no override, return the basic date</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">overrides</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">basic_date</span><span class="p">,</span> <span class="kc">None</span>
+
+    <span class="c1">#if there was one, get the latest override date</span>
+    <span class="n">latest_override</span> <span class="o">=</span> <span class="n">overrides</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">over</span> <span class="ow">in</span> <span class="n">overrides</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">over</span><span class="p">[</span><span class="s1">&#39;due_at&#39;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">latest_override</span><span class="p">[</span><span class="s1">&#39;due_at&#39;</span><span class="p">]:</span>
+            <span class="n">latest_override</span> <span class="o">=</span> <span class="n">over</span>
+
+    <span class="c1">#return the latest date between the basic and override dates</span>
+    <span class="k">if</span> <span class="n">latest_override</span><span class="p">[</span><span class="s1">&#39;due_at&#39;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">basic_date</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">latest_override</span><span class="p">[</span><span class="s1">&#39;due_at&#39;</span><span class="p">],</span> <span class="n">latest_override</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">basic_date</span><span class="p">,</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="generate_build_subm_set_name"><a class="viewcode-back" href="../../rudaux.html#rudaux.submission.generate_build_subm_set_name">[docs]</a><span class="k">def</span> <span class="nf">generate_build_subm_set_name</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">subm_set</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">return</span> <span class="s1">&#39;build-submset-&#39;</span><span class="o">+</span><span class="n">subm_set</span><span class="p">[</span><span class="s1">&#39;__name__&#39;</span><span class="p">]</span></div>
+
+<span class="nd">@task</span><span class="p">(</span><span class="n">checkpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span><span class="n">task_run_name</span><span class="o">=</span><span class="n">generate_build_subm_set_name</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">build_submission_set</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">subm_set</span><span class="p">):</span>
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">()</span>
+    <span class="c1"># check assignment date validity and build subm list</span>
+    <span class="k">for</span> <span class="n">course_name</span> <span class="ow">in</span> <span class="n">subm_set</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">course_name</span> <span class="o">==</span> <span class="s1">&#39;__name__&#39;</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">assignment</span> <span class="o">=</span> <span class="n">subm_set</span><span class="p">[</span><span class="n">course_name</span><span class="p">][</span><span class="s1">&#39;assignment&#39;</span><span class="p">]</span>
+        <span class="n">course_info</span> <span class="o">=</span> <span class="n">subm_set</span><span class="p">[</span><span class="n">course_name</span><span class="p">][</span><span class="s1">&#39;course_info&#39;</span><span class="p">]</span>
+
+        <span class="c1"># check that assignment due/unlock dates exist</span>
+        <span class="k">if</span> <span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;unlock_at&#39;</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;due_at&#39;</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">sig</span> <span class="o">=</span> <span class="n">signals</span><span class="o">.</span><span class="n">FAIL</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid unlock (</span><span class="si">{</span><span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;unlock_at&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">) and/or due (</span><span class="si">{</span><span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;due_at&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">) date for assignment </span><span class="si">{</span><span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">sig</span><span class="o">.</span><span class="n">assignment</span> <span class="o">=</span> <span class="n">assignment</span>
+            <span class="k">raise</span> <span class="n">sig</span>
+
+        <span class="c1"># if assignment dates are prior to course start, error</span>
+        <span class="k">if</span> <span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;unlock_at&#39;</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">course_info</span><span class="p">[</span><span class="s1">&#39;start_at&#39;</span><span class="p">]</span> <span class="ow">or</span> <span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;due_at&#39;</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">course_info</span><span class="p">[</span><span class="s1">&#39;start_at&#39;</span><span class="p">]:</span>
+            <span class="n">sig</span> <span class="o">=</span> <span class="n">signals</span><span class="o">.</span><span class="n">FAIL</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Assignment </span><span class="si">{</span><span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> unlock date (</span><span class="si">{</span><span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;unlock_at&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">) &quot;</span><span class="o">+</span>
+                               <span class="sa">f</span><span class="s2">&quot;and/or due date (</span><span class="si">{</span><span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;due_at&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">) is prior to the course start date &quot;</span><span class="o">+</span>
+                               <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="n">course_info</span><span class="p">[</span><span class="s1">&#39;start_at&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">). This is often because of an old deadline from &quot;</span><span class="o">+</span>
+                               <span class="sa">f</span><span class="s2">&quot;a copied Canvas course from a previous semester. Please make sure assignment &quot;</span><span class="o">+</span>
+                               <span class="sa">f</span><span class="s2">&quot;deadlines are all updated to the current semester.&quot;</span><span class="p">)</span>
+            <span class="n">sig</span><span class="o">.</span><span class="n">assignment</span> <span class="o">=</span> <span class="n">assignment</span>
+            <span class="k">raise</span> <span class="n">sig</span>
+
+        <span class="k">for</span> <span class="n">subm</span> <span class="ow">in</span> <span class="n">subm_set</span><span class="p">[</span><span class="n">course_name</span><span class="p">][</span><span class="s1">&#39;submissions&#39;</span><span class="p">]:</span>
+            <span class="n">student</span> <span class="o">=</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;student&#39;</span><span class="p">]</span>
+
+            <span class="c1"># check student registration date is valid</span>
+            <span class="k">if</span> <span class="n">student</span><span class="p">[</span><span class="s1">&#39;reg_date&#39;</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">sig</span> <span class="o">=</span> <span class="n">signals</span><span class="o">.</span><span class="n">FAIL</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid registration date for student </span><span class="si">{</span><span class="n">student</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">student</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">student</span><span class="p">[</span><span class="s1">&#39;reg_date&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+                <span class="n">sig</span><span class="o">.</span><span class="n">student</span> <span class="o">=</span> <span class="n">student</span>
+                <span class="k">raise</span> <span class="n">sig</span>
+
+            <span class="c1"># compute the submissions&#39;s due date, snap name, paths</span>
+            <span class="n">due_date</span><span class="p">,</span> <span class="n">override</span> <span class="o">=</span> <span class="n">_get_due_date</span><span class="p">(</span><span class="n">assignment</span><span class="p">,</span> <span class="n">student</span><span class="p">)</span>
+            <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;due_at&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">due_date</span>
+            <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;override&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">override</span>
+            <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;snap_name&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_get_snap_name</span><span class="p">(</span><span class="n">course_name</span><span class="p">,</span> <span class="n">assignment</span><span class="p">,</span> <span class="n">override</span><span class="p">)</span>
+            <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;student_folder&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">student_dataset_root</span><span class="p">,</span> <span class="n">student</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">])</span>
+            <span class="k">if</span> <span class="n">override</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;zfs_snap_path&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">student_dataset_root</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;@&#39;</span> <span class="o">+</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;snap_name&#39;</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;zfs_snap_path&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;student_folder&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;@&#39;</span> <span class="o">+</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;snap_name&#39;</span><span class="p">]</span>
+            <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;snapped_assignment_path&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;student_folder&#39;</span><span class="p">],</span>
+                        <span class="s1">&#39;.zfs&#39;</span><span class="p">,</span> <span class="s1">&#39;snapshot&#39;</span><span class="p">,</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;snap_name&#39;</span><span class="p">],</span> <span class="n">config</span><span class="o">.</span><span class="n">student_local_assignment_folder</span><span class="p">,</span>
+                        <span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">],</span> <span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="o">+</span><span class="s1">&#39;.ipynb&#39;</span><span class="p">)</span>
+            <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;soln_path&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;student_folder&#39;</span><span class="p">],</span> <span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="s1">&#39;_solution.html&#39;</span><span class="p">)</span>
+            <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;fdbk_path&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;student_folder&#39;</span><span class="p">],</span> <span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="s1">&#39;_feedback.html&#39;</span><span class="p">)</span>
+
+    <span class="c1"># check whether all grades have been posted, and solutions/feedback returned (assignment is done). If so, skip</span>
+    <span class="n">all_posted</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">all_returned</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="k">for</span> <span class="n">course_name</span> <span class="ow">in</span> <span class="n">subm_set</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">course_name</span> <span class="o">==</span> <span class="s1">&#39;__name__&#39;</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">all_posted</span> <span class="o">=</span> <span class="n">all_posted</span> <span class="ow">and</span> <span class="nb">all</span><span class="p">([</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;posted_at&#39;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">subm</span> <span class="ow">in</span> <span class="n">subm_set</span><span class="p">[</span><span class="n">course_name</span><span class="p">][</span><span class="s1">&#39;submissions&#39;</span><span class="p">]])</span>
+        <span class="n">all_returned</span> <span class="o">=</span> <span class="n">all_returned</span> <span class="ow">and</span> <span class="nb">all</span><span class="p">([</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;soln_path&#39;</span><span class="p">])</span> <span class="k">for</span> <span class="n">subm</span> <span class="ow">in</span> <span class="n">subm_set</span><span class="p">[</span><span class="n">course_name</span><span class="p">][</span><span class="s1">&#39;submissions&#39;</span><span class="p">]])</span>
+        <span class="n">all_returned</span> <span class="o">=</span> <span class="n">all_returned</span> <span class="ow">and</span> <span class="nb">all</span><span class="p">([</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;fdbk_path&#39;</span><span class="p">])</span> <span class="k">for</span> <span class="n">subm</span> <span class="ow">in</span> <span class="n">subm_set</span><span class="p">[</span><span class="n">course_name</span><span class="p">][</span><span class="s1">&#39;submissions&#39;</span><span class="p">]])</span>
+    <span class="k">if</span> <span class="n">all_posted</span> <span class="ow">and</span> <span class="n">all_returned</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">signals</span><span class="o">.</span><span class="n">SKIP</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;All grades are posted, all solutions returned, and all feedback returned for assignment </span><span class="si">{</span><span class="n">subm_set</span><span class="p">[</span><span class="s1">&#39;__name__&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">. Workflow done. Skipping.&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">subm_set</span>
+
+
+<div class="viewcode-block" id="generate_latereg_overrides_name"><a class="viewcode-back" href="../../rudaux.html#rudaux.submission.generate_latereg_overrides_name">[docs]</a><span class="k">def</span> <span class="nf">generate_latereg_overrides_name</span><span class="p">(</span><span class="n">extension_days</span><span class="p">,</span> <span class="n">subm_set</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">return</span> <span class="s1">&#39;lateregs-&#39;</span><span class="o">+</span><span class="n">subm_set</span><span class="p">[</span><span class="s1">&#39;__name__&#39;</span><span class="p">]</span></div>
+
+<span class="nd">@task</span><span class="p">(</span><span class="n">checkpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span><span class="n">task_run_name</span><span class="o">=</span><span class="n">generate_latereg_overrides_name</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">get_latereg_overrides</span><span class="p">(</span><span class="n">extension_days</span><span class="p">,</span> <span class="n">subm_set</span><span class="p">):</span>
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">()</span>
+    <span class="n">fmt</span> <span class="o">=</span> <span class="s1">&#39;ddd YYYY-MM-DD HH:mm:ss&#39;</span>
+    <span class="n">overrides</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">course_name</span> <span class="ow">in</span> <span class="n">subm_set</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">course_name</span> <span class="o">==</span> <span class="s1">&#39;__name__&#39;</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">assignment</span> <span class="o">=</span> <span class="n">subm_set</span><span class="p">[</span><span class="n">course_name</span><span class="p">][</span><span class="s1">&#39;assignment&#39;</span><span class="p">]</span>
+        <span class="n">course_info</span> <span class="o">=</span> <span class="n">subm_set</span><span class="p">[</span><span class="n">course_name</span><span class="p">][</span><span class="s1">&#39;course_info&#39;</span><span class="p">]</span>
+        <span class="n">tz</span> <span class="o">=</span> <span class="n">course_info</span><span class="p">[</span><span class="s1">&#39;time_zone&#39;</span><span class="p">]</span>
+
+        <span class="c1"># skip the assignment if it isn&#39;t unlocked yet</span>
+        <span class="k">if</span> <span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;unlock_at&#39;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">plm</span><span class="o">.</span><span class="n">now</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="n">signals</span><span class="o">.</span><span class="n">SKIP</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Assignment </span><span class="si">{</span><span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">) unlock date </span><span class="si">{</span><span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;unlock_at&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> is in the future. Skipping.&quot;</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">subm</span> <span class="ow">in</span> <span class="n">subm_set</span><span class="p">[</span><span class="n">course_name</span><span class="p">][</span><span class="s1">&#39;submissions&#39;</span><span class="p">]:</span>
+            <span class="n">student</span> <span class="o">=</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;student&#39;</span><span class="p">]</span>
+            <span class="n">regdate</span> <span class="o">=</span> <span class="n">student</span><span class="p">[</span><span class="s1">&#39;reg_date&#39;</span><span class="p">]</span>
+            <span class="n">override</span> <span class="o">=</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;override&#39;</span><span class="p">]</span>
+
+            <span class="n">to_remove</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">to_create</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="n">regdate</span> <span class="o">&gt;</span> <span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;unlock_at&#39;</span><span class="p">]:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Student </span><span class="si">{</span><span class="n">student</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> gets an extension on assignment </span><span class="si">{</span><span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Student registration date: </span><span class="si">{</span><span class="n">regdate</span><span class="si">}</span><span class="s2">    Status: </span><span class="si">{</span><span class="n">student</span><span class="p">[</span><span class="s1">&#39;status&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Assignment unlock: </span><span class="si">{</span><span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;unlock_at&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">    Assignment deadline: </span><span class="si">{</span><span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;due_at&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="c1">#the late registration due date</span>
+                <span class="n">latereg_date</span> <span class="o">=</span> <span class="n">regdate</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="n">extension_days</span><span class="p">)</span><span class="o">.</span><span class="n">in_timezone</span><span class="p">(</span><span class="n">tz</span><span class="p">)</span><span class="o">.</span><span class="n">end_of</span><span class="p">(</span><span class="s1">&#39;day&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">microsecond</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Current student-specific due date: &quot;</span> <span class="o">+</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;due_at&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">in_timezone</span><span class="p">(</span><span class="n">tz</span><span class="p">)</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">fmt</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot; from override: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="kc">True</span> <span class="k">if</span> <span class="p">(</span><span class="n">override</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span> <span class="k">else</span> <span class="kc">False</span><span class="p">))</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Late registration extension date: &#39;</span> <span class="o">+</span> <span class="n">latereg_date</span><span class="o">.</span><span class="n">in_timezone</span><span class="p">(</span><span class="n">tz</span><span class="p">)</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">fmt</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">latereg_date</span> <span class="o">&gt;</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;due_at&#39;</span><span class="p">]:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Creating automatic late registration extension to &#39;</span> <span class="o">+</span> <span class="n">latereg_date</span><span class="o">.</span><span class="n">in_timezone</span><span class="p">(</span><span class="n">tz</span><span class="p">)</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">fmt</span><span class="p">))</span>
+                    <span class="k">if</span> <span class="n">override</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Need to remove old override &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">override</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]))</span>
+                        <span class="n">to_remove</span> <span class="o">=</span> <span class="n">override</span>
+                    <span class="n">to_create</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;student_ids&#39;</span> <span class="p">:</span> <span class="p">[</span><span class="n">student</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]],</span>
+                                 <span class="s1">&#39;due_at&#39;</span> <span class="p">:</span> <span class="n">latereg_date</span><span class="p">,</span>
+                                 <span class="s1">&#39;lock_at&#39;</span> <span class="p">:</span> <span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;lock_at&#39;</span><span class="p">],</span>
+                                 <span class="s1">&#39;unlock_at&#39;</span> <span class="p">:</span> <span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;unlock_at&#39;</span><span class="p">],</span>
+                                 <span class="s1">&#39;title&#39;</span> <span class="p">:</span> <span class="n">student</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="o">+</span><span class="s1">&#39;-&#39;</span><span class="o">+</span><span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="o">+</span><span class="s1">&#39;-latereg&#39;</span><span class="p">}</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Current extension meets or exceeds the late registration extension.&quot;</span><span class="p">)</span>
+                    <span class="k">continue</span>
+                    <span class="c1">#raise signals.SKIP(&quot;Current due date for student {student[&#39;name&#39;]}, assignment {assignment[&#39;name&#39;]} after late registration date; no override modifications required.&quot;)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">continue</span>
+                <span class="c1">#raise signals.SKIP(&quot;Assignment {assignment[&#39;name&#39;]} unlocks after student {student[&#39;name&#39;]} registration date; no extension required.&quot;)</span>
+            <span class="n">overrides</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">assignment</span><span class="p">,</span> <span class="n">to_create</span><span class="p">,</span> <span class="n">to_remove</span><span class="p">))</span>
+            <span class="c1">#return (assignment, to_create, to_remove)</span>
+    <span class="k">return</span> <span class="n">overrides</span>
+
+<div class="viewcode-block" id="generate_assign_graders_name"><a class="viewcode-back" href="../../rudaux.html#rudaux.submission.generate_assign_graders_name">[docs]</a><span class="k">def</span> <span class="nf">generate_assign_graders_name</span><span class="p">(</span><span class="n">subm_set</span><span class="p">,</span> <span class="n">graders</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">return</span> <span class="s1">&#39;asgn-graders-&#39;</span><span class="o">+</span><span class="n">subm_set</span><span class="p">[</span><span class="s1">&#39;__name__&#39;</span><span class="p">]</span></div>
+
+<span class="nd">@task</span><span class="p">(</span><span class="n">checkpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span><span class="n">task_run_name</span><span class="o">=</span><span class="n">generate_assign_graders_name</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">assign_graders</span><span class="p">(</span><span class="n">subm_set</span><span class="p">,</span> <span class="n">graders</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">course_name</span> <span class="ow">in</span> <span class="n">subm_set</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">course_name</span> <span class="o">==</span> <span class="s1">&#39;__name__&#39;</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">assignment</span> <span class="o">=</span> <span class="n">subm_set</span><span class="p">[</span><span class="n">course_name</span><span class="p">][</span><span class="s1">&#39;assignment&#39;</span><span class="p">]</span>
+        <span class="n">course_info</span> <span class="o">=</span> <span class="n">subm_set</span><span class="p">[</span><span class="n">course_name</span><span class="p">][</span><span class="s1">&#39;course_info&#39;</span><span class="p">]</span>
+        <span class="n">tz</span> <span class="o">=</span> <span class="n">course_info</span><span class="p">[</span><span class="s1">&#39;time_zone&#39;</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">subm</span> <span class="ow">in</span> <span class="n">subm_set</span><span class="p">[</span><span class="n">course_name</span><span class="p">][</span><span class="s1">&#39;submissions&#39;</span><span class="p">]:</span>
+            <span class="n">student</span> <span class="o">=</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;student&#39;</span><span class="p">]</span>
+
+            <span class="c1"># search for this student in the grader folders</span>
+            <span class="n">found</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">for</span> <span class="n">grader</span> <span class="ow">in</span> <span class="n">graders</span><span class="p">:</span>
+                <span class="n">collected_assignment_folder</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">grader</span><span class="p">[</span><span class="s1">&#39;submissions_folder&#39;</span><span class="p">],</span> <span class="n">config</span><span class="o">.</span><span class="n">grading_student_folder_prefix</span><span class="o">+</span><span class="n">student</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">])</span>
+                <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">collected_assignment_folder</span><span class="p">):</span>
+                    <span class="n">found</span> <span class="o">=</span> <span class="kc">True</span>
+                    <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;grader&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">grader</span>
+                    <span class="k">break</span>
+            <span class="c1"># if not assigned to anyone, choose the worker with the minimum current workload</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">found</span><span class="p">:</span>
+                <span class="c1"># sort graders in place and assign</span>
+                <span class="n">min_grader</span> <span class="o">=</span> <span class="n">graders</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">g</span> <span class="p">:</span> <span class="n">g</span><span class="p">[</span><span class="s1">&#39;workload&#39;</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">min_grader</span><span class="p">[</span><span class="s1">&#39;workload&#39;</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;grader&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">min_grader</span>
+
+            <span class="c1"># fill in the submission details that depend on a grader</span>
+            <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;collected_assignment_path&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;grader&#39;</span><span class="p">][</span><span class="s1">&#39;submissions_folder&#39;</span><span class="p">],</span>
+                                                     <span class="n">config</span><span class="o">.</span><span class="n">grading_student_folder_prefix</span><span class="o">+</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;student&#39;</span><span class="p">][</span><span class="s1">&#39;id&#39;</span><span class="p">],</span>
+                                                     <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;assignment&#39;</span><span class="p">][</span><span class="s1">&#39;name&#39;</span><span class="p">],</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;assignment&#39;</span><span class="p">][</span><span class="s1">&#39;name&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="s1">&#39;.ipynb&#39;</span><span class="p">)</span>
+            <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;autograded_assignment_path&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;grader&#39;</span><span class="p">][</span><span class="s1">&#39;autograded_folder&#39;</span><span class="p">],</span>
+                                                     <span class="n">config</span><span class="o">.</span><span class="n">grading_student_folder_prefix</span><span class="o">+</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;student&#39;</span><span class="p">][</span><span class="s1">&#39;id&#39;</span><span class="p">],</span>
+                                                     <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;assignment&#39;</span><span class="p">][</span><span class="s1">&#39;name&#39;</span><span class="p">],</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;assignment&#39;</span><span class="p">][</span><span class="s1">&#39;name&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="s1">&#39;.ipynb&#39;</span><span class="p">)</span>
+            <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;feedback_path&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;grader&#39;</span><span class="p">][</span><span class="s1">&#39;feedback_folder&#39;</span><span class="p">],</span>
+                                                     <span class="n">config</span><span class="o">.</span><span class="n">grading_student_folder_prefix</span><span class="o">+</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;student&#39;</span><span class="p">][</span><span class="s1">&#39;id&#39;</span><span class="p">],</span>
+                                                     <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;assignment&#39;</span><span class="p">][</span><span class="s1">&#39;name&#39;</span><span class="p">],</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;assignment&#39;</span><span class="p">][</span><span class="s1">&#39;name&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="s1">&#39;.html&#39;</span><span class="p">)</span>
+            <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;status&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">GradingStatus</span><span class="o">.</span><span class="n">ASSIGNED</span>
+    <span class="k">return</span> <span class="n">subm_set</span>
+
+
+<div class="viewcode-block" id="generate_pastdue_frac_name"><a class="viewcode-back" href="../../rudaux.html#rudaux.submission.generate_pastdue_frac_name">[docs]</a><span class="k">def</span> <span class="nf">generate_pastdue_frac_name</span><span class="p">(</span><span class="n">subm_set</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">return</span> <span class="s1">&#39;pastdue-frac-&#39;</span><span class="o">+</span><span class="n">subm_set</span><span class="p">[</span><span class="s1">&#39;__name__&#39;</span><span class="p">]</span></div>
+
+<span class="nd">@task</span><span class="p">(</span><span class="n">checkpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span><span class="n">task_run_name</span><span class="o">=</span><span class="n">generate_pastdue_frac_name</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">get_pastdue_fraction</span><span class="p">(</span><span class="n">subm_set</span><span class="p">):</span>
+    <span class="n">asgn_total</span> <span class="o">=</span> <span class="mf">0.</span>
+    <span class="n">asgn_outstanding</span> <span class="o">=</span> <span class="mf">0.</span>
+    <span class="k">for</span> <span class="n">course_name</span> <span class="ow">in</span> <span class="n">subm_set</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">course_name</span> <span class="o">==</span> <span class="s1">&#39;__name__&#39;</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">asgn_total</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">subm_set</span><span class="p">[</span><span class="n">course_name</span><span class="p">][</span><span class="s1">&#39;submissions&#39;</span><span class="p">])</span>
+        <span class="n">asgn_outstanding</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">([</span><span class="kc">None</span> <span class="k">for</span> <span class="n">subm</span> <span class="ow">in</span> <span class="n">subm_set</span> <span class="k">if</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;due_at&#39;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">plm</span><span class="o">.</span><span class="n">now</span><span class="p">()])</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">asgn_total</span> <span class="o">-</span> <span class="n">asgn_outstanding</span><span class="p">)</span><span class="o">/</span><span class="n">asgn_total</span>
+
+<div class="viewcode-block" id="generate_return_solns_name"><a class="viewcode-back" href="../../rudaux.html#rudaux.submission.generate_return_solns_name">[docs]</a><span class="k">def</span> <span class="nf">generate_return_solns_name</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">pastdue_frac</span><span class="p">,</span> <span class="n">subm_set</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">return</span> <span class="s1">&#39;retrn-solns-&#39;</span><span class="o">+</span><span class="n">subm_set</span><span class="p">[</span><span class="s1">&#39;__name__&#39;</span><span class="p">]</span></div>
+
+<span class="nd">@task</span><span class="p">(</span><span class="n">checkpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span><span class="n">task_run_name</span><span class="o">=</span><span class="n">generate_return_solns_name</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">return_solutions</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">pastdue_frac</span><span class="p">,</span> <span class="n">subm_set</span><span class="p">):</span>
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">()</span>
+    <span class="c1"># skip if pastdue frac not high enough or we haven&#39;t reached the earlist return date</span>
+    <span class="k">if</span> <span class="n">pastdue_frac</span> <span class="o">&lt;</span> <span class="n">config</span><span class="o">.</span><span class="n">return_solution_threshold</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">signals</span><span class="o">.</span><span class="n">SKIP</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Assignment </span><span class="si">{</span><span class="n">subm_set</span><span class="p">[</span><span class="s1">&#39;__name__&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> has </span><span class="si">{</span><span class="n">pastdue_frac</span><span class="si">}</span><span class="s2"> submissions &quot;</span><span class="o">+</span>
+                           <span class="sa">f</span><span class="s2">&quot;past their due date, which is less than the return soln &quot;</span><span class="o">+</span>
+                           <span class="sa">f</span><span class="s2">&quot;threshold </span><span class="si">{</span><span class="n">config</span><span class="o">.</span><span class="n">return_solution_threshold</span><span class="si">}</span><span class="s2"> . Skipping solution return.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">plm</span><span class="o">.</span><span class="n">now</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">plm</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">earliest_solution_return_date</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="n">signals</span><span class="o">.</span><span class="n">SKIP</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;We have not yet reached the earliest solution return date &quot;</span><span class="o">+</span>
+                           <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">config</span><span class="o">.</span><span class="n">earliest_solution_return_date</span><span class="si">}</span><span class="s2">. Skipping solution return.&quot;</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">course_name</span> <span class="ow">in</span> <span class="n">subm_set</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">course_name</span> <span class="o">==</span> <span class="s1">&#39;__name__&#39;</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="k">for</span> <span class="n">subm</span> <span class="ow">in</span> <span class="n">subm_set</span><span class="p">[</span><span class="n">course_name</span><span class="p">][</span><span class="s1">&#39;submissions&#39;</span><span class="p">]:</span>
+            <span class="n">student</span> <span class="o">=</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;student&#39;</span><span class="p">]</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Checking whether solution for submission </span><span class="si">{</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> can be returned&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;due_at&#39;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">plm</span><span class="o">.</span><span class="n">now</span><span class="p">():</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Returning solution submission </span><span class="si">{</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;soln_path&#39;</span><span class="p">]):</span>
+                    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;student_folder&#39;</span><span class="p">]):</span>
+                        <span class="k">try</span><span class="p">:</span>
+                            <span class="n">shutil</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;grader&#39;</span><span class="p">][</span><span class="s1">&#39;soln_path&#39;</span><span class="p">],</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;soln_path&#39;</span><span class="p">])</span>
+                            <span class="n">os</span><span class="o">.</span><span class="n">chown</span><span class="p">(</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;soln_path&#39;</span><span class="p">],</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;grader&#39;</span><span class="p">][</span><span class="s1">&#39;unix_uid&#39;</span><span class="p">],</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;grader&#39;</span><span class="p">][</span><span class="s1">&#39;unix_uid&#39;</span><span class="p">])</span>
+                        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                            <span class="k">raise</span> <span class="n">signals</span><span class="o">.</span><span class="n">FAIL</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Warning: student folder </span><span class="si">{</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;student_folder&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> doesnt exist. Skipping solution return.&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Not returnable yet; the student-specific due date (</span><span class="si">{</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;due_at&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">) has not passed.&quot;</span><span class="p">)</span>
+    <span class="k">return</span>
+
+<div class="viewcode-block" id="generate_collect_subms_name"><a class="viewcode-back" href="../../rudaux.html#rudaux.submission.generate_collect_subms_name">[docs]</a><span class="k">def</span> <span class="nf">generate_collect_subms_name</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">subm_set</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">return</span> <span class="s1">&#39;collct-subms-&#39;</span><span class="o">+</span><span class="n">subm_set</span><span class="p">[</span><span class="s1">&#39;__name__&#39;</span><span class="p">]</span></div>
+
+<span class="nd">@task</span><span class="p">(</span><span class="n">checkpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span><span class="n">task_run_name</span><span class="o">=</span><span class="n">generate_collect_subms_name</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">collect_submissions</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">subm_set</span><span class="p">):</span>
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">course_name</span> <span class="ow">in</span> <span class="n">subm_set</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">course_name</span> <span class="o">==</span> <span class="s1">&#39;__name__&#39;</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="k">for</span> <span class="n">subm</span> <span class="ow">in</span> <span class="n">subm_set</span><span class="p">[</span><span class="n">course_name</span><span class="p">][</span><span class="s1">&#39;submissions&#39;</span><span class="p">]:</span>
+            <span class="n">student</span> <span class="o">=</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;student&#39;</span><span class="p">]</span>
+
+            <span class="c1"># if the submission is due in the future, skip</span>
+            <span class="k">if</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;due_at&#39;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">plm</span><span class="o">.</span><span class="n">now</span><span class="p">():</span>
+                 <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;status&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">GradingStatus</span><span class="o">.</span><span class="n">NOT_DUE</span>
+                 <span class="k">continue</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;collected_assignment_path&#39;</span><span class="p">]):</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;snapped_assignment_path&#39;</span><span class="p">]):</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Submission </span><span class="si">{</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> is missing. Uploading score of 0.&quot;</span><span class="p">)</span>
+                    <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;status&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">GradingStatus</span><span class="o">.</span><span class="n">MISSING</span>
+                    <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;score&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.</span>
+                    <span class="n">put_grade</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">subm</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">shutil</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;snapped_assignment_path&#39;</span><span class="p">],</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;collected_assignment_path&#39;</span><span class="p">])</span>
+                        <span class="n">os</span><span class="o">.</span><span class="n">chown</span><span class="p">(</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;collected_assignment_path&#39;</span><span class="p">],</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;grader&#39;</span><span class="p">][</span><span class="s1">&#39;unix_uid&#39;</span><span class="p">],</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;grader&#39;</span><span class="p">][</span><span class="s1">&#39;unix_uid&#39;</span><span class="p">])</span>
+                        <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;status&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">GradingStatus</span><span class="o">.</span><span class="n">COLLECTED</span>
+                    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="n">signals</span><span class="o">.</span><span class="n">FAIL</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Submission collected.&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Submission already collected.&quot;</span><span class="p">)</span>
+                <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;status&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">GradingStatus</span><span class="o">.</span><span class="n">COLLECTED</span>
+    <span class="k">return</span> <span class="n">subm_set</span>
+
+
+<div class="viewcode-block" id="generate_clean_subms_name"><a class="viewcode-back" href="../../rudaux.html#rudaux.submission.generate_clean_subms_name">[docs]</a><span class="k">def</span> <span class="nf">generate_clean_subms_name</span><span class="p">(</span><span class="n">subm_set</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">return</span> <span class="s1">&#39;clean-subms-&#39;</span><span class="o">+</span><span class="n">subm_set</span><span class="p">[</span><span class="s1">&#39;__name__&#39;</span><span class="p">]</span></div>
+
+<span class="nd">@task</span><span class="p">(</span><span class="n">checkpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span><span class="n">task_run_name</span><span class="o">=</span><span class="n">generate_clean_subms_name</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">clean_submissions</span><span class="p">(</span><span class="n">subm_set</span><span class="p">):</span>
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">()</span>
+
+    <span class="k">for</span> <span class="n">course_name</span> <span class="ow">in</span> <span class="n">subm_set</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">course_name</span> <span class="o">==</span> <span class="s1">&#39;__name__&#39;</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">assignment</span> <span class="o">=</span> <span class="n">subm_set</span><span class="p">[</span><span class="n">course_name</span><span class="p">][</span><span class="s1">&#39;assignment&#39;</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">subm</span> <span class="ow">in</span> <span class="n">subm_set</span><span class="p">[</span><span class="n">course_name</span><span class="p">][</span><span class="s1">&#39;submissions&#39;</span><span class="p">]:</span>
+            <span class="k">if</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;status&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">GradingStatus</span><span class="o">.</span><span class="n">COLLECTED</span><span class="p">:</span>
+                <span class="n">student</span> <span class="o">=</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;student&#39;</span><span class="p">]</span>
+                <span class="n">grader</span> <span class="o">=</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;grader&#39;</span><span class="p">]</span>
+
+                <span class="c1">#need to check for duplicate cell ids, see</span>
+                <span class="c1">#https://github.com/jupyter/nbgrader/issues/1083</span>
+                <span class="c1">#open the student&#39;s notebook</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">f</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;collected_assignment_path&#39;</span><span class="p">],</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span>
+                    <span class="n">nb</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="n">signals</span><span class="o">.</span><span class="n">FAIL</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+                <span class="c1">#go through and delete the nbgrader metadata from any duplicated cells</span>
+                <span class="n">cell_ids</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+                <span class="k">for</span> <span class="n">cell</span> <span class="ow">in</span> <span class="n">nb</span><span class="p">[</span><span class="s1">&#39;cells&#39;</span><span class="p">]:</span>
+                  <span class="k">try</span><span class="p">:</span>
+                    <span class="n">cell_id</span> <span class="o">=</span> <span class="n">cell</span><span class="p">[</span><span class="s1">&#39;metadata&#39;</span><span class="p">][</span><span class="s1">&#39;nbgrader&#39;</span><span class="p">][</span><span class="s1">&#39;grade_id&#39;</span><span class="p">]</span>
+                  <span class="k">except</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                  <span class="k">if</span> <span class="n">cell_id</span> <span class="ow">in</span> <span class="n">cell_ids</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Student </span><span class="si">{</span><span class="n">student</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> assignment </span><span class="si">{</span><span class="n">assignment</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> grader </span><span class="si">{</span><span class="n">grader</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> had a duplicate cell! ID = </span><span class="si">{</span><span class="n">cell_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Removing the nbgrader metainfo from that cell to avoid bugs in autograde&quot;</span><span class="p">)</span>
+                    <span class="n">cell</span><span class="p">[</span><span class="s1">&#39;metadata&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;nbgrader&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                  <span class="k">else</span><span class="p">:</span>
+                    <span class="n">cell_ids</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">cell_id</span><span class="p">)</span>
+
+                <span class="c1">#write the sanitized notebook back to the submitted folder</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">f</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;collected_assignment_path&#39;</span><span class="p">],</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span>
+                    <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">nb</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="n">signals</span><span class="o">.</span><span class="n">FAIL</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+
+                <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;status&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">GradingStatus</span><span class="o">.</span><span class="n">PREPARED</span>
+    <span class="k">return</span> <span class="n">subm_set</span>
+
+
+<div class="viewcode-block" id="generate_autograde_name"><a class="viewcode-back" href="../../rudaux.html#rudaux.submission.generate_autograde_name">[docs]</a><span class="k">def</span> <span class="nf">generate_autograde_name</span><span class="p">(</span><span class="n">subm_set</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">return</span> <span class="s1">&#39;autograde-&#39;</span><span class="o">+</span><span class="n">subm_set</span><span class="p">[</span><span class="s1">&#39;__name__&#39;</span><span class="p">]</span></div>
+
+<span class="nd">@task</span><span class="p">(</span><span class="n">checkpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span><span class="n">task_run_name</span><span class="o">=</span><span class="n">generate_autograde_name</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">autograde</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">subm_set</span><span class="p">):</span>
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">course_name</span> <span class="ow">in</span> <span class="n">subm_set</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">course_name</span> <span class="o">==</span> <span class="s1">&#39;__name__&#39;</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">assignment</span> <span class="o">=</span> <span class="n">subm_set</span><span class="p">[</span><span class="n">course_name</span><span class="p">][</span><span class="s1">&#39;assignment&#39;</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">subm</span> <span class="ow">in</span> <span class="n">subm_set</span><span class="p">[</span><span class="n">course_name</span><span class="p">][</span><span class="s1">&#39;submissions&#39;</span><span class="p">]:</span>
+            <span class="k">if</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;status&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">GradingStatus</span><span class="o">.</span><span class="n">PREPARED</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Autograding submission </span><span class="si">{</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+                <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;autograded_assignment_path&#39;</span><span class="p">]):</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Assignment previously autograded &amp; validated.&#39;</span><span class="p">)</span>
+                    <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;status&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">GradingStatus</span><span class="o">.</span><span class="n">AUTOGRADED</span>
+                    <span class="k">continue</span>
+
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Removing old autograding result from DB if it exists&#39;</span><span class="p">)</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">gb</span> <span class="o">=</span> <span class="n">Gradebook</span><span class="p">(</span><span class="s1">&#39;sqlite:///&#39;</span><span class="o">+</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;grader&#39;</span><span class="p">][</span><span class="s1">&#39;folder&#39;</span><span class="p">],</span> <span class="s1">&#39;gradebook.db&#39;</span><span class="p">))</span>
+                    <span class="n">gb</span><span class="o">.</span><span class="n">remove_submission</span><span class="p">(</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;assignment&#39;</span><span class="p">][</span><span class="s1">&#39;name&#39;</span><span class="p">],</span> <span class="n">config</span><span class="o">.</span><span class="n">grading_student_folder_prefix</span><span class="o">+</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;student&#39;</span><span class="p">][</span><span class="s1">&#39;id&#39;</span><span class="p">])</span>
+                <span class="k">except</span> <span class="n">MissingEntry</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="k">pass</span>
+                <span class="k">finally</span><span class="p">:</span>
+                    <span class="n">gb</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Autograding...&#39;</span><span class="p">)</span>
+                <span class="n">res</span> <span class="o">=</span> <span class="n">run_container</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="s1">&#39;nbgrader autograde --force &#39;</span><span class="o">+</span>
+                                            <span class="s1">&#39;--assignment=&#39;</span> <span class="o">+</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;assignment&#39;</span><span class="p">][</span><span class="s1">&#39;name&#39;</span><span class="p">]</span> <span class="o">+</span>
+                                            <span class="s1">&#39; --student=&#39;</span><span class="o">+</span><span class="n">config</span><span class="o">.</span><span class="n">grading_student_folder_prefix</span><span class="o">+</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;student&#39;</span><span class="p">][</span><span class="s1">&#39;id&#39;</span><span class="p">],</span>
+                                    <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;grader&#39;</span><span class="p">][</span><span class="s1">&#39;folder&#39;</span><span class="p">])</span>
+
+                <span class="c1"># validate the results</span>
+                <span class="k">if</span> <span class="s1">&#39;ERROR&#39;</span> <span class="ow">in</span> <span class="n">res</span><span class="p">[</span><span class="s1">&#39;log&#39;</span><span class="p">]:</span>
+                    <span class="k">raise</span> <span class="n">signals</span><span class="o">.</span><span class="n">FAIL</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Docker error autograding submission </span><span class="si">{</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">: exited with status </span><span class="si">{</span><span class="n">res</span><span class="p">[</span><span class="s1">&#39;exit_status&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">,  </span><span class="si">{</span><span class="n">res</span><span class="p">[</span><span class="s1">&#39;log&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;autograded_assignment_path&#39;</span><span class="p">]):</span>
+                    <span class="k">raise</span> <span class="n">signals</span><span class="o">.</span><span class="n">FAIL</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Docker error autograding submission </span><span class="si">{</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">: did not generate expected file at </span><span class="si">{</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;autograded_assignment_path&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;status&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">GradingStatus</span><span class="o">.</span><span class="n">AUTOGRADED</span>
+
+    <span class="k">return</span> <span class="n">subm_set</span>
+
+
+<div class="viewcode-block" id="generate_checkmanual_name"><a class="viewcode-back" href="../../rudaux.html#rudaux.submission.generate_checkmanual_name">[docs]</a><span class="k">def</span> <span class="nf">generate_checkmanual_name</span><span class="p">(</span><span class="n">subm_set</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">return</span> <span class="s1">&#39;check-manual-&#39;</span><span class="o">+</span><span class="n">subm_set</span><span class="p">[</span><span class="s1">&#39;__name__&#39;</span><span class="p">]</span></div>
+
+<span class="nd">@task</span><span class="p">(</span><span class="n">checkpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span><span class="n">task_run_name</span><span class="o">=</span><span class="n">generate_checkmanual_name</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">check_manual_grading</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">subm_set</span><span class="p">):</span>
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">()</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Checking whether submission </span><span class="si">{</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> needs manual grading&quot;</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">course_name</span> <span class="ow">in</span> <span class="n">subm_set</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">course_name</span> <span class="o">==</span> <span class="s1">&#39;__name__&#39;</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">assignment</span> <span class="o">=</span> <span class="n">subm_set</span><span class="p">[</span><span class="n">course_name</span><span class="p">][</span><span class="s1">&#39;assignment&#39;</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">subm</span> <span class="ow">in</span> <span class="n">subm_set</span><span class="p">[</span><span class="n">course_name</span><span class="p">][</span><span class="s1">&#39;submissions&#39;</span><span class="p">]:</span>
+            <span class="k">if</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;status&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">GradingStatus</span><span class="o">.</span><span class="n">AUTOGRADED</span><span class="p">:</span>
+                <span class="c1"># check if the submission needs manual grading</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">gb</span> <span class="o">=</span> <span class="n">Gradebook</span><span class="p">(</span><span class="s1">&#39;sqlite:///&#39;</span><span class="o">+</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;grader&#39;</span><span class="p">][</span><span class="s1">&#39;folder&#39;</span><span class="p">],</span> <span class="s1">&#39;gradebook.db&#39;</span><span class="p">))</span>
+                    <span class="n">gb_subm</span> <span class="o">=</span> <span class="n">gb</span><span class="o">.</span><span class="n">find_submission</span><span class="p">(</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;assignment&#39;</span><span class="p">][</span><span class="s1">&#39;name&#39;</span><span class="p">],</span> <span class="n">config</span><span class="o">.</span><span class="n">grading_student_folder_prefix</span><span class="o">+</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;student&#39;</span><span class="p">][</span><span class="s1">&#39;id&#39;</span><span class="p">])</span>
+                    <span class="n">flag</span> <span class="o">=</span> <span class="n">gb_subm</span><span class="o">.</span><span class="n">needs_manual_grade</span>
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="n">sig</span> <span class="o">=</span> <span class="n">signals</span><span class="o">.</span><span class="n">FAIL</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error when checking whether submission </span><span class="si">{</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> needs manual grading; error </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                    <span class="n">sig</span><span class="o">.</span><span class="n">e</span> <span class="o">=</span> <span class="n">e</span>
+                    <span class="n">sig</span><span class="o">.</span><span class="n">subm</span> <span class="o">=</span> <span class="n">subm</span>
+                    <span class="k">raise</span> <span class="n">sig</span>
+                <span class="k">finally</span><span class="p">:</span>
+                    <span class="n">gb</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+                <span class="k">if</span> <span class="n">flag</span><span class="p">:</span>
+                    <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;status&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">GradingStatus</span><span class="o">.</span><span class="n">NEEDS_MANUAL_GRADE</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;status&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">GradingStatus</span><span class="o">.</span><span class="n">DONE_GRADING</span>
+    <span class="k">return</span> <span class="n">subm_set</span>
+
+<span class="nd">@task</span><span class="p">(</span><span class="n">checkpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">collect_grading_notifications</span><span class="p">(</span><span class="n">subm_sets</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">subm_set</span> <span class="ow">in</span> <span class="n">subm_sets</span><span class="p">:</span>
+        <span class="c1">#TODO</span>
+        <span class="k">pass</span>
+    <span class="k">return</span> <span class="mi">0</span>
+
+<span class="nd">@task</span><span class="p">(</span><span class="n">checkpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">collect_posting_notifications</span><span class="p">(</span><span class="n">notifications</span><span class="p">,</span> <span class="n">subm_sets</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">subm_set</span> <span class="ow">in</span> <span class="n">subm_sets</span><span class="p">:</span>
+        <span class="c1">#TODO</span>
+        <span class="k">pass</span>
+    <span class="k">return</span> <span class="mi">0</span>
+
+<div class="viewcode-block" id="generate_awaitcompletion_name"><a class="viewcode-back" href="../../rudaux.html#rudaux.submission.generate_awaitcompletion_name">[docs]</a><span class="k">def</span> <span class="nf">generate_awaitcompletion_name</span><span class="p">(</span><span class="n">subm_set</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">return</span> <span class="s1">&#39;await-compl-&#39;</span><span class="o">+</span><span class="n">subm_set</span><span class="p">[</span><span class="s1">&#39;__name__&#39;</span><span class="p">]</span></div>
+
+<span class="nd">@task</span><span class="p">(</span><span class="n">checkpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span><span class="n">task_run_name</span><span class="o">=</span><span class="n">generate_awaitcompletion_name</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">await_completion</span><span class="p">(</span><span class="n">subm_set</span><span class="p">):</span>
+    <span class="n">all_done</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="k">for</span> <span class="n">course_name</span> <span class="ow">in</span> <span class="n">subm_set</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">course_name</span> <span class="o">==</span> <span class="s1">&#39;__name__&#39;</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">assignment</span> <span class="o">=</span> <span class="n">subm_set</span><span class="p">[</span><span class="n">course_name</span><span class="p">][</span><span class="s1">&#39;assignment&#39;</span><span class="p">]</span>
+        <span class="n">all_done</span> <span class="o">=</span> <span class="n">all_done</span> <span class="ow">and</span> <span class="nb">all</span><span class="p">([</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;status&#39;</span><span class="p">]</span> <span class="ow">in</span> <span class="p">[</span><span class="n">GradingStatus</span><span class="o">.</span><span class="n">MISSING</span><span class="p">,</span> <span class="n">GradingStatus</span><span class="o">.</span><span class="n">DONE_GRADING</span><span class="p">]</span> <span class="k">for</span> <span class="n">subm</span> <span class="ow">in</span> <span class="n">subm_set</span><span class="p">[</span><span class="n">course_name</span><span class="p">][</span><span class="s1">&#39;submissions&#39;</span><span class="p">]])</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">all_done</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">signals</span><span class="o">.</span><span class="n">SKIP</span><span class="p">(</span><span class="s2">&quot;Submission set </span><span class="si">{subm_set[&#39;__name__&#39;]}</span><span class="s2"> not done grading yet. Skipping uploading grades / returning feedback&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">subm_set</span>
+
+<div class="viewcode-block" id="generate_genfeedback_name"><a class="viewcode-back" href="../../rudaux.html#rudaux.submission.generate_genfeedback_name">[docs]</a><span class="k">def</span> <span class="nf">generate_genfeedback_name</span><span class="p">(</span><span class="n">subm_set</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">return</span> <span class="s1">&#39;gen-fdbk-&#39;</span><span class="o">+</span><span class="n">subm_set</span><span class="p">[</span><span class="s1">&#39;__name__&#39;</span><span class="p">]</span></div>
+
+<span class="nd">@task</span><span class="p">(</span><span class="n">checkpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span><span class="n">task_run_name</span><span class="o">=</span><span class="n">generate_genfeedback_name</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">generate_feedback</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">subm_set</span><span class="p">):</span>
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">course_name</span> <span class="ow">in</span> <span class="n">subm_set</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">course_name</span> <span class="o">==</span> <span class="s1">&#39;__name__&#39;</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">assignment</span> <span class="o">=</span> <span class="n">subm_set</span><span class="p">[</span><span class="n">course_name</span><span class="p">][</span><span class="s1">&#39;assignment&#39;</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">subm</span> <span class="ow">in</span> <span class="n">subm_set</span><span class="p">[</span><span class="n">course_name</span><span class="p">][</span><span class="s1">&#39;submissions&#39;</span><span class="p">]:</span>
+            <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;feedback_path&#39;</span><span class="p">]):</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Feedback generated previously.&#39;</span><span class="p">)</span>
+                <span class="k">continue</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="n">run_container</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="s1">&#39;nbgrader generate_feedback --force &#39;</span><span class="o">+</span>
+                                        <span class="s1">&#39;--assignment=&#39;</span> <span class="o">+</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;assignment&#39;</span><span class="p">][</span><span class="s1">&#39;name&#39;</span><span class="p">]</span> <span class="o">+</span>
+                                        <span class="s1">&#39; --student=&#39;</span> <span class="o">+</span> <span class="n">config</span><span class="o">.</span><span class="n">grading_student_folder_prefix</span><span class="o">+</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;student&#39;</span><span class="p">][</span><span class="s1">&#39;id&#39;</span><span class="p">],</span>
+                                <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;grader&#39;</span><span class="p">][</span><span class="s1">&#39;folder&#39;</span><span class="p">])</span>
+
+            <span class="c1"># validate the results</span>
+            <span class="k">if</span> <span class="s1">&#39;ERROR&#39;</span> <span class="ow">in</span> <span class="n">res</span><span class="p">[</span><span class="s1">&#39;log&#39;</span><span class="p">]:</span>
+                <span class="k">raise</span> <span class="n">signals</span><span class="o">.</span><span class="n">FAIL</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Docker error generating feedback for submission </span><span class="si">{</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">: exited with status </span><span class="si">{</span><span class="n">res</span><span class="p">[</span><span class="s1">&#39;exit_status&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">,  </span><span class="si">{</span><span class="n">res</span><span class="p">[</span><span class="s1">&#39;log&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;feedback_path&#39;</span><span class="p">]):</span>
+                <span class="k">raise</span> <span class="n">signals</span><span class="o">.</span><span class="n">FAIL</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Docker error generating feedback for submission </span><span class="si">{</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">: did not generate expected file at </span><span class="si">{</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;feedback_path&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">subm_set</span>
+
+
+<div class="viewcode-block" id="generate_retfeedback_name"><a class="viewcode-back" href="../../rudaux.html#rudaux.submission.generate_retfeedback_name">[docs]</a><span class="k">def</span> <span class="nf">generate_retfeedback_name</span><span class="p">(</span><span class="n">subm_set</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">return</span> <span class="s1">&#39;retrn-fdbk-&#39;</span><span class="o">+</span><span class="n">subm_set</span><span class="p">[</span><span class="s1">&#39;__name__&#39;</span><span class="p">]</span></div>
+
+<span class="nd">@task</span><span class="p">(</span><span class="n">checkpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span><span class="n">task_run_name</span><span class="o">=</span><span class="n">generate_retfeedback_name</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">return_feedback</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">pastdue_frac</span><span class="p">,</span> <span class="n">subm</span><span class="p">):</span>
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">()</span>
+    <span class="c1"># skip if pastdue frac not high enough or we haven&#39;t reached the earlist return date</span>
+    <span class="k">if</span> <span class="n">pastdue_frac</span> <span class="o">&lt;</span> <span class="n">config</span><span class="o">.</span><span class="n">return_solution_threshold</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">signals</span><span class="o">.</span><span class="n">SKIP</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Assignment </span><span class="si">{</span><span class="n">subm_set</span><span class="p">[</span><span class="s1">&#39;__name__&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> has </span><span class="si">{</span><span class="n">pastdue_frac</span><span class="si">}</span><span class="s2"> submissions &quot;</span><span class="o">+</span>
+                           <span class="sa">f</span><span class="s2">&quot;past their due date, which is less than the return soln &quot;</span><span class="o">+</span>
+                           <span class="sa">f</span><span class="s2">&quot;threshold </span><span class="si">{</span><span class="n">config</span><span class="o">.</span><span class="n">return_solution_threshold</span><span class="si">}</span><span class="s2"> . Skipping feedback return.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">plm</span><span class="o">.</span><span class="n">now</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">plm</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">earliest_solution_return_date</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="n">signals</span><span class="o">.</span><span class="n">SKIP</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;We have not yet reached the earliest solution return date &quot;</span><span class="o">+</span>
+                           <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">config</span><span class="o">.</span><span class="n">earliest_solution_return_date</span><span class="si">}</span><span class="s2">. Skipping feedback return.&quot;</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">course_name</span> <span class="ow">in</span> <span class="n">subm_set</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">course_name</span> <span class="o">==</span> <span class="s1">&#39;__name__&#39;</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="k">for</span> <span class="n">subm</span> <span class="ow">in</span> <span class="n">subm_set</span><span class="p">[</span><span class="n">course_name</span><span class="p">][</span><span class="s1">&#39;submissions&#39;</span><span class="p">]:</span>
+            <span class="n">student</span> <span class="o">=</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;student&#39;</span><span class="p">]</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Checking whether feedback for submission </span><span class="si">{</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> can be returned&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;due_at&#39;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">plm</span><span class="o">.</span><span class="n">now</span><span class="p">():</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Returning feedback for submission </span><span class="si">{</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">fdbk_path_student</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">fdbk_folder_student</span><span class="p">):</span>
+                        <span class="k">try</span><span class="p">:</span>
+                            <span class="n">shutil</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">fdbk_path_grader</span><span class="p">,</span> <span class="n">fdbk_path_student</span><span class="p">)</span>
+                            <span class="n">os</span><span class="o">.</span><span class="n">chown</span><span class="p">(</span><span class="n">fdbk_path_student</span><span class="p">,</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;grader&#39;</span><span class="p">][</span><span class="s1">&#39;unix_uid&#39;</span><span class="p">],</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;grader&#39;</span><span class="p">][</span><span class="s1">&#39;unix_uid&#39;</span><span class="p">])</span>
+                        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                            <span class="k">raise</span> <span class="n">signals</span><span class="o">.</span><span class="n">FAIL</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Warning: student folder </span><span class="si">{</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;student_folder&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> doesnt exist. Skipping solution return.&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Not returnable yet; the student-specific due date (</span><span class="si">{</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;due_at&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">) has not passed.&quot;</span><span class="p">)</span>
+    <span class="k">return</span>
+
+
+<span class="k">def</span> <span class="nf">_compute_max_score</span><span class="p">(</span><span class="n">subm</span><span class="p">):</span>
+  <span class="c1">#for some incredibly annoying reason, nbgrader refuses to compute a max_score for anything (so we cannot easily convert scores to percentages)</span>
+  <span class="c1">#let&#39;s compute the max_score from the notebook manually then....</span>
+  <span class="n">release_nb_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;grader&#39;</span><span class="p">][</span><span class="s1">&#39;folder&#39;</span><span class="p">],</span> <span class="s1">&#39;release&#39;</span><span class="p">,</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;assignment&#39;</span><span class="p">][</span><span class="s1">&#39;name&#39;</span><span class="p">],</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;assignment&#39;</span><span class="p">][</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="o">+</span><span class="s1">&#39;.ipynb&#39;</span><span class="p">)</span>
+  <span class="n">f</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">release_nb_path</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span>
+  <span class="n">parsed_json</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+  <span class="n">f</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+  <span class="n">pts</span> <span class="o">=</span> <span class="mi">0</span>
+  <span class="k">for</span> <span class="n">cell</span> <span class="ow">in</span> <span class="n">parsed_json</span><span class="p">[</span><span class="s1">&#39;cells&#39;</span><span class="p">]:</span>
+    <span class="k">try</span><span class="p">:</span>
+      <span class="n">pts</span> <span class="o">+=</span> <span class="n">cell</span><span class="p">[</span><span class="s1">&#39;metadata&#39;</span><span class="p">][</span><span class="s1">&#39;nbgrader&#39;</span><span class="p">][</span><span class="s1">&#39;points&#39;</span><span class="p">]</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+      <span class="c1">#will throw exception if cells dont exist / not right type -- that&#39;s fine, it&#39;ll happen a lot.</span>
+      <span class="k">pass</span>
+  <span class="k">return</span> <span class="n">pts</span>
+
+<div class="viewcode-block" id="generate_uploadgrade_name"><a class="viewcode-back" href="../../rudaux.html#rudaux.submission.generate_uploadgrade_name">[docs]</a><span class="k">def</span> <span class="nf">generate_uploadgrade_name</span><span class="p">(</span><span class="n">subm_set</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">return</span> <span class="s1">&#39;upload-grds-&#39;</span><span class="o">+</span><span class="n">subm_set</span><span class="p">[</span><span class="s1">&#39;__name__&#39;</span><span class="p">]</span></div>
+
+<span class="nd">@task</span><span class="p">(</span><span class="n">checkpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span><span class="n">task_run_name</span><span class="o">=</span><span class="n">generate_uploadgrade_name</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">upload_grades</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">subm_set</span><span class="p">):</span>
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">course_name</span> <span class="ow">in</span> <span class="n">subm_set</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">course_name</span> <span class="o">==</span> <span class="s1">&#39;__name__&#39;</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">assignment</span> <span class="o">=</span> <span class="n">subm_set</span><span class="p">[</span><span class="n">course_name</span><span class="p">][</span><span class="s1">&#39;assignment&#39;</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">subm</span> <span class="ow">in</span> <span class="n">subm_set</span><span class="p">[</span><span class="n">course_name</span><span class="p">][</span><span class="s1">&#39;submissions&#39;</span><span class="p">]:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Uploading grade for submission </span><span class="si">{</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;score&#39;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Grade already uploaded.&quot;</span><span class="p">)</span>
+                <span class="k">continue</span>
+
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Obtaining score from the gradebook&quot;</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">gb</span> <span class="o">=</span> <span class="n">Gradebook</span><span class="p">(</span><span class="s1">&#39;sqlite:///&#39;</span><span class="o">+</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;grader&#39;</span><span class="p">][</span><span class="s1">&#39;folder&#39;</span><span class="p">]</span> <span class="p">,</span> <span class="s1">&#39;gradebook.db&#39;</span><span class="p">))</span>
+                <span class="n">gb_subm</span> <span class="o">=</span> <span class="n">gb</span><span class="o">.</span><span class="n">find_submission</span><span class="p">(</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;assignment&#39;</span><span class="p">][</span><span class="s1">&#39;name&#39;</span><span class="p">],</span> <span class="n">config</span><span class="o">.</span><span class="n">grading_student_folder_prefix</span><span class="o">+</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;student&#39;</span><span class="p">][</span><span class="s1">&#39;id&#39;</span><span class="p">])</span>
+                <span class="n">score</span> <span class="o">=</span> <span class="n">gb_subm</span><span class="o">.</span><span class="n">score</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">sig</span> <span class="o">=</span> <span class="n">signals</span><span class="o">.</span><span class="n">FAIL</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error when accessing the gradebook score for submission </span><span class="si">{</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">; error </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">sig</span><span class="o">.</span><span class="n">e</span> <span class="o">=</span> <span class="n">e</span>
+                <span class="n">sig</span><span class="o">.</span><span class="n">subm</span> <span class="o">=</span> <span class="n">subm</span>
+                <span class="k">raise</span> <span class="n">sig</span>
+            <span class="k">finally</span><span class="p">:</span>
+                <span class="n">gb</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Score: </span><span class="si">{</span><span class="n">score</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Computing the max score from the release notebook&quot;</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">max_score</span> <span class="o">=</span> <span class="n">_compute_max_score</span><span class="p">(</span><span class="n">subm</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">sig</span> <span class="o">=</span> <span class="n">signals</span><span class="o">.</span><span class="n">FAIL</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error when trying to compute the max score for submission </span><span class="si">{</span><span class="n">subm</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">; error </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">sig</span><span class="o">.</span><span class="n">e</span> <span class="o">=</span> <span class="n">e</span>
+                <span class="n">sig</span><span class="o">.</span><span class="n">subm</span> <span class="o">=</span> <span class="n">subm</span>
+                <span class="k">raise</span> <span class="n">sig</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Max Score: </span><span class="si">{</span><span class="n">max_score</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">score</span> <span class="o">=</span> <span class="n">score</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">max_score</span> <span class="o">=</span> <span class="n">max_score</span>
+            <span class="n">pct</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{:.2f}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="mi">100</span><span class="o">*</span><span class="n">score</span><span class="o">/</span><span class="n">max_score</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Percent grade: </span><span class="si">{</span><span class="n">pct</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Uploading to Canvas...&quot;</span><span class="p">)</span>
+            <span class="n">subm</span><span class="p">[</span><span class="s1">&#39;score&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pct</span>
+            <span class="n">put_grade</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">subm</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">subm_set</span>
+
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">Rudaux</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Trevor Campbell.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.2.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>
