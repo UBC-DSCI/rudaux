@@ -9,11 +9,6 @@ from .utilities.traits import SSHAddress
 import os
 import tempfile
 
-
-# TODO write tempfiles to tmp/
-# use tempfile.mkstemp()
-
-
 class RemoteZFS(Storage):
 
     ssh = Dict(default_value={'host': '127.0.0.1', 'port' : 22, 'user' : 'root'}, help="The dict of SSH connection information: must specify ssh.host, ssh.port, ssh.user").tag(config=True)
@@ -71,6 +66,7 @@ class RemoteZFS(Storage):
             sig = signals.FAIL(f"Failed to take snapshot {snap_name}. Existing snaps: {snaps}")
             raise sig
 
+
     def read(self, student, assignment, snapshot=None):
         base_path = self.get_student_folder(student)
         if snapshot:
@@ -79,38 +75,46 @@ class RemoteZFS(Storage):
 
         results = {}
         for rel in remote_relative_paths:
-            # create a temporary randomized filename
-            tmp_fn = next(tempfile._get_candidate_names())
+            # create a temporary file
+            tnf = tempfile.NamedTemporaryFile()
             # construct the remote path
             remote_path = os.path.join(base_path, rel)
             # scp get to the tmp filename, preserve modified/created dates
-            self.scp.get(remote_path, tmp_fn, preserve_times=True)
+            self.scp.get(remote_path, tnf.name, preserve_times=True)
             # get the unix timestamp of modification
-            modified_datetime = plm.from_timestamp(os.path.getmtime(tmp_fn), tz=self.storage_tz)
+            modified_datetime = plm.from_timestamp(os.path.getmtime(tnf.name), tz=self.storage_tz)
             # get the file contents
-            tmp_f = open(tmp_fn, 'r')
-            lines = tmp_f.readlines()
-            tmp_f.close()
+            f = open(tnf.name, 'r')
+            lines = f.readlines()
+            f.close()
+            # delete the temp file
+            tnf.close()
             # append to the results object
             results[rel] = {'data' : lines, 'datetime' : modified_datetime}
-            # delete the temporary file
-            os.remove(tmp_fn)
 
         return results
 
     def write(self, student, lines, remote_relative_path):
         remote_path = os.path.join(self.get_student_folder(student), remote_relative_path)
+        remote_dir = os.path.dirname(remote_path)
         # make directories required to put the file if needed
-        #TODO
+        self._command('mkdir -p {remote_dir}')
+        # save the lines to a temporary file
+        tnf = tempfile.NamedTemporaryFile()
+        f = open(tnf.name, 'w')
+        f.writelines(lines)
+        f.close()
         # put the file
-        # TODO
+        self.scp(tnf.name, recursive = False, remote_path = remote_path)
+        # delete the temp file
+        tnf.close()
         # change ownership to unix_user, unix_group
-        # TODO
-
-        self.scp.put(local_relative_path, os.path.join(self.get_student_folder(student), remote_relative_path))
-        stdout, stderr = self._command(f"ls {os.path.join(self.get_student_folder(student), remote_relative_path)}", status_fail=False)
+        self._command("chown {unix['user']} {remote_path}")
+        self._command("chgrp {unix['group']} {remote_path}")
+        # check if the file was written
+        stdout, stderr = self._command(f"ls {remote_path}", status_fail=False)
         if "No such file" in stdout:
-            sig = signals.FAIL(f"Failed to write file to storage: {remote_relative_path}")
+            sig = signals.FAIL(f"Failed to write file to storage: {remote_path}")
             raise sig
 
     def _command(self, cmd, status_fail=True):
