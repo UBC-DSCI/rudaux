@@ -1,5 +1,6 @@
 from traitlets.config.configurable import Configurable
 
+# TODO fix the API here to conform to remote_zfs.py
 class Storage(Configurable):
 
     def __init__(self):
