@@ -346,8 +346,8 @@ def return_solutions(config, pastdue_frac, subm_set):
                         recursive_chown(subm['soln_path'], subm['grader']['unix_user'], subm['grader']['unix_group'])
                     else:
                         logger.warning(f"Warning: student folder {subm['student_folder']} doesnt exist. Skipping solution return.")
-            else:
-                logger.info(f"Not returnable yet; the student-specific due date ({subm['due_at']}) has not passed.")
+            #else:
+            #    logger.info(f"Not returnable yet; the student-specific due date ({subm['due_at']}) has not passed.")
     return
 
 def generate_collect_subms_name(config, subm_set, **kwargs):
@@ -623,8 +623,8 @@ def return_feedback(config, pastdue_frac, subm_set):
                         recursive_chown(subm['fdbk_path'], subm['grader']['unix_user'], subm['grader']['unix_group'])
                     else:
                         logger.warning(f"Warning: student folder {subm['student_folder']} doesnt exist. Skipping solution return.")
-            else:
-                logger.info(f"Not returnable yet; the student-specific due date ({subm['due_at']}) has not passed.")
+            #else:
+            #    logger.info(f"Not returnable yet; the student-specific due date ({subm['due_at']}) has not passed.")
     return
 
 
