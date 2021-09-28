@@ -1,6 +1,7 @@
 from enum import IntEnum
 import os, shutil
 import json
+from json.decoder import JSONDecodeError
 from nbgrader.api import Gradebook, MissingEntry
 #from .course_api import GradeNotUploadedError
 import pendulum as plm
@@ -402,12 +403,21 @@ def clean_submissions(subm_set):
                 student = subm['student']
                 grader = subm['grader']
 
+
                 #need to check for duplicate cell ids, see
                 #https://github.com/jupyter/nbgrader/issues/1083
                 #open the student's notebook
-                f = open(subm['collected_assignment_path'], 'r')
-                nb = json.load(f)
-                f.close()
+                try:
+                    f = open(subm['collected_assignment_path'], 'r')
+                    nb = json.load(f)
+                    f.close()
+                except JSONDecodeError as e:
+                    logger.info(f"JSON ERROR in student {student['name']} {student['id']} assignment {assignment['name']} grader {grader['name']} course name {course_name}")
+                    logger.info("This can happen if cleaning was previously abruptly stopped, leading to a corrupted file.")
+                    logger.info("It might also happen if the student somehow deleted their file and left a non-JSON file behind.")
+                    logger.info("Either way, this workflow will fail now to prevent further damage; please inspect the file and fix the issue")
+                    logger.info("(typically by manually re-copying the student work into the grader/submitted folder")
+                    raise e
                 #go through and delete the nbgrader metadata from any duplicated cells
                 cell_ids = set()
                 for cell in nb['cells']:
