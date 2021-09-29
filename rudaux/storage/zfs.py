@@ -32,6 +32,12 @@ class ZFS(Storage):
     def _command(self, cmd, status_fail=True):
         raise NotImplementedError
 
+    def _read(self, source_path, dest_path, preserve_times=True):
+        raise NotImplementedError
+
+    def _write(self, source_path, dest_path, preserve_times=True):
+        raise NotImplementedError
+
     def get_snapshots(self, volume):
         # send the list snapshot command
         stdout, stderr = self._command(f"{self.zfs_path} list -r -t snapshot -o name,creation {volume}")
@@ -72,16 +78,22 @@ class ZFS(Storage):
         cmd = f"{self.zfs_path} create -o refquota={quota} {volume.strip('/')}"
         stdout, stderr = self._command(cmd)
 
+        # check if the file was written
+        stdout, stderr = self._command(f"ls {os.path.join('/', volume.strip('/'))}", status_fail=False)
+        if "No such file" in stdout:
+            sig = signals.FAIL(f"Failed to create volume: {volume}")
+            raise sig 
+
     def read(self, volume, relative_path, snapshot=None):
         if snapshot:
-            remote_path = os.path.join("/", volume.strip("/"), f".zfs/snapshot/{snapshot}", relative_path)
+            read_path = os.path.join("/", volume.strip("/"), f".zfs/snapshot/{snapshot}", relative_path)
         else:
-            remote_path = os.path.join("/", volume.strip("/"), relative_path)
+            read_path = os.path.join("/", volume.strip("/"), relative_path)
 
         # create a temporary file
         tnf = tempfile.NamedTemporaryFile()
-        # scp get to the tmp filename, preserve modified/created dates
-        self.scp.get(remote_path, tnf.name, preserve_times=True)
+        # copy to the tmp filename, preserve modified/created dates
+        self._read(read_path, tnf.name, preserve_times=True)
         # get the unix timestamp of modification
         modified_datetime = plm.from_timestamp(os.path.getmtime(tnf.name), tz=self.tz)
         # get the file contents
@@ -94,25 +106,25 @@ class ZFS(Storage):
         return lines, modified_datetime
 
     def write(self, lines, volume, relative_path):
-        remote_volume_root = os.path.join("/", volume.strip("/"))
-        remote_path = os.path.join(remote_volume_root, relative_path)
-        remote_dir = os.path.dirname(remote_path)
+        write_volume_root = os.path.join("/", volume.strip("/"))
+        write_path = os.path.join(write_volume_root, relative_path)
+        write_dir = os.path.dirname(write_path)
         # make directories required to put the file if needed
-        self._command('mkdir -p {remote_dir}')
+        self._command('mkdir -p {write_dir}')
         # save the lines to a temporary file
         tnf = tempfile.NamedTemporaryFile()
         f = open(tnf.name, 'w')
         f.writelines(lines)
         f.close()
-        # put the file
-        self.scp(tnf.name, recursive = False, remote_path = remote_path)
+        # write the file
+        self._write(tnf.name, write_path, preserve_times=True)
         # delete the temp file
         tnf.close()
         # change ownership of the volume to unix_user, unix_group
-        self._command(f"chown -R {unix['user']} {remote_volume_root}")
-        self._command(f"chgrp -R {unix['group']} {remote_volume_root}")
+        self._command(f"chown -R {unix['user']} {write_volume_root}")
+        self._command(f"chgrp -R {unix['group']} {write_volume_root}")
         # check if the file was written
-        stdout, stderr = self._command(f"ls {remote_path}", status_fail=False)
+        stdout, stderr = self._command(f"ls {write_path}", status_fail=False)
         if "No such file" in stdout:
             sig = signals.FAIL(f"Failed to write file to storage: {remote_path}")
             raise sig 
@@ -139,6 +151,17 @@ class LocalZFS(ZFS):
             raise sig
 
         return stdout.decode('UTF-8'), stderr.decode('UTF-8')
+
+    def _copy(self, source_path, dest_path, preserve_times=True):
+        logger = get_logger()
+        logger.info(f"Copying file from {source_path} to {dest_path}")
+        self._command(f"cp {source_path} {dest_path}")
+
+    def _write(self, source_path, dest_path, preserve_times=True):
+        self._copy(source_path, dest_path, preserve_times)
+    
+    def _read(self, source_path, dest_path, preserve_times=True):
+        self._copy(source_path, dest_path, preserve_times)
 
 class RemoteZFS(ZFS):
 
@@ -190,3 +213,11 @@ class RemoteZFS(ZFS):
 
         # return
         return stdout, stderr
+
+    def _read(self, source_path, dest_path, preserve_times=True):
+        self.scp.get(source_path, dest_path, preserve_times)
+    
+    def _write(self, source_path, dest_path, preserve_times=True):
+        self.scp(source_path, recursive = False, remote_path = dest_path)
+
+
