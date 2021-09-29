@@ -218,6 +218,6 @@ class RemoteZFS(ZFS):
         self.scp.get(source_path, dest_path, preserve_times)
     
     def _write(self, source_path, dest_path, preserve_times=True):
-        self.scp(source_path, recursive = False, remote_path = dest_path)
+        self.scp.put(source_path, recursive = False, remote_path = dest_path)
 
 
