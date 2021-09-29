@@ -41,10 +41,25 @@ class ZFS(Storage):
         logger.info(f"Found {len(snaps)} ZFS snapshots")
         return snaps
 
+    def _parse_zfs_snaps(self, stdout):
+        # Example output from zfs snap list:
+        #NAME                  CREATION
+        #tank/home@now         Wed Jun 30 16:16 2010
+        #tank/home/ahrens@now  Wed Jun 30 16:16 2010
+        #tank/home/anne@now    Wed Jun 30 16:16 2010
+        snaps = []
+        for line in stdout:
+            if '@' in line:
+                volume, remaining = line.split('@', 1)
+                name, remaining = remaining.split(' ', 1)
+                datetime = plm.from_format(remaining.strip(), 'ddd MMM D H:mm YYYY')
+                snaps.append( {'volume' : volume, 'name' : name, 'datetime':datetime} )
+        return snaps
+
     def take_snapshot(self, volume, snapshot):
         volume = volume.strip("/")
         # execute the snapshot
-        cmd = f"{zfs_path} snapshot -r {volume}@{snapshot}"
+        cmd = f"{self.zfs_path} snapshot -r {volume}@{snapshot}"
         stdout, stderr = self._command(cmd)
 
         # verify the snapshot
@@ -52,6 +67,10 @@ class ZFS(Storage):
         if f"{volume}@{snapshot}" not in [f"{snap['volume']}@{snap['name']}" for snap in snaps]:
             sig = signals.FAIL(f"Failed to take snapshot {snapshot}. Existing snaps: {snaps}")
             raise sig
+
+    def create_volume(self, volume, quota):
+        cmd = f"{self.zfs_path} create -o refquota={quota} {volume.strip('/')}"
+        stdout, stderr = self._command(cmd)
 
     def read(self, volume, relative_path, snapshot=None):
         if snapshot:
@@ -96,22 +115,7 @@ class ZFS(Storage):
         stdout, stderr = self._command(f"ls {remote_path}", status_fail=False)
         if "No such file" in stdout:
             sig = signals.FAIL(f"Failed to write file to storage: {remote_path}")
-            raise sig
-
-    def _parse_zfs_snaps(self, stdout):
-        # Example output from zfs snap list:
-        #NAME                  CREATION
-        #tank/home@now         Wed Jun 30 16:16 2010
-        #tank/home/ahrens@now  Wed Jun 30 16:16 2010
-        #tank/home/anne@now    Wed Jun 30 16:16 2010
-        snaps = []
-        for line in stdout:
-            if '@' in line:
-                volume, remaining = line.split('@', 1)
-                name, remaining = remaining.split(' ', 1)
-                datetime = plm.from_format(remaining.strip(), 'ddd MMM D H:mm YYYY')
-                snaps.append( {'volume' : volume, 'name' : name, 'datetime':datetime} )
-        return snaps
+            raise sig 
 
 class LocalZFS(ZFS):
 
