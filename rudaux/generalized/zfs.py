@@ -1,26 +1,17 @@
-from .storage import Storage
 import paramiko as pmk
 from scp import SCPClient
 import pendulum as plm
 import re
-from traitlets import TraitType, Unicode, Dict, Callable
 from .utilities import get_logger
-from .utilities.traits import SSHAddress
 import os
 import tempfile
 import subprocess
 
-class ZFS(Storage):
-
-    zfs_path = Unicode("/usr/sbin/zfs",
-                        help="The path to the zfs executable").tag(config=True)
-    tz = Unicode("UTC",
-                        help="The timezone that the storage machine uses to unix timestamp its files").tag(config=True)
-
-    unix = Dict(default_value={'user' : 'jupyter', 'group' : 'users'},
-                        help="The dict of unix permissions for files written to storage: must specify unix.user and unix.group").tag(config=True)
-
-    def __init__(self):
+class ZFS:
+    def __init__(self, zfs_path = "/usr/sbin/zfs", tz = "UTC", info = None):
+        self.zfs_path = zfs_path
+        self.tz = tz
+        self.info = info
         self.open()
 
     def open(self):
@@ -35,16 +26,15 @@ class ZFS(Storage):
     def _read(self, source_path, dest_path, preserve_times=True):
         raise NotImplementedError
 
-    def _write(self, source_path, dest_path, preserve_times=True):
+    def _write(self, source_path, dest_path):
         raise NotImplementedError
 
     def get_snapshots(self, volume):
         # send the list snapshot command
-        stdout, stderr = self._command(f"{self.zfs_path} list -r -t snapshot -o name,creation {volume}")
+        stdout, stderr = self._command(f"sudo {self.zfs_path} list -r -t snapshot -o name,creation {volume}")
         # parse the unique snapshot names
         snaps = self._parse_zfs_snaps(stdout)
         logger = get_logger()
-        logger.info(f"Found {len(snaps)} ZFS snapshots")
         return snaps
 
     def _parse_zfs_snaps(self, stdout):
@@ -65,24 +55,27 @@ class ZFS(Storage):
     def take_snapshot(self, volume, snapshot):
         volume = volume.strip("/")
         # execute the snapshot
-        cmd = f"{self.zfs_path} snapshot -r {volume}@{snapshot}"
+        cmd = f"sudo {self.zfs_path} snapshot -r {volume}@{snapshot}"
         stdout, stderr = self._command(cmd)
 
         # verify the snapshot
         snaps = self.get_snapshots()
         if f"{volume}@{snapshot}" not in [f"{snap['volume']}@{snap['name']}" for snap in snaps]:
-            sig = signals.FAIL(f"Failed to take snapshot {snapshot}. Existing snaps: {snaps}")
-            raise sig
+            raise Exception(f"Failed to take snapshot {snapshot}. Existing snaps: {snaps}")
 
-    def create_volume(self, volume, quota):
-        cmd = f"{self.zfs_path} create -o refquota={quota} {volume.strip('/')}"
+    def create_volume(self, volume, quota, user, group):
+        cmd = f"sudo {self.zfs_path} create -o refquota={quota} {volume.strip('/')}"
         stdout, stderr = self._command(cmd)
 
-        # check if the file was written
-        stdout, stderr = self._command(f"ls {os.path.join('/', volume.strip('/'))}", status_fail=False)
+        # check if the volume was created & mounted
+        stdout, stderr = self._command(f"sudo ls {os.path.join('/', volume.strip('/'))}", status_fail=False)
         if "No such file" in stdout:
-            sig = signals.FAIL(f"Failed to create volume: {volume}")
-            raise sig 
+            raise Exception(f"Failed to create volume: {volume}")
+
+        # change ownership of the new volume
+        path = os.path.join('/', volume.strip('/'))
+        self._command(f"sudo chown -R {user} {path}")
+        self._command(f"sudo chgrp -R {group} {path}")
 
     def read(self, volume, relative_path, snapshot=None):
         if snapshot:
@@ -106,28 +99,39 @@ class ZFS(Storage):
         return lines, modified_datetime
 
     def write(self, lines, volume, relative_path):
+        # get volume root
         write_volume_root = os.path.join("/", volume.strip("/"))
+        # get user + group for the volume
+        stdout, stderr = self._command(f"sudo ls -ld {write_volume_root}", status_fail = False)
+        if "No such file" in stdout:
+            raise Exception(f"Cannot write to {volume}, no such directory at {write_volume_root}")
+        line = stdout.split('\n')[0].split(' ')
+        user = line[2]
+        group = line[3]
+        # get the write path for the file
         write_path = os.path.join(write_volume_root, relative_path)
         write_dir = os.path.dirname(write_path)
         # make directories required to put the file if needed
-        self._command('mkdir -p {write_dir}')
+        self._command('sudo mkdir -p {write_dir}')
+        # change ownership of the volume to unix_user, unix_group
+        self._command(f"sudo chown -R {user} {write_volume_root}")
+        self._command(f"sudo chgrp -R {group} {write_volume_root}")
         # save the lines to a temporary file
         tnf = tempfile.NamedTemporaryFile()
         f = open(tnf.name, 'w')
         f.writelines(lines)
         f.close()
         # write the file
-        self._write(tnf.name, write_path, preserve_times=True)
+        self._write(tnf.name, write_path)
         # delete the temp file
         tnf.close()
-        # change ownership of the volume to unix_user, unix_group
-        self._command(f"chown -R {unix['user']} {write_volume_root}")
-        self._command(f"chgrp -R {unix['group']} {write_volume_root}")
+        # change ownership of the file to the correct user,group for the volume
+        self._command(f"sudo chown {user} {write_path}")
+        self._command(f"sudo chgrp {group} {write_path}")
         # check if the file was written
-        stdout, stderr = self._command(f"ls {write_path}", status_fail=False)
+        stdout, stderr = self._command(f"sudo ls {write_path}", status_fail=False)
         if "No such file" in stdout:
-            sig = signals.FAIL(f"Failed to write file to storage: {remote_path}")
-            raise sig 
+            raise Exception(f"Failed to write file to storage: {write_path}")
 
 class LocalZFS(ZFS):
 
@@ -147,26 +151,25 @@ class LocalZFS(ZFS):
         logger.info(f"Command exit code: {pipes.returncode}")
 
         if status_fail and pipes.returncode != 0:
-            sig = signals.FAIL(f"Command error: nonzero exit status.\nstderr\n{stderr.decode('UTF-8')}\nstdout\n{stdout.decode('UTF-8')}")
-            raise sig
+            raise Exception(f"Command error: nonzero exit status.\nstderr\n{stderr.decode('UTF-8')}\nstdout\n{stdout.decode('UTF-8')}")
 
         return stdout.decode('UTF-8'), stderr.decode('UTF-8')
 
-    def _copy(self, source_path, dest_path, preserve_times=True):
+    def _copy(self, source_path, dest_path, preserve_times=False):
         logger = get_logger()
         logger.info(f"Copying file from {source_path} to {dest_path}")
-        self._command(f"cp {source_path} {dest_path}")
+        if preserve_times:
+            self._command(f"cp -p {source_path} {dest_path}")
+        else:
+            self._command(f"cp {source_path} {dest_path}")
 
-    def _write(self, source_path, dest_path, preserve_times=True):
-        self._copy(source_path, dest_path, preserve_times)
-    
+    def _write(self, source_path, dest_path):
+        self._copy(source_path, dest_path)
+
     def _read(self, source_path, dest_path, preserve_times=True):
         self._copy(source_path, dest_path, preserve_times)
 
 class RemoteZFS(ZFS):
-
-    ssh = Dict(default_value={'host': '127.0.0.1', 'port' : 22, 'user' : 'root'},
-                        help="The dict of SSH connection information: must specify ssh.host, ssh.port, ssh.user").tag(config=True)
 
     def open(self):
         logger = get_logger()
@@ -175,7 +178,7 @@ class RemoteZFS(ZFS):
         ssh = pmk.client.SSHClient()
         ssh.set_missing_host_key_policy(pmk.client.AutoAddPolicy())
         ssh.load_system_host_keys()
-        ssh.connect(ssh_info['host'], ssh_info['port'], ssh_info['user'], allow_agent=True)
+        ssh.connect(self.info['host'], self.info['port'], self.info['user'], allow_agent=True)
         s = ssh.get_transport().open_session()
         pmk.agent.AgentRequestHandler(s)
         self.ssh = ssh
@@ -208,16 +211,15 @@ class RemoteZFS(ZFS):
         stderr = stderr_lines
 
         if status_fail and (out_status != 0 or err_status != 0):
-            sig = signals.FAIL(f"Paramiko SSH command error: nonzero exit status.\nstderr\n{stderr}\nstdout\n{stdout}")
-            raise sig
+            raise Exception(f"Paramiko SSH command error: nonzero exit status.\nstderr\n{stderr}\nstdout\n{stdout}")
 
         # return
         return stdout, stderr
 
     def _read(self, source_path, dest_path, preserve_times=True):
-        self.scp.get(source_path, dest_path, preserve_times)
-    
-    def _write(self, source_path, dest_path, preserve_times=True):
+        self.scp.get(source_path, dest_path, preserve_times = preserve_times)
+
+    def _write(self, source_path, dest_path):
         self.scp.put(source_path, recursive = False, remote_path = dest_path)
 
 
