@@ -89,12 +89,13 @@ def notify(config, grading_notifications, posting_notifications):
             sm.submit(config.instructor_user, msg)
         for notification_set in grading_notifications:
             for grader in notification_set:
-                logger.info(f"TA user {grader} has {notification_set[grader][grd]['count']} left to grade for assignment {notification_set[grader][grd]['assignment']} in account {grd}.")
-                msg = '\r\n'.join([ f"Grading Assignment---" +
-                                    f"Account: {grd} -- "+
-                                    f"Assignment: {notification_set[grader][grd]['assignment']} -- "+
-                                    f"# Remaining to Grade: {notification_set[grader][grd]['count']}" for grd in notification_set[grader]])
-                sm.submit(grader, msg)
+                for grd in notification_set[grader]:
+                    logger.info(f"TA user {grader} has {notification_set[grader][grd]['count']} left to grade for assignment {notification_set[grader][grd]['assignment']} in account {grd}.")
+                    msg = '\r\n'.join([ f"Grading Assignment---" +
+                                        f"Account: {grd} -- "+
+                                        f"Assignment: {notification_set[grader][grd]['assignment']} -- "+
+                                        f"# Remaining to Grade: {notification_set[grader][grd]['count']}" for grd in notification_set[grader]])
+                    sm.submit(grader, msg)
         sm.notify_all()
 
 #class SMTP(Notification):
