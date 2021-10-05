@@ -1,8 +1,6 @@
 from traitlets.config.configurable import Configurable
 
-
-# TODO fix the API here to conform to canvas.py
-class LMS(Configurable):
+class LMSAPI(Configurable):
 
     def __init__(self):
         pass
