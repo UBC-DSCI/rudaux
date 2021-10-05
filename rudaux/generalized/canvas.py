@@ -1,165 +1,12 @@
 import requests
 import urllib.parse
 import pendulum as plm
-import prefect
-from prefect import task
-from prefect.engine import signals
 from .utilities import get_logger
-from .lms import LMS
 
-class Canvas(LMS):
+class Canvas:
 
-    info = Dict(default_value={'course_name' : {'domain' : 'https://canvas.ubc.ca', 'id' : '12345', 'token' : 'abcde123'}},
-                       help = "The dictionary of course info. Each key is a human-readable "+
-                       "course name (e.g. dsci100-004), and values are dicts with "+
-                       "'domain','id', and 'token' attributes for base URL, course Canvas ID, and API token")
-
-    enrollment_map = Dict(default_value = {'ta' : 'TaEnrollment', 'instructor' : 'TeacherEnrollment', 'student' : 'StudentEnrollment'},
-                       help = "The dictionary that maps ta, instructor, and student to enrollment types in the LMS")
-
-    #################################
-    # Basic Canvas HTTP API functions
-    #################################
-
-    def _get(self, course_name, path_suffix, use_group_base=False):
-        canvas_domain = self.info[course_name]['domain']
-        course_id = self.info[course_name]['id']
-        token = self.info[course_name]['token']
-
-        group_url = urllib.parse.urljoin(canvas_domain, 'api/v1/groups/')
-        base_url = urllib.parse.urljoin(canvas_domain, 'api/v1/courses/'+course_id+'/')
-        if use_group_base:
-            url = urllib.parse.urljoin(group_url, path_suffix)
-        else:
-            url = urllib.parse.urljoin(base_url, path_suffix)
-
-        logger = get_logger()
-        logger.info(f"GET request to URL: {url}")
-
-        resp = None
-        resp_items = []
-        #see https://community.canvaslms.com/t5/Question-Forum/Why-is-the-Assignment-due-at-value-that-of-the-last-override/m-p/209593
-        #for why we have to set override_assignment_dates = false below -- basically due_at below gets set really weirdly if
-        #the assignment has overrides unless you include this param
-        while resp is None or 'next' in resp.links.keys():
-            resp = requests.get(
-                url = url if resp is None else resp.links['next']['url'],
-                headers = {
-                    'Authorization': f'Bearer {token}',
-                    'Accept': 'application/json'
-                    },
-                json = {'per_page' : 100},
-                params = {'override_assignment_dates' : False}
-            )
-
-            if resp.status_code < 200 or resp.status_code > 299:
-                sig = signals.FAIL(f"failed GET response status code {resp.status_code} for URL {url}\nText:{resp.text}")
-                sig.url = url
-                sig.resp = resp
-                raise sig
-
-            json_data = resp.json()
-            if isinstance(json_data, list):
-                resp_items.extend(resp.json())
-            else:
-                resp_items.append(resp.json())
-        return resp_items
-
-    def _upload(self, course_name, path_suffix, json_data, typ):
-        canvas_domain = self.info[course_name]['domain']
-        course_id = self.info[course_name]['id']
-        token = self.info[course_name]['token']
-
-        base_url = urllib.parse.urljoin(canvas_domain, 'api/v1/courses/'+course_id+'/')
-        rfuncs = {'put' : requests.put,
-                 'post': requests.post,
-                 'delete': requests.delete}
-        url = urllib.parse.urljoin(base_url, path_suffix)
-
-        logger = get_logger()
-        logger.info(f"{typ.upper()} request to URL: {url}")
-
-        resp = rfuncs[typ](
-            url = url,
-            headers = {
-                'Authorization': f'Bearer {token}',
-                'Accept': 'application/json'
-                },
-            json=json_data
-        )
-        if resp.status_code < 200 or resp.status_code > 299:
-            sig = signals.FAIL(f"failed upload ({typ}) response status code {resp.status_code} for URL {url}\nText:{resp.text}")
-            sig.url = url
-            sig.resp = resp
-            raise sig
-        return
-
-    def _put(self, course_name, path_suffix, json_data):
-        self._upload(course_name, path_suffix, json_data, 'put')
-
-    def _post(self, course_name, path_suffix, json_data):
-        self._upload(course_name, path_suffix, json_data, 'post')
-
-    def _delete(self, course_name, path_suffix):
-        self._upload(course_name, path_suffix, None, 'delete')
-
-    def _get_overrides(self, course_name, assignment):
-        overs = self._get(course_name, 'assignments/'+assignment['id']+'/overrides')
-        for over in overs:
-            over['id'] = str(over['id'])
-            over['title'] = str(over['title'])
-            over['student_ids'] = list(map(str, over['student_ids']))
-            for key in ['due_at', 'lock_at', 'unlock_at']:
-                if over.get(key) is not None:
-                    over[key] = plm.parse(over[key])
-                else:
-                    over[key] = None
-        return overs
-
-    def _create_override(course_name, assignment, override):
-        #check all required keys
-        required_keys = ['student_ids', 'unlock_at', 'due_at', 'lock_at', 'title']
-        for rk in required_keys:
-            if not override.get(rk):
-                sig = signals.FAIL("invalid override for assignment {assignment['name']} ({assignment['id']}): dict missing required key {rk}")
-                sig.assignment = assignment
-                sig.override = override
-                sig.missing_key = rk
-                raise sig
-
-        #convert student ids to integers
-        override['student_ids'] = list(map(int, override['student_ids']))
-
-        #convert dates to canvas date time strings in the course local timezone
-        for dk in ['unlock_at', 'due_at', 'lock_at']:
-            override[dk] = str(override[dk])
-
-        #post the override
-        post_json = {'assignment_override' : override}
-        self._post(course_name, 'assignments/'+assignment['id']+'/overrides', post_json)
-
-        #check that it posted properly
-        overs = self._get_overrides(course_name, assignment)
-        n_match = len([over for over in overs if over['title'] == override['title']])
-        if n_match != 1:
-            sig = signals.FAIL("override for assignment {assignment['name']} ({assignment['id'])}) failed to upload to Canvas")
-            sig.assignment = assignment
-            sig.attempted_override = override
-            sig.overrides = overs
-            raise sig
-
-    def _remove_override(course_name, assignment, override):
-        self._delete(course_name, 'assignments/'+assignment['id']+'/overrides/'+override['id'])
-
-        #check that it was removed properly
-        overs = self._get_overrides(course_name, assignment)
-        n_match = len([over for over in overs if over['id'] == override['id']])
-        if n_match != 0:
-            sig = signals.FAIL("override {override['title']} for assignment {assignment['name']} ({assignment['id']}) failed to be removed from Canvas")
-            sig.override = override
-            sig.assignment = assignment
-            sig.overrides = overs
-            raise sig
+    def __init__(self, info):
+        self.info = info
 
     ########################
     # Public API functions
@@ -181,7 +28,7 @@ class Canvas(LMS):
 
     def get_people(self, course_name, enrollment_type):
         people = self._get(course_name, 'enrollments')
-        ppl_typ = [p for p in people if p['type'] == self.enrollment_map[enrollment_type]]
+        ppl_typ = [p for p in people if p['type'] == enrollment_type]
         ppl = [ { 'id' : str(p['user']['id']),
                    'name' : p['user']['name'],
                    'sortable_name' : p['user']['sortable_name'],
@@ -229,18 +76,12 @@ class Canvas(LMS):
         ids = [a['id'] for a in processed_asgns]
         names = [a['name'] for a in processed_asgns]
         if len(set(ids)) != len(ids):
-            sig = signals.FAIL(f"Course ID {course_id}: Two assignments detected with the same ID. IDs: {ids}")
-            sig.course_id = course_id
-            raise sig
+            raise ValueError(f"Course ID {course_id}: Two assignments detected with the same ID. IDs: {ids}")
         if len(set(names)) != len(names):
-            sig = signals.FAIL(f"Course ID {course_id}: Two assignments detected with the same name. Names: {names}")
-            sig.course_id = course_id
-            raise sig
+            raise ValueError(f"Course ID {course_id}: Two assignments detected with the same name. Names: {names}")
         # make sure anything listed in the rudaux_config appears on canvas
         if len(names) < len(assignment_names):
-            sig = signals.FAIL(f"Assignments from config missing in the course LMS.\nConfig: {assignment_names}\nLMS: {names}")
-            sig.course_id = course_id
-            raise sig
+            raise ValueError(f"Assignments from config missing in the course LMS.\nConfig: {assignment_names}\nLMS: {names}")
 
         return processed_asgns
 
@@ -273,12 +114,7 @@ class Canvas(LMS):
         # check that it was posted properly
         canvas_grade = str(self._get(config, course_id, 'assignments/'+assignment['id']+'/submissions/'+student['id'])[0]['score'])
         if abs(float(score) - float(canvas_grade)) > 0.01:
-            sig = signals.FAIL(f"grade {score} failed to upload for submission {subm['name']} ; grade on canvas is {canvas_grade}")
-            sig.assignment = assignment
-            sig.student = student
-            sig.score = score
-            sig.canvas_score = canvas_grade
-            raise sig
+            raise ValueError(f"grade {score} failed to upload for submission {subm['name']} ; grade on canvas is {canvas_grade}")
 
     def update_extension(self, course_name, student, assignment, due_at):
         # find overrides for which student is already a member
@@ -303,3 +139,134 @@ class Canvas(LMS):
         # reupload all the overrides + new one
         for override in student_overs:
             self._create_override(course_name, assignment, override)
+
+    #################################
+    # Basic Canvas HTTP API functions
+    #################################
+
+    def _get(self, course_name, path_suffix, use_group_base=False):
+        canvas_domain = self.info[course_name]['domain']
+        course_id = self.info[course_name]['id']
+        token = self.info[course_name]['token']
+
+        group_url = urllib.parse.urljoin(canvas_domain, 'api/v1/groups/')
+        base_url = urllib.parse.urljoin(canvas_domain, 'api/v1/courses/'+course_id+'/')
+        if use_group_base:
+            url = urllib.parse.urljoin(group_url, path_suffix)
+        else:
+            url = urllib.parse.urljoin(base_url, path_suffix)
+
+        logger = get_logger()
+        logger.info(f"GET request to URL: {url}")
+
+        resp = None
+        resp_items = []
+        #see https://community.canvaslms.com/t5/Question-Forum/Why-is-the-Assignment-due-at-value-that-of-the-last-override/m-p/209593
+        #for why we have to set override_assignment_dates = false below -- basically due_at below gets set really weirdly if
+        #the assignment has overrides unless you include this param
+        while resp is None or 'next' in resp.links.keys():
+            resp = requests.get(
+                url = url if resp is None else resp.links['next']['url'],
+                headers = {
+                    'Authorization': f'Bearer {token}',
+                    'Accept': 'application/json'
+                    },
+                json = {'per_page' : 100},
+                params = {'override_assignment_dates' : False}
+            )
+
+            # raise any HTTP errors
+            resp.raise_for_status()
+
+            json_data = resp.json()
+            if isinstance(json_data, list):
+                resp_items.extend(resp.json())
+            else:
+                resp_items.append(resp.json())
+        return resp_items
+
+    def _upload(self, course_name, path_suffix, json_data, typ):
+        canvas_domain = self.info[course_name]['domain']
+        course_id = self.info[course_name]['id']
+        token = self.info[course_name]['token']
+
+        base_url = urllib.parse.urljoin(canvas_domain, 'api/v1/courses/'+course_id+'/')
+        rfuncs = {'put' : requests.put,
+                 'post': requests.post,
+                 'delete': requests.delete}
+        url = urllib.parse.urljoin(base_url, path_suffix)
+
+        logger = get_logger()
+        logger.info(f"{typ.upper()} request to URL: {url}")
+
+        resp = rfuncs[typ](
+            url = url,
+            headers = {
+                'Authorization': f'Bearer {token}',
+                'Accept': 'application/json'
+                },
+            json=json_data
+        )
+
+        # raise any HTTP errors
+        resp.raise_for_status()
+        return
+
+    def _put(self, course_name, path_suffix, json_data):
+        self._upload(course_name, path_suffix, json_data, 'put')
+
+    def _post(self, course_name, path_suffix, json_data):
+        self._upload(course_name, path_suffix, json_data, 'post')
+
+    def _delete(self, course_name, path_suffix):
+        self._upload(course_name, path_suffix, None, 'delete')
+
+    def _get_overrides(self, course_name, assignment):
+        overs = self._get(course_name, 'assignments/'+assignment['id']+'/overrides')
+        for over in overs:
+            over['id'] = str(over['id'])
+            over['title'] = str(over['title'])
+            over['student_ids'] = list(map(str, over['student_ids']))
+            for key in ['due_at', 'lock_at', 'unlock_at']:
+                if over.get(key) is not None:
+                    over[key] = plm.parse(over[key])
+                else:
+                    over[key] = None
+        return overs
+
+    def _create_override(course_name, assignment, override):
+        #check all required keys
+        required_keys = ['student_ids', 'unlock_at', 'due_at', 'lock_at', 'title']
+        for rk in required_keys:
+            if not override.get(rk):
+                raise ValueError(f"invalid override for assignment {assignment['name']} ({assignment['id']}): dict missing required key {rk}")
+
+        #convert student ids to integers
+        override['student_ids'] = list(map(int, override['student_ids']))
+
+        #convert dates to canvas date time strings in the course local timezone
+        for dk in ['unlock_at', 'due_at', 'lock_at']:
+            override[dk] = str(override[dk])
+
+        #post the override
+        post_json = {'assignment_override' : override}
+        self._post(course_name, 'assignments/'+assignment['id']+'/overrides', post_json)
+
+        #check that it posted properly
+        overs = self._get_overrides(course_name, assignment)
+        n_match = len([over for over in overs if over['title'] == override['title']])
+        if n_match == 0:
+            raise ValueError(f"override for assignment {assignment['name']} ({assignment['id'])}) failed to upload to Canvas")
+        if n_match > 1:
+            raise ValueError(f"multiple overrides for assignment {assignment['name']} ({assignment['id'])}) with title {override['title']} uploaded to Canvas")
+
+    def _remove_override(course_name, assignment, override):
+        self._delete(course_name, 'assignments/'+assignment['id']+'/overrides/'+override['id'])
+
+        #check that it was removed properly
+        overs = self._get_overrides(course_name, assignment)
+        n_match = len([over for over in overs if over['id'] == override['id']])
+        if n_match != 0:
+            raise ValueError(f"override {override['title']} for assignment {assignment['name']} ({assignment['id']}) failed to be removed from Canvas")
+
+
