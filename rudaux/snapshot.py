@@ -195,5 +195,12 @@ def take_snapshot(config, course_info, snap, existing_snap_names):
         _ssh_snapshot(config, course_info['id'], snap_path)
     else:
         snap_path = os.path.join(config.student_ssh[course_info['id']]['student_root'], snap_student).strip('/') + '@' + snap_name
-        _ssh_snapshot(config, course_info['id'], snap_path)
+        try:
+            _ssh_snapshot(config, course_info['id'], snap_path)
+        except Exception as sig:
+            # handle those students who haven't created a home folder yet
+            if "dataset does not exist" in sig.stderr:
+                sig2 = signals.SKIP(f"Tried to take snapshot {snap_name} for student {snap_student}, but their home folder does not exist yet. Skipping.")        
+                raise sig2
+            raise sig
     return
