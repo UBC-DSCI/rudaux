@@ -68,7 +68,7 @@ def _ssh_command(client, cmd):
     stderr = stderr_lines
 
     if out_status != 0 or err_status != 0:
-        sig = signals.FAIL(f"Paramiko SSH command error: nonzero status.\nstderr\n{stderr}\nstdout\n{stdout}")
+        sig = RuntimeError(f"Paramiko SSH command error: nonzero status.\nstderr\n{stderr}\nstdout\n{stdout}")
         sig.stderr = stderr
         sig.stdout = stdout
         raise sig
@@ -197,9 +197,9 @@ def take_snapshot(config, course_info, snap, existing_snap_names):
         snap_path = os.path.join(config.student_ssh[course_info['id']]['student_root'], snap_student).strip('/') + '@' + snap_name
         try:
             _ssh_snapshot(config, course_info['id'], snap_path)
-        except Exception as sig:
+        except RuntimeError as sig:
             # handle those students who haven't created a home folder yet
-            if "dataset does not exist" in sig.stderr:
+            if "dataset does not exist" in ' '.join(sig.stderr):
                 sig2 = signals.SKIP(f"Tried to take snapshot {snap_name} for student {snap_student}, but their home folder does not exist yet. Skipping.")        
                 raise sig2
             raise sig
