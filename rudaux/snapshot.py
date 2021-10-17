@@ -143,7 +143,7 @@ def get_all_snapshots(config, course_id, assignments):
     return snaps
 
 @task(checkpoint=False)
-def get_existing_snapshots(config, course_id):
+def get_existing_snapshots(config, course_id, max_retries=3,retry_delay=plm.duration(seconds=10)):
     existing_snaps = _ssh_list_snapshot_names(config, course_id)
     logger = get_logger()
     logger.info(f"Found {len(existing_snaps)} existing snapshots.")
@@ -154,7 +154,7 @@ def get_existing_snapshots(config, course_id):
 def generate_take_snapshot_name(config, course_info, snap, existing_snap_names, **kwargs):
     return snap['name']
 
-@task(checkpoint=False,task_run_name=generate_take_snapshot_name)
+@task(checkpoint=False,task_run_name=generate_take_snapshot_name,max_retries=3,retry_delay=plm.duration(seconds=10))
 def take_snapshot(config, course_info, snap, existing_snap_names):
     logger = get_logger()
     snap_deadline = snap['due_at']
