@@ -68,7 +68,6 @@ def _ssh_command(client, cmd):
     stderr = stderr_lines
 
     if out_status != 0 or err_status != 0:
-        client.close()
         sig = RuntimeError(f"Paramiko SSH command error: nonzero status.\nstderr\n{stderr}\nstdout\n{stdout}")
         sig.stderr = stderr
         sig.stdout = stdout
@@ -79,36 +78,38 @@ def _ssh_command(client, cmd):
 
 def _ssh_snapshot(config, course_id, snap_path):
     logger = get_logger()
-    # open the connection
-    client = _ssh_open(config, course_id)
+    try:
+        # open the connection
+        client = _ssh_open(config, course_id)
 
-    # execute the snapshot
-    logger.info('Taking snapshot')
-    stdout, stderr = _ssh_command(client, config.student_ssh[course_id]['zfs_path'] + ' snapshot -r ' + snap_path)
+        # execute the snapshot
+        logger.info('Taking snapshot')
+        stdout, stderr = _ssh_command(client, config.student_ssh[course_id]['zfs_path'] + ' snapshot -r ' + snap_path)
 
-    # verify the snapshot
-    logger.info('Verifying snapshot')
-    stdout, stderr = _ssh_command(client, config.student_ssh[course_id]['zfs_path'] + ' list -t snapshot')
-    snap_paths = _parse_zfs_snap_paths(stdout)
-    if snap_path not in snap_paths:
-        sig = signals.FAIL(f"Failed to take snapshot {snap_path}.")
-        sig.snap_path = snap_path
-        sig.taken_snaps = snap_paths
-        raise sig
-    logger.info('Snapshot {snap_path} verified')
-
-    # close the connection
-    client.close()
+        # verify the snapshot
+        logger.info('Verifying snapshot')
+        stdout, stderr = _ssh_command(client, config.student_ssh[course_id]['zfs_path'] + ' list -t snapshot')
+        snap_paths = _parse_zfs_snap_paths(stdout)
+        if snap_path not in snap_paths:
+            sig = signals.FAIL(f"Failed to take snapshot {snap_path}.")
+            sig.snap_path = snap_path
+            sig.taken_snaps = snap_paths
+            raise sig
+        logger.info('Snapshot {snap_path} verified')
+    finally:
+        # close the connection
+        client.close()
 
 def _ssh_list_snapshot_names(config, course_id):
-    # open the connection
-    client = _ssh_open(config, course_id)
+    try:
+        # open the connection
+        client = _ssh_open(config, course_id)
 
-    # list snapshots
-    stdout, stderr = _ssh_command(client, config.student_ssh[course_id]['zfs_path'] + ' list -t snapshot')
-
-    # close the connection
-    client.close()
+        # list snapshots
+        stdout, stderr = _ssh_command(client, config.student_ssh[course_id]['zfs_path'] + ' list -t snapshot')
+    finally:
+        # close the connection
+        client.close()
 
     # parse the output of zfs
     snapnames = _parse_zfs_snap_names(stdout)
