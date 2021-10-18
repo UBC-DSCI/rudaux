@@ -68,6 +68,7 @@ def _ssh_command(client, cmd):
     stderr = stderr_lines
 
     if out_status != 0 or err_status != 0:
+        client.close()
         sig = RuntimeError(f"Paramiko SSH command error: nonzero status.\nstderr\n{stderr}\nstdout\n{stdout}")
         sig.stderr = stderr
         sig.stdout = stdout
