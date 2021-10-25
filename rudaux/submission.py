@@ -40,11 +40,10 @@ def initialize_submission_sets(config, course_infos, assignments, students, subm
     logger = get_logger()
     # verify that each list is of length (# courses)
     if len(course_infos) != len(assignments) or len(course_infos) != len(students):
-        sig = signals.FAIL(f"course_infos, assignments, and students lists must all have the same number "+
-                           f"of elements (number of courses in the group). ids: {len(course_infos)} assignments: {len(assignments)} students: {len(students)}")
-        sig.course_infos = course_infos
-        sig.assignments = assignments
-        sig.students = students
+        msg = (f"course_infos, assignments, and students lists must all have the same number "+
+              f"of elements (number of courses in the group). ids: {len(course_infos)} assignments: {len(assignments)} students: {len(students)}")
+        sig = signals.FAIL(msg)
+        sig.msg = msg
         raise sig
 
     # if the lists are empty, just return empty submissions
@@ -64,10 +63,9 @@ def initialize_submission_sets(config, course_infos, assignments, students, subm
     # if None is still present in any of the lists, then there is
     # an assignment in one course not present in another; sig.FAIL
     if any([None in v for k, v in asgn_map.items()]):
-        sig = signals.FAIL(f"one course has an assignment not present in another. Assignment index mapping: {asgn_map}")
-        sig.course_infos = course_infos
-        sig.assignments = assignments
-        sig.students = students
+        msg = f"one course has an assignment not present in another. Assignment index mapping: {asgn_map}"
+        sig = signals.FAIL(msg)
+        sig.msg = msg
         raise sig
 
     # construct the list of grouped assignments
@@ -147,18 +145,20 @@ def build_submission_set(config, subm_set):
 
         # check that assignment due/unlock dates exist
         if assignment['unlock_at'] is None or assignment['due_at'] is None:
-            sig = signals.FAIL(f"Invalid unlock ({assignment['unlock_at']}) and/or due ({assignment['due_at']}) date for assignment {assignment['name']}")
-            sig.assignment = assignment
+            msg = f"Invalid unlock ({assignment['unlock_at']}) and/or due ({assignment['due_at']}) date for assignment {assignment['name']}"
+            sig = signals.FAIL(msg)
+            sig.msg = msg
             raise sig
 
         # if assignment dates are prior to course start, error
         if assignment['unlock_at'] < course_info['start_at'] or assignment['due_at'] < course_info['start_at']:
-            sig = signals.FAIL(f"Assignment {assignment['name']} unlock date ({assignment['unlock_at']}) "+
-                               f"and/or due date ({assignment['due_at']}) is prior to the course start date "+
-                               f"({course_info['start_at']}). This is often because of an old deadline from "+
-                               f"a copied Canvas course from a previous semester. Please make sure assignment "+
-                               f"deadlines are all updated to the current semester.")
-            sig.assignment = assignment
+            msg = (f"Assignment {assignment['name']} unlock date ({assignment['unlock_at']}) "+
+                  f"and/or due date ({assignment['due_at']}) is prior to the course start date "+
+                  f"({course_info['start_at']}). This is often because of an old deadline from "+
+                  f"a copied Canvas course from a previous semester. Please make sure assignment "+
+                  f"deadlines are all updated to the current semester.")
+            sig = signals.FAIL(msg)
+            sig.msg = msg
             raise sig
 
         for subm in subm_set[course_name]['submissions']:
@@ -166,8 +166,9 @@ def build_submission_set(config, subm_set):
 
             # check student registration date is valid
             if student['reg_date'] is None:
-                sig = signals.FAIL(f"Invalid registration date for student {student['name']}, {student['id']} ({student['reg_date']})")
-                sig.student = student
+                msg = f"Invalid registration date for student {student['name']}, {student['id']} ({student['reg_date']})"
+                sig = signals.FAIL(msg)
+                sig.msg = msg
                 raise sig
 
             # compute the submissions's due date, snap name, paths
@@ -412,12 +413,14 @@ def clean_submissions(subm_set):
                     nb = json.load(f)
                     f.close()
                 except JSONDecodeError as e:
-                    logger.info(f"JSON ERROR in student {student['name']} {student['id']} assignment {assignment['name']} grader {grader['name']} course name {course_name}")
-                    logger.info("This can happen if cleaning was previously abruptly stopped, leading to a corrupted file.")
-                    logger.info("It might also happen if the student somehow deleted their file and left a non-JSON file behind.")
-                    logger.info("Either way, this workflow will fail now to prevent further damage; please inspect the file and fix the issue")
-                    logger.info("(typically by manually re-copying the student work into the grader/submitted folder")
-                    raise e
+                    msg = (f"JSON ERROR in student {student['name']} {student['id']} assignment {assignment['name']} grader {grader['name']} course name {course_name}"+
+                           "This can happen if cleaning was previously abruptly stopped, leading to a corrupted file."+
+                           "It might also happen if the student somehow deleted their file and left a non-JSON file behind."+
+                           "Either way, this workflow will fail now to prevent further damage; please inspect the file and fix the issue"+
+                           "(typically by manually re-copying the student work into the grader/submitted folder")
+                    sig = signals.FAIL(msg)
+                    sig.msg = msg
+                    raise sig
                 #go through and delete the nbgrader metadata from any duplicated cells
                 cell_ids = set()
                 for cell in nb['cells']:
@@ -474,9 +477,15 @@ def autograde(config, subm_set):
 
                 # validate the results
                 if 'ERROR' in res['log']:
-                    raise signals.FAIL(f"Docker error autograding submission {subm['name']}: exited with status {res['exit_status']},  {res['log']}")
+                    msg = f"Docker error autograding submission {subm['name']}: exited with status {res['exit_status']},  {res['log']}"
+                    sig = signals.FAIL(msg)
+                    sig.msg = msg
+                    raise sig
                 if not os.path.exists(subm['autograded_assignment_path']):
-                    raise signals.FAIL(f"Docker error autograding submission {subm['name']}: did not generate expected file at {subm['autograded_assignment_path']}")
+                    msg = f"Docker error autograding submission {subm['name']}: did not generate expected file at {subm['autograded_assignment_path']}"
+                    sig = signals.FAIL(msg)
+                    sig.msg = msg
+                    raise sig 
                 subm['status'] = GradingStatus.AUTOGRADED
 
     return subm_set
@@ -500,9 +509,9 @@ def check_manual_grading(config, subm_set):
                     gb_subm = gb.find_submission(assignment['name'], config.grading_student_folder_prefix+subm['student']['id'])
                     flag = gb_subm.needs_manual_grade
                 except Exception as e:
-                    sig = signals.FAIL(f"Error when checking whether submission {subm['name']} needs manual grading; error {str(e)}")
-                    sig.e = e
-                    sig.subm = subm
+                    msg = f"Error when checking whether submission {subm['name']} needs manual grading; error {str(e)}"
+                    sig = signals.FAIL(msg)
+                    sig.msg = msg
                     raise sig
                 finally:
                     gb.close()
@@ -588,9 +597,13 @@ def generate_feedback(config, subm_set):
 
             # validate the results
             if 'ERROR' in res['log']:
-                raise signals.FAIL(f"Docker error generating feedback for submission {subm['name']}: exited with status {res['exit_status']},  {res['log']}")
+                msg = f"Docker error generating feedback for submission {subm['name']}: exited with status {res['exit_status']},  {res['log']}"
+                sig = signals.FAIL(msg)
+                raise sig
             if not os.path.exists(subm['generated_feedback_path']):
-                raise signals.FAIL(f"Docker error generating feedback for submission {subm['name']}: did not generate expected file at {subm['generated_feedback_path']}")
+                msg = f"Docker error generating feedback for submission {subm['name']}: did not generate expected file at {subm['generated_feedback_path']}"
+                sig = signals.FAIL(msg)
+                raise sig
     return subm_set
 
 
@@ -665,9 +678,9 @@ def upload_grades(config, subm_set):
                     gb_subm = gb.find_submission(assignment['name'], config.grading_student_folder_prefix+student['id'])
                     score = gb_subm.score
                 except Exception as e:
-                    sig = signals.FAIL(f"Error when accessing the gradebook score for submission {subm['name']}; error {str(e)}")
-                    sig.e = e
-                    sig.subm = subm
+                    msg = f"Error when accessing the gradebook score for submission {subm['name']}; error {str(e)}"
+                    sig = signals.FAIL(msg)
+                    sig.msg = msg
                     raise sig
                 finally:
                     gb.close()
@@ -677,9 +690,9 @@ def upload_grades(config, subm_set):
                 try:
                     max_score = _compute_max_score(subm['grader'], assignment)
                 except Exception as e:
-                    sig = signals.FAIL(f"Error when trying to compute the max score for submission {subm['name']}; error {str(e)}")
-                    sig.e = e
-                    sig.subm = subm
+                    msg = f"Error when trying to compute the max score for submission {subm['name']}; error {str(e)}"
+                    sig = signals.FAIL(msg)
+                    sig.msg = msg
                     raise sig
                 logger.info(f"Max Score: {max_score}")
 

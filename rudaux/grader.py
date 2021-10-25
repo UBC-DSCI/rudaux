@@ -74,7 +74,10 @@ def build_grading_team(config, course_group, subm_set):
     for user in config_users:
         # ensure user exists
         if user not in dictauth_users:
-            raise signals.FAIL(f"User account {user} listed in rudaux_config does not exist in dictauth: {dictauth_users} . Make sure to use dictauth to create a grader account for each of the TA/instructorss listed in config.assignments")
+            msg = f"User account {user} listed in rudaux_config does not exist in dictauth: {dictauth_users} . Make sure to use dictauth to create a grader account for each of the TA/instructorss listed in config.assignments"
+            sig = signals.FAIL(msg)
+            sig.msg = msg
+            raise sig
         grader = {}
         # initialize any values in the grader that are *not* potential failure points here
         grader['user'] = user
@@ -107,7 +110,10 @@ def initialize_volumes(config, graders):
             try:
                 check_output(['sudo', config.zfs_path, 'create', "-o", "refquota="+grader['unix_quota'], grader['folder'].lstrip('/')], stderr=STDOUT)
             except CalledProcessError as e:
-                raise signals.FAIL(f"Error running command {e.cmd}. returncode {e.returncode}. output {e.output}. stdout {e.stdout}. stderr {e.stderr}")
+                msg = f"Error running command {e.cmd}. returncode {e.returncode}. output {e.output}. stdout {e.stdout}. stderr {e.stderr}"
+                sig = signals.FAIL(msg)
+                sig.msg = msg
+                raise sig
             logger.info("Created!")
 
         # clone the git repository
@@ -145,7 +151,10 @@ def initialize_volumes(config, graders):
             output = run_container(config, 'nbgrader generate_assignment --force '+aname, grader['folder'])
             logger.info(output['log'])
             if 'ERROR' in output['log']:
-                raise signals.FAIL(f"Error generating assignment {aname} for grader {grader['name']} at path {grader['folder']}")
+                msg = f"Error generating assignment {aname} for grader {grader['name']} at path {grader['folder']}"
+                sig = signals.FAIL(msg)
+                sig.msg = msg
+                raise sig
 
         # if the solution hasn't been generated yet, generate it
         if not os.path.exists(grader['soln_path']):
@@ -153,7 +162,10 @@ def initialize_volumes(config, graders):
             output = run_container(config, 'jupyter nbconvert ' + grader['local_source_path'] + ' --output=' + grader['soln_name'] + ' --output-dir=.', grader['folder'])
             logger.info(output['log'])
             if 'ERROR' in output['log']:
-                raise signals.FAIL(f"Error generating solution for {aname} for grader {grader['name']} at path {grader['folder']}")
+                msg = f"Error generating solution for {aname} for grader {grader['name']} at path {grader['folder']}"
+                sig = signals.FAIL(msg)
+                sig.msg = msg
+                raise sig
 
         # transfer ownership to the jupyterhub user
         recursive_chown(grader['folder'], grader['unix_user'], grader['unix_group'])

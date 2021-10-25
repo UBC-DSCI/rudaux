@@ -68,7 +68,9 @@ def _ssh_command(client, cmd):
     stderr = stderr_lines
 
     if out_status != 0 or err_status != 0:
-        sig = RuntimeError(f"Paramiko SSH command error: nonzero status.\nstderr\n{stderr}\nstdout\n{stdout}")
+        msg = f"Paramiko SSH command error: nonzero status.\nstderr\n{stderr}\nstdout\n{stdout}"
+        sig = RuntimeError(msg)
+        sig.msg = msg
         sig.stderr = stderr
         sig.stdout = stdout
         raise sig
@@ -91,7 +93,9 @@ def _ssh_snapshot(config, course_id, snap_path):
         stdout, stderr = _ssh_command(client, config.student_ssh[course_id]['zfs_path'] + ' list -t snapshot')
         snap_paths = _parse_zfs_snap_paths(stdout)
         if snap_path not in snap_paths:
-            sig = signals.FAIL(f"Failed to take snapshot {snap_path}.")
+            msg = f"Failed to take snapshot {snap_path}.\ntaken snaps\n{snap_paths}"
+            sig = signals.FAIL(msg)
+            sig.msg = msg
             sig.snap_path = snap_path
             sig.taken_snaps = snap_paths
             raise sig
@@ -171,7 +175,9 @@ def take_snapshot(config, course_info, snap, existing_snap_names):
          raise sig
 
     if snap_deadline is None:
-         sig = signals.FAIL(f"Snapshot {snap_name} has invalid deadline {snap_deadline}")
+         msg = f"Snapshot {snap_name} has invalid deadline {snap_deadline}"
+         sig = signals.FAIL(msg)
+         sig.msg = msg
          sig.snap_name = snap_name
          sig.snap_deadline = snap_deadline
          raise sig
@@ -183,10 +189,12 @@ def take_snapshot(config, course_info, snap, existing_snap_names):
          raise sig
 
     if snap_deadline < course_info['start_at']:
-         sig = signals.FAIL(f"Snapshot {snap_name} deadline ({snap_deadline}) prior to the course " +
+         msg = (f"Snapshot {snap_name} deadline ({snap_deadline}) prior to the course " +
                             f"start ({course_info['start_at']}). This is often because of an old deadline " +
                             f"from a copied Canvas course from a previous semester. Please make sure " +
                             f"assignment deadlines are all updated to the current semester.")
+         sig = signals.FAIL(msg)
+         sig.msg = msg
          sig.snap_name = snap_name
          sig.snap_deadline = snap_deadline
          raise sig
@@ -204,5 +212,7 @@ def take_snapshot(config, course_info, snap, existing_snap_names):
             if "dataset does not exist" in ' '.join(sig.stderr):
                 sig2 = signals.SKIP(f"Tried to take snapshot {snap_name} for student {snap_student}, but their home folder does not exist yet. Skipping.")        
                 raise sig2
+            msg = str(sig)
+            sig.msg = msg
             raise sig
     return
