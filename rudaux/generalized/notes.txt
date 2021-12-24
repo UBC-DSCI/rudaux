@@ -1,0 +1,5 @@
+- define task boundaries via targets (files/folders modified datetime, uploaded grades, posted grades, etc)
+- compress non-target tasks (e.g. setting up the big dicts of student/assignment stuff) into one task
+- add datetime to read operations from generic student objects, grader objects, lms objects
+- add #RUDAUX taname1 taname2 tag to assignment text to indicate graders. include code to check whether the set of graders is the same, diff it, rename grading accounts and folders if differs
+- 
