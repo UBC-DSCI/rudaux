@@ -36,8 +36,8 @@ c.registration_deadline = '2022-01-21'
 # i.e. if both sections have the same instructor, they'll have the same token
 # e.g. {"12345" : "43456~34f8h948fha948haoweifha30948fha34f",  "678910": "54698~34hs384he4fhsoeirfho348hfaoweifh"}
 c.course_tokens = {
-    'canvas_id_1': 'instructor_token_1',
-    'canvas_id_2': 'instructor_token_2',
+	'canvas_id_1' : 'instructor_token_1',
+	'canvas_id_2' : 'instructor_token_2',
 }
 
 # tells rudaux which assignments to track and who is grading them
@@ -47,11 +47,11 @@ c.course_tokens = {
 # if an assignment is purely autograded, just use the instructor's jhub username (no manual grading required)
 # if multiple graders are listed with an assignment, rudaux splits the grading up for them equally 
 c.assignments = {
-    'group_name': {
-        'assignment_name_1': ['grader_jhub_username_A'], 
-        'assignment_name_2': ['grader_jhub_username_B'],
-        'assignment_name_3': ['grader_jhub_username_A', 'grader_jhub_username_B']
-    }
+	'group_name' : {
+    	'assignment_name_1' : ['grader_jhub_username_A'], 
+    	'assignment_name_2' : ['grader_jhub_username_B'],
+    	'assignment_name_3' : ['grader_jhub_username_A', 'grader_jhub_username_B']
+	}
 }
 
 # tells rudaux where to look for student work (usually a remote machine)
