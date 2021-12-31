@@ -192,9 +192,8 @@ def build_autoext_flows(config):
                 # Fill in submission deadlines
                 submission_sets = subm.build_submission_set.map(unmapped(config), submission_sets)
 
-                # Compute override updates if registration deadline has not passed.
-                if plm.now().in_timezone(config.notify_timezone).timestamp() < plm.from_format(config.registration_deadline, 'YYYY-MM-DD').timestamp():
-                    overrides = subm.get_latereg_overrides.map(unmapped(config.latereg_extension_days[group]), submission_sets)
+                # Compute override updates
+                overrides = subm.get_latereg_overrides.map(unmapped(config.latereg_extension_days[group]), submission_sets, config)
 
                 # TODO: we would ideally do flatten(overrides) and then
                 # api.update_override.map(unmapped(config), unmapped(course_id), flatten(overrides))

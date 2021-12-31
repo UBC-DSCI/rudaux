@@ -212,7 +212,7 @@ def generate_latereg_overrides_name(extension_days, subm_set, **kwargs):
     return 'lateregs-'+subm_set['__name__']
 
 @task(checkpoint=False,task_run_name=generate_latereg_overrides_name)
-def get_latereg_overrides(extension_days, subm_set):
+def get_latereg_overrides(extension_days, subm_set, config):
     logger = get_logger()
     fmt = 'ddd YYYY-MM-DD HH:mm:ss'
     overrides = []
@@ -234,7 +234,7 @@ def get_latereg_overrides(extension_days, subm_set):
 
             to_remove = None
             to_create = None
-            if regdate > assignment['unlock_at']:
+            if regdate > assignment['unlock_at'] and assignment['due_at'] <= plm.from_format(config.registration_deadline, f'YYYY-MM-DD', tz=config.notify_timezone).add(days=extension_days):
                 #the late registration due date
                 latereg_date = regdate.add(days=extension_days).in_timezone(tz).end_of('day').set(microsecond=0)
                 if latereg_date > subm['due_at']:
