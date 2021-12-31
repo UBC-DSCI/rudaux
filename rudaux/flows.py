@@ -1,17 +1,17 @@
-import sys, os
+import sys
+import os
 import prefect
-from prefect import Flow, unmapped, task, flatten
+from prefect import Flow, unmapped, task
 from prefect.engine import signals
 from prefect.schedules import IntervalSchedule
-from prefect.executors import LocalExecutor, DaskExecutor, LocalDaskExecutor
+from prefect.executors import LocalExecutor
 from prefect.backend import FlowView, FlowRunView
 from prefect.tasks.control_flow.filter import FilterTask
 from traitlets.config import Config
 from traitlets.config.loader import PyFileConfigLoader
 import pendulum as plm
 from requests.exceptions import ConnectionError
-import logging
-from subprocess import check_output, STDOUT, CalledProcessError
+from subprocess import check_output, CalledProcessError
 
 import threading
 
@@ -28,16 +28,17 @@ filter_skip = FilterTask(
 
 __PROJECT_NAME = "rudaux"
 
+
 def _build_flows(args):
     print("Loading the rudaux_config.py file...")
     if not os.path.exists(os.path.join(args.directory, 'rudaux_config.py')):
-            sys.exit(
-              f"""
-              There is no rudaux_config.py in the directory {args.directory},
-              and no course directory was specified on the command line. Please
-              specify a directory with a valid rudaux_config.py file.
-              """
-            )
+        sys.exit(
+            f"""
+            There is no rudaux_config.py in the directory {args.directory},
+            and no course directory was specified on the command line. Please
+            specify a directory with a valid rudaux_config.py file.
+            """
+        )
     config = Config()
     config.merge(PyFileConfigLoader('rudaux_config.py', path=args.directory).load_config())
 
@@ -70,12 +71,12 @@ def _build_flows(args):
     flows = []
     for build_func, flow_name, interval, minute in flow_builders:
         print(f"Building/registering the {flow_name} flow...")
-        _flows = build_func(config, args)
+        _flows = build_func(config)
         for flow in _flows:
             flow.executor = executor
             if not config.debug:
-                flow.schedule = IntervalSchedule(start_date = plm.now('UTC').set(minute=minute),
-                                   interval = plm.duration(minutes=interval))
+                flow.schedule = IntervalSchedule(start_date=plm.now('UTC').set(minute=minute),
+                                   interval=plm.duration(minutes=interval))
             flows.append(flow)
     return flows
 
@@ -100,14 +101,13 @@ def register(args):
     except ConnectionError as e:
         print(e)
         sys.exit(
-              f"""
-              Could not connect to the prefect server. Is the server running?
-              Make sure to start the server before trying to register flows.
-              To start the prefect server, run the command:
+            """
+            Could not connect to the prefect server. Is the server running?
+            Make sure to start the server before trying to register flows.
+            To start the prefect server, run the command:
 
-              prefect server start
-
-              """
+            prefect server start
+            """
             )
     flows = _build_flows(args)
     for flow in flows:
@@ -135,7 +135,7 @@ def run(args):
 
     return
 
-def build_snapshot_flows(config, args):
+def build_snapshot_flows(config):
     flows = []
     for group in config.course_groups:
         for course_id in config.course_groups[group]:
@@ -155,16 +155,31 @@ def build_snapshot_flows(config, args):
             flows.append(flow)
     return flows
 
+
 @task(checkpoint=False)
 def combine_dictionaries(dicts):
-    return {k : v for d in dicts for k, v in d.items()}
+    return {k: v for d in dicts for k, v in d.items()}
 
-def build_autoext_flows(config, args):
+
+def build_autoext_flows(config):
+    """
+    Build the flow for the auto-extension of assignments for students
+    who register late.
+
+    Params
+    ------
+    config: traitlets.config.loader.Config
+        a dictionary-like object containing the configurations
+        from rudaux_config.py
+    """
     flows = []
     for group in config.course_groups:
         for course_id in config.course_groups[group]:
-            with Flow(config.course_names[course_id]+"-autoext", terminal_state_handler = fail_handler_gen(config)) as flow:
+            with Flow(config.course_names[course_id] + "-autoext",
+                      terminal_state_handler=fail_handler_gen(config)) as flow:
+
                 assignment_names = list(config.assignments[group].keys())
+
                 # Obtain course/student/assignment/etc info from the course API
                 course_info = api.get_course_info(config, course_id)
                 assignments = api.get_assignments(config, course_id, assignment_names)
@@ -178,7 +193,7 @@ def build_autoext_flows(config, args):
                 submission_sets = subm.build_submission_set.map(unmapped(config), submission_sets)
 
                 # Compute override updates
-                overrides = subm.get_latereg_overrides.map(unmapped(config.latereg_extension_days[group]), submission_sets)
+                overrides = subm.get_latereg_overrides.map(unmapped(config.latereg_extension_days[group]), submission_sets, unmapped(config))
 
                 # TODO: we would ideally do flatten(overrides) and then
                 # api.update_override.map(unmapped(config), unmapped(course_id), flatten(overrides))
@@ -196,7 +211,7 @@ def build_autoext_flows(config, args):
 # rather dynamically from LMS; there we dont know what
 # assignments there are until runtime. So doing it by group is the
 # right strategy.
-def build_grading_flows(config, args):
+def build_grading_flows(config):
     try:
         check_output(['sudo', '-n', 'true'])
     except CalledProcessError as e:

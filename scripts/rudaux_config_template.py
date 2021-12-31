@@ -1,29 +1,33 @@
-import rudaux
-
-
 # the base domain for canvas at your institution
 # e.g. at UBC, this is https://canvas.ubc.ca
 c.canvas_domain = 'https://canvas.your-domain.com'
 
 # tells rudaux which courses are part of which groups
-#group_name is a simple name for the group of canvas courses. 
-#e.g. 
+# group_name is a simple name for the group of canvas courses.
+# e.g.
 # "dsci100" : ["12345", "678910"]
 # "stat201" : ["54323"]
 c.course_groups = {
-	'group_name' : ['canvas_id_1', 'canvas_id_2']   
+    'group_name': ['canvas_id_1', 'canvas_id_2']
 }
 
 # tells rudaux what to call each course when printing to logs
 # canvas_id_1/2/etc are the same as above
-# human_readable_name_1/2/etc is just a human-readable name for each section, 
+# human_readable_name_1/2/etc is just a human-readable name for each section
+# (e.g., human_readable_name_1 and 2 would be dsci100-001 and dsci100-004 for 
+# the two dsci100 sections)
 # make sure you include names for every canvas ID above
-# e.g. 
+# e.g.
 # {"12345" : "dsci100-001", "678910" : "dsci100-004"}
 c.course_names = {
-	'canvas_id_1' : 'human_readable_name_1',        #e.g. human_readable_name_1 and 2 would be dsci100-001 and dsci100-004 (for the two dsci100 sections)
-	'canvas_id_2' : 'human_readable_name_2',
+    'canvas_id_1': 'human_readable_name_1', 
+    'canvas_id_2': 'human_readable_name_2',
 }
+
+# tells rudaux the last day students have to add a course. 
+# at UBC we can check it here:
+# https://students.ubc.ca/enrolment/registration/course-change-dates
+c.registration_deadline = '2022-01-21'
 
 # gives rudaux the ability to read/write to canvas page
 # canvas_id_1/2/etc are same as above
