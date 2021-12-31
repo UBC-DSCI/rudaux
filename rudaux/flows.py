@@ -193,7 +193,7 @@ def build_autoext_flows(config):
                 submission_sets = subm.build_submission_set.map(unmapped(config), submission_sets)
 
                 # Compute override updates
-                overrides = subm.get_latereg_overrides.map(unmapped(config.latereg_extension_days[group]), submission_sets, config)
+                overrides = subm.get_latereg_overrides.map(unmapped(config.latereg_extension_days[group]), submission_sets, unmapped(config))
 
                 # TODO: we would ideally do flatten(overrides) and then
                 # api.update_override.map(unmapped(config), unmapped(course_id), flatten(overrides))
