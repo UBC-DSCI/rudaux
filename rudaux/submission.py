@@ -234,7 +234,7 @@ def get_latereg_overrides(extension_days, subm_set, config):
 
             to_remove = None
             to_create = None
-            if regdate > assignment['unlock_at'] and assignment['due_at'] <= plm.from_format(config.registration_deadline, f'YYYY-MM-DD', tz=config.notify_timezone).add(days=extension_days):
+            if regdate > assignment['unlock_at'] and assignment['unlock_at'] <= plm.from_format(config.registration_deadline, f'YYYY-MM-DD', tz=config.notify_timezone):
                 #the late registration due date
                 latereg_date = regdate.add(days=extension_days).in_timezone(tz).end_of('day').set(microsecond=0)
                 if latereg_date > subm['due_at']:
