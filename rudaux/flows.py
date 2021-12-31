@@ -161,7 +161,7 @@ def combine_dictionaries(dicts):
     return {k: v for d in dicts for k, v in d.items()}
 
 
-def build_autoext_flows(config):
+def build_autoext_flows(config, args):
     """
     Build the flow for the auto-extension of assignments for students
     who register late.
