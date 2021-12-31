@@ -71,12 +71,12 @@ def _build_flows(args):
     flows = []
     for build_func, flow_name, interval, minute in flow_builders:
         print(f"Building/registering the {flow_name} flow...")
-        _flows = build_func(config, args)
+        _flows = build_func(config)
         for flow in _flows:
             flow.executor = executor
             if not config.debug:
-                flow.schedule = IntervalSchedule(start_date = plm.now('UTC').set(minute=minute),
-                                   interval = plm.duration(minutes=interval))
+                flow.schedule = IntervalSchedule(start_date=plm.now('UTC').set(minute=minute),
+                                   interval=plm.duration(minutes=interval))
             flows.append(flow)
     return flows
 
@@ -135,7 +135,7 @@ def run(args):
 
     return
 
-def build_snapshot_flows(config, args):
+def build_snapshot_flows(config):
     flows = []
     for group in config.course_groups:
         for course_id in config.course_groups[group]:
@@ -161,7 +161,7 @@ def combine_dictionaries(dicts):
     return {k: v for d in dicts for k, v in d.items()}
 
 
-def build_autoext_flows(config, args):
+def build_autoext_flows(config):
     """
     Build the flow for the auto-extension of assignments for students
     who register late.
@@ -211,7 +211,7 @@ def build_autoext_flows(config, args):
 # rather dynamically from LMS; there we dont know what
 # assignments there are until runtime. So doing it by group is the
 # right strategy.
-def build_grading_flows(config, args):
+def build_grading_flows(config):
     try:
         check_output(['sudo', '-n', 'true'])
     except CalledProcessError as e:
