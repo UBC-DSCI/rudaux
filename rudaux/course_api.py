@@ -115,7 +115,7 @@ def _create_override(config, course_id, assignment, override):
     required_keys = ['student_ids', 'unlock_at', 'due_at', 'lock_at', 'title']
     for rk in required_keys:
         if not override.get(rk):
-            sig = signals.FAIL("invalid override for assignment {assignment['name']} ({assignment['id']}): dict missing required key {rk}")
+            sig = signals.FAIL(f"invalid override for assignment {assignment['name']} ({assignment['id']}): dict missing required key {rk}")
             sig.assignment = assignment
             sig.override = override
             sig.missing_key = rk
@@ -136,7 +136,7 @@ def _create_override(config, course_id, assignment, override):
     overs = _canvas_get_overrides(config, course_id, assignment)
     n_match = len([over for over in overs if over['title'] == override['title']])
     if n_match != 1:
-        sig = signals.FAIL("override for assignment {assignment['name']} ({assignment['id'])}) failed to upload to Canvas")
+        sig = signals.FAIL(f"override for assignment {assignment['name']} ({assignment['id'])}) failed to upload to Canvas")
         sig.assignment = assignment
         sig.attempted_override = override
         sig.overrides = overs
@@ -149,7 +149,7 @@ def _remove_override(config, course_id, assignment, override):
     overs = _canvas_get_overrides(config, course_id, assignment)
     n_match = len([over for over in overs if over['id'] == override['id']])
     if n_match != 0:
-        sig = signals.FAIL("override {override['title']} for assignment {assignment['name']} ({assignment['id']}) failed to be removed from Canvas")
+        sig = signals.FAIL(f"override {override['title']} for assignment {assignment['name']} ({assignment['id']}) failed to be removed from Canvas")
         sig.override = override
         sig.assignment = assignment
         sig.overrides = overs
