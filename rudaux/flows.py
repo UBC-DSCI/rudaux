@@ -180,10 +180,15 @@ def build_autoext_flows(config):
 
                 assignment_names = list(config.assignments[group].keys())
 
-                # Obtain course/student/assignment/etc info from the course API
+                # Obtain course/student from the course API
                 course_info = api.get_course_info(config, course_id)
-                assignments = api.get_assignments(config, course_id, assignment_names)
                 students = api.get_students(config, course_id)
+                
+                # Obtain assigments that are unlocked (locked assignments don't need extension)
+                assignments = api.get_assignments(config, course_id, assignment_names)
+                assignments = [assignment for assignment in assignments if assignment['unlock_at'] < plm.now()]
+                
+                # Obtain the submission information of unlocked assingments
                 submission_info = combine_dictionaries(api.get_submissions.map(unmapped(config), unmapped(course_id), assignments))
 
                 # Create submissions
