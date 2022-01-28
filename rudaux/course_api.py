@@ -136,7 +136,7 @@ def _create_override(config, course_id, assignment, override):
     overs = _canvas_get_overrides(config, course_id, assignment)
     n_match = len([over for over in overs if over['title'] == override['title']])
     if n_match != 1:
-        sig = signals.FAIL(f"override for assignment {assignment['name']} ({assignment['id'])}) failed to upload to Canvas")
+        sig = signals.FAIL(f"override for assignment {assignment['name']} ({assignment['id']}) failed to upload to Canvas")
         sig.assignment = assignment
         sig.attempted_override = override
         sig.overrides = overs
