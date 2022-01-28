@@ -23,7 +23,7 @@ from . import notification as ntfy
 
 
 filter_skip = FilterTask(
-    filter_func=lambda x: not isinstance(x, (signals.SKIP, type(None)))
+    filter_func = lambda x: not isinstance(x, (signals.SKIP, type(None)))
 )
 
 __PROJECT_NAME = "rudaux"
