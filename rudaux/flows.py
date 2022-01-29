@@ -392,8 +392,8 @@ def list_course_info(args):
     for group in config.course_groups:
         for course_id in config.course_groups[group]:
             course_name = config.course_names[course_id]
-            people = api.canvas_get_people(config, course_id)
             asgns.extend([(course_name, a) for a in api._canvas_get(config, course_id, 'assignments')])
+            people = api.canvas_get_people(config, course_id)
             studs.extend([(course_name, s) for s in api.get_students(people)])
             tas.extend([(course_name, s) for s in api.get_tas(people)])
             insts.extend([(course_name, s) for s in api.get_instructors(people)])

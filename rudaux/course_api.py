@@ -273,7 +273,6 @@ def get_course_info(config, course_id):
     logger.info(f"Retrieved course info for {config.course_names[course_id]}")
     return processed_info
 
-@task(checkpoint=False)
 def get_students(people):
     """"
     Filter all the people in the course and only keep the students
@@ -289,7 +288,6 @@ def get_students(people):
     """
     return [p for p in people if p['type'] == 'StudentEnrollment']
 
-@task(checkpoint=False)
 def get_instructors(people):
     """"
     Filter all the people in the course and only keep the intructors
@@ -307,7 +305,6 @@ def get_instructors(people):
     return [p for p in people if p['type'] == 'TeacherEnrollment']
     
 
-@task(checkpoint=False)
 def get_tas(people):
     """"
     Filter all the people in the course and only keep the intructors
