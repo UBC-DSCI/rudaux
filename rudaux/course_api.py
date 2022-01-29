@@ -9,6 +9,23 @@ from .utilities import get_logger
 # TODO replace "course api" with "LMS"
 
 def _canvas_get(config, course_id, path_suffix, use_group_base=False):
+    """
+    Request course information from Canvas.
+        
+    Parameters:
+    -----------
+    config: traitlets.config.loader.Config
+        A dictionary-like object, loaded from rudaux_config.py
+    course_id: str
+        The course id as string. 
+    path_suffix: str
+        The component to be retrivied from the course (e.g., "assignments", "StudentEnrollment", "TaEnrollment", "TeacherEnrollment")
+    use_grou_base: bool, default False
+        
+    Returns
+    -------
+        List of requested items.
+    """
     group_url = urllib.parse.urljoin(config.canvas_domain, 'api/v1/groups/')
     base_url = urllib.parse.urljoin(config.canvas_domain, 'api/v1/courses/'+course_id+'/')
     token = config.course_tokens[course_id]
@@ -17,7 +34,6 @@ def _canvas_get(config, course_id, path_suffix, use_group_base=False):
         url = urllib.parse.urljoin(group_url, path_suffix)
     else:
         url = urllib.parse.urljoin(base_url, path_suffix)
-
 
     logger = get_logger()
     logger.info(f"GET request to URL: {url}")
@@ -51,6 +67,7 @@ def _canvas_get(config, course_id, path_suffix, use_group_base=False):
             resp_items.append(resp.json())
     return resp_items
 
+    
 def _canvas_upload(config, course_id, path_suffix, json_data, typ):
     base_url = urllib.parse.urljoin(config.canvas_domain, 'api/v1/courses/'+course_id+'/')
     token = config.course_tokens[course_id]
@@ -75,6 +92,7 @@ def _canvas_upload(config, course_id, path_suffix, json_data, typ):
         sig.url = url
         sig.resp = resp
         raise sig
+    
     return
 
 def _canvas_put(config, course_id, path_suffix, json_data):
