@@ -227,7 +227,7 @@ def build_grading_flows(config):
             # Obtain course/student/assignment/etc info from the course API
             course_infos = api.get_course_info.map(unmapped(config), course_ids)
             assignment_lists = api.get_assignments.map(unmapped(config), course_ids, unmapped(assignment_names))
-            student_lists = api.get_students(api.canvas_get_people(config, course_ids))
+            student_lists = api.get_students(api.canvas_get_people.map(config, course_ids))
             
             submission_infos = []
             for i in range(len(course_ids)):

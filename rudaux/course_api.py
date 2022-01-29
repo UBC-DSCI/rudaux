@@ -167,7 +167,7 @@ def _canvas_delete(config, course_id, path_suffix):
     """
     _canvas_upload(config, course_id, path_suffix, None, 'delete')
 
-
+@task(checkpoint=False)
 def canvas_get_people(config, course_id):
     """
     Get all people involved in the couse (e.g., instructors, TAs, students)
