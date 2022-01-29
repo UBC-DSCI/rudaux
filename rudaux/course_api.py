@@ -12,15 +12,16 @@ def _canvas_get(config, course_id, path_suffix, use_group_base=False):
     """
     Request course information from Canvas.
         
-    Parameters:
-    -----------
+    Parameters
+    ----------
     config: traitlets.config.loader.Config
-        A dictionary-like object, loaded from rudaux_config.py
+        a dictionary-like object, loaded from rudaux_config.py
     course_id: str
-        The course id as string. 
+        the course id as string. 
     path_suffix: str
-        The component to be retrivied from the course (e.g., "assignments", "StudentEnrollment", "TaEnrollment", "TeacherEnrollment")
-    use_grou_base: bool, default False
+        specifies the component/item to be edit
+    use_group_base: bool, default False
+        
         
     Returns
     -------
@@ -66,29 +67,48 @@ def _canvas_get(config, course_id, path_suffix, use_group_base=False):
         else:
             resp_items.append(resp.json())
     return resp_items
-
     
-def _canvas_upload(config, course_id, path_suffix, json_data, typ):
+
+def _canvas_upload(config, course_id, path_suffix, json_data, type_request):
+    """
+    Base functions to create PUT/POST/DELETE requests to Canvas.
+    
+    Parameters
+    ----------
+    config: traitlets.config.loader.Config
+        a dictionary-like object, loaded from rudaux_config.py
+    course_id: str
+        the course id as string. 
+    path_suffix: str
+        specifies the component/item to be edit
+    json_data: dict
+        the data to be uploaded if any. Use None for DELETE requests
+    type_request: str
+        the type of the request. Valid values are 'PUT', 'POST', or 'DELETE'. 
+    """
+   
     base_url = urllib.parse.urljoin(config.canvas_domain, 'api/v1/courses/'+course_id+'/')
-    token = config.course_tokens[course_id]
-    rfuncs = {'put' : requests.put,
-             'post': requests.post,
-             'delete': requests.delete}
     url = urllib.parse.urljoin(base_url, path_suffix)
-
+    
+    token = config.course_tokens[course_id]
+    request_funcs = {'put' : requests.put,
+                     'post': requests.post,
+                     'delete': requests.delete}
+    
     logger = get_logger()
-    logger.info(f"{typ.upper()} request to URL: {url}")
+    logger.info(f"{type_request.upper()} request to URL: {url}")
 
-    resp = rfuncs[typ](
+    resp = request_funcs[type_request.lower()](
         url = url,
         headers = {
             'Authorization': f'Bearer {token}',
             'Accept': 'application/json'
-            },
+        },
         json=json_data
     )
+    
     if resp.status_code < 200 or resp.status_code > 299:
-        sig = signals.FAIL(f"failed upload ({typ}) response status code {resp.status_code} for URL {url}\nText:{resp.text}")
+        sig = signals.FAIL(f"Failed ({type_request.upper()}) request. Response status code {resp.status_code} for URL {url}\nText:{resp.text}")
         sig.url = url
         sig.resp = resp
         raise sig
@@ -96,12 +116,52 @@ def _canvas_upload(config, course_id, path_suffix, json_data, typ):
     return
 
 def _canvas_put(config, course_id, path_suffix, json_data):
+    """
+    Make a PUT request.
+    
+    Parameters
+    ----------
+    config: traitlets.config.loader.Config
+        a dictionary-like object, loaded from rudaux_config.py
+    course_id: str
+        the course id as string. 
+    path_suffix: str
+        specifies the component/item to be edit
+    json_data: dict
+        the data to be uploaded
+    """
     _canvas_upload(config, course_id, path_suffix, json_data, 'put')
 
 def _canvas_post(config, course_id, path_suffix, json_data):
+    """
+    Make a POST request.
+    
+    Parameters
+    ----------
+    config: traitlets.config.loader.Config
+        a dictionary-like object, loaded from rudaux_config.py
+    course_id: str
+        the course id as string. 
+    path_suffix: str
+        specifies the component/item to be edit
+    json_data: dict
+        the data to be uploaded if any
+    """
     _canvas_upload(config, course_id, path_suffix, json_data, 'post')
 
-def _canvas_delete(config, course_id, path_suffix):
+def _canvas_delete(config, course_id, path_suffix):    
+    """
+    Make a DELETE request.
+    
+    Parameters
+    ----------
+    config: traitlets.config.loader.Config
+        a dictionary-like object, loaded from rudaux_config.py
+    course_id: str
+        the course id as string. 
+    path_suffix: str
+        specifies the component/item to be edit
+    """
     _canvas_upload(config, course_id, path_suffix, None, 'delete')
 
 def _canvas_get_people_by_type(config, course_id, typ):
