@@ -115,6 +115,7 @@ def _canvas_upload(config, course_id, path_suffix, json_data, type_request):
     
     return
 
+
 def _canvas_put(config, course_id, path_suffix, json_data):
     """
     Make a PUT request.
@@ -132,6 +133,7 @@ def _canvas_put(config, course_id, path_suffix, json_data):
     """
     _canvas_upload(config, course_id, path_suffix, json_data, 'put')
 
+
 def _canvas_post(config, course_id, path_suffix, json_data):
     """
     Make a POST request.
@@ -148,6 +150,7 @@ def _canvas_post(config, course_id, path_suffix, json_data):
         the data to be uploaded if any
     """
     _canvas_upload(config, course_id, path_suffix, json_data, 'post')
+
 
 def _canvas_delete(config, course_id, path_suffix):    
     """
@@ -191,6 +194,7 @@ def canvas_get_people(config, course_id):
               } for p in people
            ]
 
+
 def _canvas_get_overrides(config, course_id, assignment):
     overs = _canvas_get(config, course_id, 'assignments/'+assignment['id']+'/overrides')
     for over in overs:
@@ -202,6 +206,7 @@ def _canvas_get_overrides(config, course_id, assignment):
             else:
                 over[key] = None
     return overs
+
 
 def _create_override(config, course_id, assignment, override):
     #check all required keys
@@ -235,6 +240,7 @@ def _create_override(config, course_id, assignment, override):
         sig.overrides = overs
         raise sig
 
+
 def _remove_override(config, course_id, assignment, override):
     _canvas_delete(config, course_id, 'assignments/'+assignment['id']+'/overrides/'+override['id'])
 
@@ -258,6 +264,7 @@ def validate_config(config):
     #config.ignored_assignments
     # duplicate assignment names, etc
 
+
 @task(checkpoint=False)
 def get_course_info(config, course_id):
     info = _canvas_get(config, course_id, '')[0]
@@ -273,6 +280,7 @@ def get_course_info(config, course_id):
     logger.info(f"Retrieved course info for {config.course_names[course_id]}")
     return processed_info
 
+
 def get_students(people):
     """"
     Filter all the people in the course and only keep the students
@@ -287,6 +295,7 @@ def get_students(people):
         a list with all students in the course
     """
     return [p for p in people if p['type'] == 'StudentEnrollment']
+
 
 def get_instructors(people):
     """"
