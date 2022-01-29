@@ -183,7 +183,7 @@ def build_autoext_flows(config):
                 # Obtain course/student/assignment/etc info from the course API
                 course_info = api.get_course_info(config, course_id)
                 assignments = api.get_assignments(config, course_id, assignment_names)
-                students = api.get_students(config, course_id)
+                students = api.get_students(api.canvas_get_people(config, course_id))
                 submission_info = combine_dictionaries(api.get_submissions.map(unmapped(config), unmapped(course_id), assignments))
 
                 # Create submissions
@@ -227,7 +227,8 @@ def build_grading_flows(config):
             # Obtain course/student/assignment/etc info from the course API
             course_infos = api.get_course_info.map(unmapped(config), course_ids)
             assignment_lists = api.get_assignments.map(unmapped(config), course_ids, unmapped(assignment_names))
-            student_lists = api.get_students.map(unmapped(config), course_ids)
+            student_lists = api.get_students.map(api.canvas_get_people(config, course_ids))
+            
             submission_infos = []
             for i in range(len(course_ids)):
                 submission_infos.append(combine_dictionaries(api.get_submissions.map(unmapped(config), unmapped(course_ids[i]), assignment_lists[i])))
@@ -391,10 +392,11 @@ def list_course_info(args):
     for group in config.course_groups:
         for course_id in config.course_groups[group]:
             course_name = config.course_names[course_id]
+            people = api.canvas_get_people(config, course_id)
             asgns.extend([(course_name, a) for a in api._canvas_get(config, course_id, 'assignments')])
-            studs.extend([(course_name, s) for s in api._canvas_get_people_by_type(config, course_id, 'StudentEnrollment')])
-            tas.extend([(course_name, s) for s in api._canvas_get_people_by_type(config, course_id, 'TaEnrollment')])
-            insts.extend([(course_name, s) for s in api._canvas_get_people_by_type(config, course_id, 'TeacherEnrollment')])
+            studs.extend([(course_name, s) for s in api.get_students(people)])
+            tas.extend([(course_name, s) for s in api.get_tas(people)])
+            insts.extend([(course_name, s) for s in api.get_instructors(people)])
     print()
     print('Assignments')
     print()

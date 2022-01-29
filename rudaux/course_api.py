@@ -164,16 +164,31 @@ def _canvas_delete(config, course_id, path_suffix):
     """
     _canvas_upload(config, course_id, path_suffix, None, 'delete')
 
-def _canvas_get_people_by_type(config, course_id, typ):
+
+def canvas_get_people(config, course_id):
+    """
+    Get all people involved in the couse (e.g., instructors, TAs, students)
+
+    Parameters
+    ----------
+    config: traitlets.config.loader.Config
+        a dictionary-like object, loaded from rudaux_config.py
+    course_id: str
+        the course id as string. 
+
+    Returns
+    -------
+        list of all people in the course. 
+    """
     people = _canvas_get(config, course_id, 'enrollments')
-    ppl_typ = [p for p in people if p['type'] == typ]
-    return [ { 'id' : str(p['user']['id']),
-               'name' : p['user']['name'],
-               'sortable_name' : p['user']['sortable_name'],
-               'school_id' : str(p['user']['sis_user_id']),
-               'reg_date' : plm.parse(p['updated_at']) if (plm.parse(p['updated_at']) is not None) else plm.parse(p['created_at']),
-               'status' : p['enrollment_state']
-              } for p in ppl_typ
+    return [ { 'id': str(p['user']['id']),
+               'name': p['user']['name'],
+               'sortable_name': p['user']['sortable_name'],
+               'school_id': str(p['user']['sis_user_id']),
+               'reg_date': plm.parse(p['updated_at']) if (plm.parse(p['updated_at']) is not None) else plm.parse(p['created_at']),
+               'status': p['enrollment_state'],
+               'type': p['type']
+              } for p in people
            ]
 
 def _canvas_get_overrides(config, course_id, assignment):
@@ -259,29 +274,61 @@ def get_course_info(config, course_id):
     return processed_info
 
 @task(checkpoint=False)
-def get_students(config, course_id):
-    ppl = _canvas_get_people_by_type(config, course_id, 'StudentEnrollment')
-    logger = get_logger()
-    logger.info(f"Retrieved {len(ppl)} students from LMS for {config.course_names[course_id]}")
-    return ppl
+def get_students(people):
+    """"
+    Filter all the people in the course and only keep the students
+
+    Parameters
+    ----------
+    people: list
+        a list of people in the course. The output of canvas_get_people
+    
+    Returns
+    -------
+        a list with all students in the course
+    """
+    return [p for p in people if p['type'] == 'StudentEnrollment']
 
 @task(checkpoint=False)
-def get_instructors(config, course_id):
-    ppl = _canvas_get_people_by_type(config, course_id, 'TeacherEnrollment')
-    logger = get_logger()
-    logger.info(f"Retrieved {len(ppl)} instructors from LMS for {config.course_names[course_id]}")
-    return ppl
+def get_instructors(people):
+    """"
+    Filter all the people in the course and only keep the intructors
+
+    Parameters
+    ----------
+    people: list
+        a list of people in the course. The output of canvas_get_people
+    
+    Returns
+    -------
+        a list with all instructors in the course
+    """
+
+    return [p for p in people if p['type'] == 'TeacherEnrollment']
+    
 
 @task(checkpoint=False)
-def get_tas(config, course_id):
-    ppl = _canvas_get_people_by_type(config, course_id, 'TaEnrollment')
-    logger = get_logger()
-    logger.info(f"Retrieved {len(ppl)} TAs from LMS for {config.course_names[course_id]}")
-    return ppl
+def get_tas(people):
+    """"
+    Filter all the people in the course and only keep the intructors
+
+    Parameters
+    ----------
+    people: list
+        a list of people in the course. The output of canvas_get_people
+    
+    Returns
+    -------
+        a list with all instructors in the course
+    """
+
+    return [p for p in people if p['type'] == 'TaEnrollment']
+
+
 
 @task(checkpoint=False)
 def get_groups(config, course_id):
-    grps = _canvas_get(config, course_id,'groups')
+    grps = _canvas_get(config, course_id, 'groups')
     logger = get_logger()
     logger.info(f"Retrieved {len(grps)} groups from LMS for {config.course_names[course_id]}")
     return [{
