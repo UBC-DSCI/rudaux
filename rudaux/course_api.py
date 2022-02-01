@@ -8,6 +8,18 @@ from .utilities import get_logger
 
 # TODO replace "course api" with "LMS"
 
+
+
+def validate_config(config):
+    pass
+    #TODO validate these all strings, format, etc
+    #config.canvas_domain
+    #config.canvas_token
+    #config.canvas_id
+    #config.ignored_assignments
+    # duplicate assignment names, etc
+
+
 def _canvas_get(config, course_id, path_suffix, use_group_base=False):
     """
     Request course information from Canvas.
@@ -167,33 +179,6 @@ def _canvas_delete(config, course_id, path_suffix):
     """
     _canvas_upload(config, course_id, path_suffix, None, 'delete')
 
-@task(checkpoint=False)
-def canvas_get_people(config, course_id):
-    """
-    Get all people involved in the couse (e.g., instructors, TAs, students)
-
-    Parameters
-    ----------
-    config: traitlets.config.loader.Config
-        a dictionary-like object, loaded from rudaux_config.py
-    course_id: str
-        the course id as string. 
-
-    Returns
-    -------
-        list of all people in the course. 
-    """
-    people = _canvas_get(config, course_id, 'enrollments')
-    return [ { 'id': str(p['user']['id']),
-               'name': p['user']['name'],
-               'sortable_name': p['user']['sortable_name'],
-               'school_id': str(p['user']['sis_user_id']),
-               'reg_date': plm.parse(p['updated_at']) if (plm.parse(p['updated_at']) is not None) else plm.parse(p['created_at']),
-               'status': p['enrollment_state'],
-               'type': p['type']
-              } for p in people
-           ]
-
 
 def _canvas_get_overrides(config, course_id, assignment):
     overs = _canvas_get(config, course_id, 'assignments/'+assignment['id']+'/overrides')
@@ -255,14 +240,32 @@ def _remove_override(config, course_id, assignment, override):
         raise sig
 
 
-def validate_config(config):
-    pass
-    #TODO validate these all strings, format, etc
-    #config.canvas_domain
-    #config.canvas_token
-    #config.canvas_id
-    #config.ignored_assignments
-    # duplicate assignment names, etc
+@task(checkpoint=False)
+def canvas_get_people(config, course_id):
+    """
+    Get all people involved in the couse (e.g., instructors, TAs, students)
+
+    Parameters
+    ----------
+    config: traitlets.config.loader.Config
+        a dictionary-like object, loaded from rudaux_config.py
+    course_id: str
+        the course id as string. 
+
+    Returns
+    -------
+        list of all people in the course. 
+    """
+    people = _canvas_get(config, course_id, 'enrollments')
+    return [ { 'id': str(p['user']['id']),
+               'name': p['user']['name'],
+               'sortable_name': p['user']['sortable_name'],
+               'school_id': str(p['user']['sis_user_id']),
+               'reg_date': plm.parse(p['updated_at']) if (plm.parse(p['updated_at']) is not None) else plm.parse(p['created_at']),
+               'status': p['enrollment_state'],
+               'type': p['type']
+              } for p in people
+           ]
 
 
 @task(checkpoint=False)
@@ -281,6 +284,7 @@ def get_course_info(config, course_id):
     return processed_info
 
 
+@task(checkpoint=False)
 def get_students(people):
     """"
     Filter all the people in the course and only keep the students
@@ -297,6 +301,7 @@ def get_students(people):
     return [p for p in people if p['type'] == 'StudentEnrollment']
 
 
+@task(checkpoint=False)
 def get_instructors(people):
     """"
     Filter all the people in the course and only keep the intructors
@@ -312,8 +317,9 @@ def get_instructors(people):
     """
 
     return [p for p in people if p['type'] == 'TeacherEnrollment']
-    
 
+
+@task(checkpoint=False)
 def get_tas(people):
     """"
     Filter all the people in the course and only keep the intructors
@@ -329,7 +335,6 @@ def get_tas(people):
     """
 
     return [p for p in people if p['type'] == 'TaEnrollment']
-
 
 
 @task(checkpoint=False)

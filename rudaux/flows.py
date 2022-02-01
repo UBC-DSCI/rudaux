@@ -219,7 +219,7 @@ def build_grading_flows(config):
 
     flows = []
     for group in config.course_groups:
-        with Flow(group+"-grading", terminal_state_handler = fail_handler_gen(config)) as flow:
+        with Flow(group+"-grading", terminal_state_handler=fail_handler_gen(config)) as flow:
             # get the course ids in this group
             course_ids = config.course_groups[group]
             assignment_names = list(config.assignments[group].keys())
