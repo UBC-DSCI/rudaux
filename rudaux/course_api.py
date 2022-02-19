@@ -8,7 +8,8 @@ from .utilities import get_logger
 
 # TODO replace "course api" with "LMS"
 
-def _canvas_get(config, course_id, path_suffix, use_group_base=False):
+
+def _canvas_get(canvas_domain, canvas_token, course_id, path_suffix, use_group_base=False):
     """
     Request course information from Canvas.
         
@@ -27,9 +28,8 @@ def _canvas_get(config, course_id, path_suffix, use_group_base=False):
     -------
         List of requested items.
     """
-    group_url = urllib.parse.urljoin(config.canvas_domain, 'api/v1/groups/')
-    base_url = urllib.parse.urljoin(config.canvas_domain, 'api/v1/courses/'+course_id+'/')
-    token = config.course_tokens[course_id]
+    group_url = urllib.parse.urljoin(canvas_domain, 'api/v1/groups/')
+    base_url = urllib.parse.urljoin(canvas_domain, 'api/v1/courses/'+course_id+'/')
 
     if use_group_base:
         url = urllib.parse.urljoin(group_url, path_suffix)
@@ -48,7 +48,7 @@ def _canvas_get(config, course_id, path_suffix, use_group_base=False):
         resp = requests.get(
             url = url if resp is None else resp.links['next']['url'],
             headers = {
-                'Authorization': f'Bearer {token}',
+                'Authorization': f'Bearer {canvas_token}',
                 'Accept': 'application/json'
                 },
             json = {'per_page' : 100},
@@ -68,6 +68,20 @@ def _canvas_get(config, course_id, path_suffix, use_group_base=False):
             resp_items.append(resp.json())
     return resp_items
     
+
+class Course:
+
+    def __init__(self, canvas_domain, canvas_token, course_id, course_name ):
+        self.canvas_domain = canvas_domain
+        self.course_id = course_id
+        self.course_name = course_name
+        self.token = canvas_token
+        self.assignments = None
+        
+
+            
+
+
 
 def _canvas_upload(config, course_id, path_suffix, json_data, type_request):
     """
