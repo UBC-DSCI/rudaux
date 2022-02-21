@@ -2,29 +2,13 @@ import requests
 import urllib.parse
 import pendulum as plm
 import prefect
-from prefect import task
+from prefect import task, Flow
 from prefect.engine import signals
 from .utilities import get_logger
 
 # TODO replace "course api" with "LMS"
 
-
-<<<<<<< HEAD
 def _canvas_get(canvas_domain, canvas_token, course_id, path_suffix, use_group_base=False):
-=======
-
-def validate_config(config):
-    pass
-    #TODO validate these all strings, format, etc
-    #config.canvas_domain
-    #config.canvas_token
-    #config.canvas_id
-    #config.ignored_assignments
-    # duplicate assignment names, etc
-
-
-def _canvas_get(config, course_id, path_suffix, use_group_base=False):
->>>>>>> 0c0ed30745037638f9dc591052431d0d2d314089
     """
     Request course information from Canvas.
         
@@ -51,7 +35,7 @@ def _canvas_get(config, course_id, path_suffix, use_group_base=False):
     else:
         url = urllib.parse.urljoin(base_url, path_suffix)
 
-    logger = get_logger()
+    logger = prefect.context.get("logger")
     logger.info(f"GET request to URL: {url}")
 
     resp = None
@@ -84,19 +68,89 @@ def _canvas_get(config, course_id, path_suffix, use_group_base=False):
     return resp_items
     
 
-class Course:
+class RetrivedAttr:
+    
+    def __set_name__(self, owner, name):
+        self.public_name = name
+        self.private_name = "_" + name
 
-    def __init__(self, canvas_domain, canvas_token, course_id, course_name ):
-        self.canvas_domain = canvas_domain
-        self.course_id = course_id
-        self.course_name = course_name
-        self.token = canvas_token
-        self.assignments = None
+    def __get__(self, obj, objtype=None):
+        value = obj.__dict__.get(self.private_name)
+        if not value:
+        #    setattr(obj, self.private_name, value)
+        return value
+
+    def __set__(self, obj, value):
+        attribute = getattr(obj, self.private_name)
+        if not attribute:
+            print("Fetching " + self.public_name + " from Canvas.")
+            setattr(obj, self.private_name, self.get_people())
+        else:
+            raise AttributeError("can't set attribute '" + self.public_name +  "'" )
         
 
-            
+class Course:
+
+    people = RetrivedAttr()
+
+    def __init__(self, canvas_domain, canvas_token, course_id):
+        self.domain = canvas_domain
+        self.token = canvas_token
+        self.id = course_id
+        self._get_course_info()
 
 
+    def _get_course_info(self):
+        info = _canvas_get(self.domain, self.token, self.id, '')[0]
+        self.name = info['name']
+        self.code = info['course_code']
+        self.start_at = None if info['start_at'] is None else plm.parse(info['start_at'])
+        self.end_at = None if info['end_at'] is None else plm.parse(info['end_at'])
+        self.time_zone = info['time_zone']
+        #logger = prefect.context.get("logger")
+        #logger.info(f"Retrieved course info for {config.course_names[course_id]}")
+
+    def get_people(self, force=False):
+        """
+        Get all people involved in the couse (e.g., instructors, TAs, students)
+
+        Parameters
+        ----------
+        force: bool
+            Forces the request and overwrites `people` attribute.
+        """
+        if not force and self.people:
+            print("People has already been fetched. Use force=True to overwrite it.")
+            return 
+
+        people = _canvas_get(self.domain, self.token, self.id, 'enrollments')
+        
+        return [ { 'id': str(p['user']['id']),
+                'name': p['user']['name'],
+                'sortable_name': p['user']['sortable_name'],
+                'school_id': str(p['user']['sis_user_id']),
+                'reg_date': plm.parse(p['updated_at']) if (plm.parse(p['updated_at']) is not None) else plm.parse(p['created_at']),
+                'status': p['enrollment_state'],
+                'type': p['type']
+                } for p in people ]
+        
+        #self.students = [p for p in people if p['type'] == 'StudentEnrollment']
+        #self.teaching_assistants = [p for p in people if p['type'] == 'TaEnrollment']
+        #self.instructors = [p for p in people if p['type'] == 'TeacherEnrollment']
+
+    def __str__(self):
+        course_info = f"Course: {self.name}\n" +\
+                      f"Code: {self.code}\n" +\
+                      f"Id: {self.id}\n" +\
+                      f"Start at: {self.start_at}\n" +\
+                      f"End at: {self.end_at}\n" +\
+                      f"Assignments: {self.__dict__.get('assignments') if self.__dict__.get('assignments') else 'not fetched'}\n"
+
+        return course_info
+
+    def __repr__(self):
+        return f"Course({self.domain}, {self.token}, {self.id})"
+        
 
 def _canvas_upload(config, course_id, path_suffix, json_data, type_request):
     """
@@ -299,59 +353,6 @@ def get_course_info(config, course_id):
     logger = get_logger()
     logger.info(f"Retrieved course info for {config.course_names[course_id]}")
     return processed_info
-
-
-@task(checkpoint=False)
-def get_students(people):
-    """"
-    Filter all the people in the course and only keep the students
-
-    Parameters
-    ----------
-    people: list
-        a list of people in the course. The output of canvas_get_people
-    
-    Returns
-    -------
-        a list with all students in the course
-    """
-    return [p for p in people if p['type'] == 'StudentEnrollment']
-
-
-@task(checkpoint=False)
-def get_instructors(people):
-    """"
-    Filter all the people in the course and only keep the intructors
-
-    Parameters
-    ----------
-    people: list
-        a list of people in the course. The output of canvas_get_people
-    
-    Returns
-    -------
-        a list with all instructors in the course
-    """
-
-    return [p for p in people if p['type'] == 'TeacherEnrollment']
-
-
-@task(checkpoint=False)
-def get_tas(people):
-    """"
-    Filter all the people in the course and only keep the intructors
-
-    Parameters
-    ----------
-    people: list
-        a list of people in the course. The output of canvas_get_people
-    
-    Returns
-    -------
-        a list with all instructors in the course
-    """
-
-    return [p for p in people if p['type'] == 'TaEnrollment']
 
 
 @task(checkpoint=False)
