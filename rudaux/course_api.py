@@ -1,3 +1,4 @@
+import inspect
 import requests
 import urllib.parse
 import pendulum as plm
@@ -65,33 +66,9 @@ def _canvas_get(canvas_domain, canvas_token, course_id, path_suffix, use_group_b
             resp_items.extend(resp.json())
         else:
             resp_items.append(resp.json())
-    return resp_items
-    
-
-class RetrivedAttr:
-    
-    def __set_name__(self, owner, name):
-        self.public_name = name
-        self.private_name = "_" + name
-
-    def __get__(self, obj, objtype=None):
-        value = obj.__dict__.get(self.private_name)
-        if not value:
-        #    setattr(obj, self.private_name, value)
-        return value
-
-    def __set__(self, obj, value):
-        attribute = getattr(obj, self.private_name)
-        if not attribute:
-            print("Fetching " + self.public_name + " from Canvas.")
-            setattr(obj, self.private_name, self.get_people())
-        else:
-            raise AttributeError("can't set attribute '" + self.public_name +  "'" )
-        
+    return resp_items      
 
 class Course:
-
-    people = RetrivedAttr()
 
     def __init__(self, canvas_domain, canvas_token, course_id):
         self.domain = canvas_domain
@@ -99,6 +76,31 @@ class Course:
         self.id = course_id
         self._get_course_info()
 
+    @property
+    def people(self):
+        if not self.__dict__.get("people"):
+            self.get_people()
+        
+        return self.people
+
+    @people.setter
+    def people(self, value):
+        if inspect.stack()[1].function == 'get_people':
+            self.people = value
+        else:
+            raise AttributeError("can't set the value of people. Use the function Course.get_people to fetch the list of people in the course")
+
+    @property
+    def student(self):
+        return [p for p in self.people if p['type'] == 'StudentEnrollment']
+    
+    @property
+    def teaching_assistants(self):
+        return [p for p in self.people if p['type'] == 'TaEnrollment']
+    
+    @property
+    def instructors(self):
+        return [p for p in self.people if p['type'] == 'TeacherEnrollment']
 
     def _get_course_info(self):
         info = _canvas_get(self.domain, self.token, self.id, '')[0]
@@ -125,7 +127,7 @@ class Course:
 
         people = _canvas_get(self.domain, self.token, self.id, 'enrollments')
         
-        return [ { 'id': str(p['user']['id']),
+        self.people = [ { 'id': str(p['user']['id']),
                 'name': p['user']['name'],
                 'sortable_name': p['user']['sortable_name'],
                 'school_id': str(p['user']['sis_user_id']),
@@ -133,10 +135,6 @@ class Course:
                 'status': p['enrollment_state'],
                 'type': p['type']
                 } for p in people ]
-        
-        #self.students = [p for p in people if p['type'] == 'StudentEnrollment']
-        #self.teaching_assistants = [p for p in people if p['type'] == 'TaEnrollment']
-        #self.instructors = [p for p in people if p['type'] == 'TeacherEnrollment']
 
     def __str__(self):
         course_info = f"Course: {self.name}\n" +\
@@ -151,6 +149,7 @@ class Course:
     def __repr__(self):
         return f"Course({self.domain}, {self.token}, {self.id})"
         
+  
 
 def _canvas_upload(config, course_id, path_suffix, json_data, type_request):
     """
