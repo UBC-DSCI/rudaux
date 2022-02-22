@@ -378,7 +378,6 @@ class Course:
 
 
 @task(checkpoint=False)
-
 def generate_get_submissions_name(config, course_id, assignment, **kwargs):
     return 'get-subms-'+assignment['name']
 
