@@ -29,6 +29,17 @@ filter_skip = FilterTask(
 __PROJECT_NAME = "rudaux"
 
 
+## THINGS TO ADJUST: 
+## (1) ASSIGNMENTS ATTRIBUTE CONTAINS ALL ASSIGNMENTS, NOT JUST THE ONES IN CONFIG
+## (2) NEEDS TO CHECK WHETHER THERE'S AN ASSIGNMENT IN CONFIG THAT ISN'T ON CANVAS
+#
+#        # make sure anything listed in the rudaux_config appears on canvas
+#        if len(names) < len(assignment_names):
+#            sig = signals.FAIL(f"Assignments from config missing in the course LMS.\nConfig: {assignment_names}\nLMS: {names}")
+#            sig.course_id = self.id
+#            raise sig
+
+
 def _build_flows(args):
     print("Loading the rudaux_config.py file...")
     if not os.path.exists(os.path.join(args.directory, 'rudaux_config.py')):

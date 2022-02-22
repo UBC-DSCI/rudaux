@@ -9,7 +9,7 @@ from .utilities import get_logger
 
 # TODO replace "course api" with "LMS"
 
-def _canvas_get(canvas_domain, canvas_token, course_id, path_suffix, use_group_base=False):
+def _canvas_get(canvas_domain, canvas_token, course_id, path_suffix, use_group_base=False, verbose=False):
     """
     Request course information from Canvas.
         
@@ -36,8 +36,8 @@ def _canvas_get(canvas_domain, canvas_token, course_id, path_suffix, use_group_b
     else:
         url = urllib.parse.urljoin(base_url, path_suffix)
 
-    logger = prefect.context.get("logger")
-    logger.info(f"GET request to URL: {url}")
+    if verbose:
+        print(f"GET request to URL: {url}")
 
     resp = None
     resp_items = []
@@ -68,88 +68,6 @@ def _canvas_get(canvas_domain, canvas_token, course_id, path_suffix, use_group_b
             resp_items.append(resp.json())
     return resp_items      
 
-class Course:
-
-    def __init__(self, canvas_domain, canvas_token, course_id):
-        self.domain = canvas_domain
-        self.token = canvas_token
-        self.id = course_id
-        self._get_course_info()
-
-    @property
-    def people(self):
-        if not self.__dict__.get("people"):
-            self.get_people()
-        
-        return self.people
-
-    @people.setter
-    def people(self, value):
-        if inspect.stack()[1].function == 'get_people':
-            self.people = value
-        else:
-            raise AttributeError("can't set the value of people. Use the function Course.get_people to fetch the list of people in the course")
-
-    @property
-    def student(self):
-        return [p for p in self.people if p['type'] == 'StudentEnrollment']
-    
-    @property
-    def teaching_assistants(self):
-        return [p for p in self.people if p['type'] == 'TaEnrollment']
-    
-    @property
-    def instructors(self):
-        return [p for p in self.people if p['type'] == 'TeacherEnrollment']
-
-    def _get_course_info(self):
-        info = _canvas_get(self.domain, self.token, self.id, '')[0]
-        self.name = info['name']
-        self.code = info['course_code']
-        self.start_at = None if info['start_at'] is None else plm.parse(info['start_at'])
-        self.end_at = None if info['end_at'] is None else plm.parse(info['end_at'])
-        self.time_zone = info['time_zone']
-        #logger = prefect.context.get("logger")
-        #logger.info(f"Retrieved course info for {config.course_names[course_id]}")
-
-    def get_people(self, force=False):
-        """
-        Get all people involved in the couse (e.g., instructors, TAs, students)
-
-        Parameters
-        ----------
-        force: bool
-            Forces the request and overwrites `people` attribute.
-        """
-        if not force and self.people:
-            print("People has already been fetched. Use force=True to overwrite it.")
-            return 
-
-        people = _canvas_get(self.domain, self.token, self.id, 'enrollments')
-        
-        self.people = [ { 'id': str(p['user']['id']),
-                'name': p['user']['name'],
-                'sortable_name': p['user']['sortable_name'],
-                'school_id': str(p['user']['sis_user_id']),
-                'reg_date': plm.parse(p['updated_at']) if (plm.parse(p['updated_at']) is not None) else plm.parse(p['created_at']),
-                'status': p['enrollment_state'],
-                'type': p['type']
-                } for p in people ]
-
-    def __str__(self):
-        course_info = f"Course: {self.name}\n" +\
-                      f"Code: {self.code}\n" +\
-                      f"Id: {self.id}\n" +\
-                      f"Start at: {self.start_at}\n" +\
-                      f"End at: {self.end_at}\n" +\
-                      f"Assignments: {self.__dict__.get('assignments') if self.__dict__.get('assignments') else 'not fetched'}\n"
-
-        return course_info
-
-    def __repr__(self):
-        return f"Course({self.domain}, {self.token}, {self.id})"
-        
-  
 
 def _canvas_upload(config, course_id, path_suffix, json_data, type_request):
     """
@@ -250,8 +168,8 @@ def _canvas_delete(config, course_id, path_suffix):
     _canvas_upload(config, course_id, path_suffix, None, 'delete')
 
 
-def _canvas_get_overrides(config, course_id, assignment):
-    overs = _canvas_get(config, course_id, 'assignments/'+assignment['id']+'/overrides')
+def _canvas_get_overrides(canvas_domain, canvas_token, course_id, assignment_id):
+    overs = _canvas_get(canvas_domain, canvas_token, course_id, 'assignments/'+assignment_id+'/overrides')
     for over in overs:
         over['id'] = str(over['id'])
         over['student_ids'] = list(map(str, over['student_ids']))
@@ -309,102 +227,157 @@ def _remove_override(config, course_id, assignment, override):
         sig.overrides = overs
         raise sig
 
+class Course:
+
+    def __init__(self, canvas_domain, canvas_token, course_id):
+        self.domain = canvas_domain
+        self.token = canvas_token
+        self.id = course_id
+        self._get_course_info()
+
+    @property
+    def people(self):
+        return self.__people
+
+    @property
+    def students(self):
+        return [p for p in self.people if p['type'] == 'StudentEnrollment']
+    
+    @property
+    def teaching_assistants(self):
+        return [p for p in self.people if p['type'] == 'TaEnrollment']
+    
+    @property
+    def instructors(self):
+        return [p for p in self.people if p['type'] == 'TeacherEnrollment']
+
+    @property
+    def groups(self):
+        return self.__groups
+
+    @property
+    def assignments(self):
+        return self.__assignments
+
+    def _get_course_info(self):
+        info = _canvas_get(self.domain, self.token, self.id, '')[0]
+        self.name = info['name']
+        self.code = info['course_code']
+        self.start_at = None if info['start_at'] is None else plm.parse(info['start_at'])
+        self.end_at = None if info['end_at'] is None else plm.parse(info['end_at'])
+        self.time_zone = info['time_zone']
+
+    def get_people(self, force=False, verbose=False):
+        """
+        Get all people involved in the couse (e.g., instructors, TAs, students)
+
+        Parameters
+        ----------
+        force: bool
+            Forces the request and overwrites `people` attribute.
+        """
+        if not force and "people" in self.__dict__.keys():
+            raise AttributeError("People has already been fetched. Use force=True to overwrite it.")
+
+        if verbose:
+            print("Fetching course enrollments.", end='')
+
+        people = _canvas_get(self.domain, self.token, self.id, 'enrollments')
+        self.__people = [ { 'id': str(p['user']['id']),
+                'name': p['user']['name'],
+                'sortable_name': p['user']['sortable_name'],
+                'school_id': str(p['user']['sis_user_id']),
+                'reg_date': plm.parse(p['updated_at']) if (plm.parse(p['updated_at']) is not None) else plm.parse(p['created_at']),
+                'status': p['enrollment_state'],
+                'type': p['type']
+                } for p in people ]
+        if verbose:
+            print("Done!")
+        
+    def get_groups(self, verbose=False):
+        
+        if verbose:
+            print("Getting the list of existing groups. ", end='')
+        grps = _canvas_get(self.domain, self.token, self.id, 'groups')
+        
+        if verbose:
+            print("Done!")
+            print(f"Retrieved {len(grps)} groups from Canvas for {self.name}")
+            print(f"Retrieving group members. ", end='')
+
+        self.__groups = [{
+                'name': g['name'],
+                'id': str(g['id']),
+                'members': [str(m['user_id']) for m in _canvas_get(self.domain, self.token, self.id, str(g['id'])+'/memberships', use_group_base=True)]
+                } for g in grps]
+        
+        if verbose:
+            print("Done!")
+    
+    def get_assignments(self, verbose=False):
+
+        if verbose:
+            print("Fetching course's assignments: ", end='')
+        
+        asgns = _canvas_get(self.domain, self.token, self.id, 'assignments')
+        
+        if verbose:
+            print("Done!")
+            print(f"Retrieved {len(asgns)} assignments from Canvas for {self.name}")
+            print("Processing assignments: ", end='')
+        
+        self.__assignments = [ {
+                'id' : str(a['id']),
+                'name' : a['name'],
+                'due_at' : None if a['due_at'] is None else plm.parse(a['due_at']),
+                'lock_at' : None if a['lock_at'] is None else plm.parse(a['lock_at']),
+                'unlock_at' : None if a['unlock_at'] is None else plm.parse(a['unlock_at']),
+                'has_overrides' : a['has_overrides'],
+                'overrides' : [],
+                'published' : a['published']
+                } for a in asgns if a['name'] in asgns]
+        
+        if verbose:
+            print("Done!")
+            print("Fetching overrides: ", end='')
+        
+        # fill out overrides
+        for a in self.__assignments:
+            if a['has_overrides']:
+                a['overrides'] = _canvas_get_overrides(self.domain, self.token, self.id, a['id'])
+
+        if verbose:
+            print("Done!")
+
+        # check for duplicate IDs and names
+        # we require both of these to be unique (snapshots, grader accounts, etc all depend on unique human-readable names)
+        ids = [a['id'] for a in self.__assignments]
+        names = [a['name'] for a in self.__assignments]
+        if len(set(ids)) != len(ids):
+            sig = signals.FAIL(f"Course ID {self.id}: Two assignments detected with the same ID. IDs: {ids}")
+            sig.course_id = self.id
+            raise sig
+        if len(set(names)) != len(names):
+            sig = signals.FAIL(f"Course ID {self.id}: Two assignments detected with the same name. Names: {names}")
+            sig.course_id = self.id
+            raise sig
+
+    def __str__(self):
+        course_info = f"Course: {self.name}\n" +\
+                      f"Code: {self.code}\n" +\
+                      f"Id: {self.id}\n" +\
+                      f"Start at: {self.start_at}\n" +\
+                      f"End at: {self.end_at}\n" +\
+                      f"Assignments: {self.__dict__.get('assignments') if self.__dict__.get('assignments') else 'not fetched'}\n"
+
+        return course_info
+
+    def __repr__(self):
+        return f"Course({self.domain}, {self.token}, {self.id})"
+        
+
 
 @task(checkpoint=False)
-def canvas_get_people(config, course_id):
-    """
-    Get all people involved in the couse (e.g., instructors, TAs, students)
-
-    Parameters
-    ----------
-    config: traitlets.config.loader.Config
-        a dictionary-like object, loaded from rudaux_config.py
-    course_id: str
-        the course id as string. 
-
-    Returns
-    -------
-        list of all people in the course. 
-    """
-    people = _canvas_get(config, course_id, 'enrollments')
-    return [ { 'id': str(p['user']['id']),
-               'name': p['user']['name'],
-               'sortable_name': p['user']['sortable_name'],
-               'school_id': str(p['user']['sis_user_id']),
-               'reg_date': plm.parse(p['updated_at']) if (plm.parse(p['updated_at']) is not None) else plm.parse(p['created_at']),
-               'status': p['enrollment_state'],
-               'type': p['type']
-              } for p in people
-           ]
-
-
-@task(checkpoint=False)
-def get_course_info(config, course_id):
-    info = _canvas_get(config, course_id, '')[0]
-    processed_info = {
-             "id" : str(info['id']),
-             "name" : info['name'],
-             "code" : info['course_code'],
-             "start_at" : None if info['start_at'] is None else plm.parse(info['start_at']),
-             "end_at" : None if info['end_at'] is None else plm.parse(info['end_at']),
-             "time_zone" : info['time_zone']
-    }
-    logger = get_logger()
-    logger.info(f"Retrieved course info for {config.course_names[course_id]}")
-    return processed_info
-
-
-@task(checkpoint=False)
-def get_groups(config, course_id):
-    grps = _canvas_get(config, course_id, 'groups')
-    logger = get_logger()
-    logger.info(f"Retrieved {len(grps)} groups from LMS for {config.course_names[course_id]}")
-    return [{
-             'name' : g['name'],
-             'id' : str(g['id']),
-             'members' : [str(m['user_id']) for m in _canvas_get(config, course_id, str(g['id'])+'/memberships', use_group_base=True)]
-            } for g in grps]
-
-@task(checkpoint=False)
-def get_assignments(config, course_id, assignment_names):
-    asgns = _canvas_get(config, course_id, 'assignments')
-    processed_asgns = [ {
-               'id' : str(a['id']),
-               'name' : a['name'],
-               'due_at' : None if a['due_at'] is None else plm.parse(a['due_at']),
-               'lock_at' : None if a['lock_at'] is None else plm.parse(a['lock_at']),
-               'unlock_at' : None if a['unlock_at'] is None else plm.parse(a['unlock_at']),
-               'has_overrides' : a['has_overrides'],
-               'overrides' : [],
-               'published' : a['published']
-             } for a in asgns if a['name'] in assignment_names]
-
-    # fill out overrides
-    for a in processed_asgns:
-        if a['has_overrides']:
-            a['overrides'] = _canvas_get_overrides(config, course_id, a)
-
-    logger = get_logger()
-    logger.info(f"Retrieved {len(processed_asgns)} assignments from LMS for {config.course_names[course_id]}")
-    # check for duplicate IDs and names
-    # we require both of these to be unique (snapshots, grader accounts, etc all depend on unique human-readable names)
-    ids = [a['id'] for a in processed_asgns]
-    names = [a['name'] for a in processed_asgns]
-    if len(set(ids)) != len(ids):
-        sig = signals.FAIL(f"Course ID {course_id}: Two assignments detected with the same ID. IDs: {ids}")
-        sig.course_id = course_id
-        raise sig
-    if len(set(names)) != len(names):
-        sig = signals.FAIL(f"Course ID {course_id}: Two assignments detected with the same name. Names: {names}")
-        sig.course_id = course_id
-        raise sig
-    # make sure anything listed in the rudaux_config appears on canvas
-    if len(names) < len(assignment_names):
-        sig = signals.FAIL(f"Assignments from config missing in the course LMS.\nConfig: {assignment_names}\nLMS: {names}")
-        sig.course_id = course_id
-        raise sig
-
-    return processed_asgns
 
 def generate_get_submissions_name(config, course_id, assignment, **kwargs):
     return 'get-subms-'+assignment['name']
