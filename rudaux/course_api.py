@@ -172,7 +172,7 @@ def _canvas_get_overrides(canvas_domain, canvas_token, course_id, assignment_id)
     overs = _canvas_get(canvas_domain, canvas_token, course_id, 'assignments/'+assignment_id+'/overrides')
     for over in overs:
         over['id'] = str(over['id'])
-        over['student_ids'] = list(map(str, over['student_ids'])) if 'students' in over else []
+        over['student_ids'] = list(map(str, over['student_ids'])) if 'students_id' in over else []
         for key in ['due_at', 'lock_at', 'unlock_at']:
             if over.get(key) is not None:
                 over[key] = plm.parse(over[key])
@@ -397,7 +397,11 @@ class Course:
                       f"Id: {self.id}\n" +\
                       f"Start at: {self.start_at}\n" +\
                       f"End at: {self.end_at}\n" +\
-                      f"Assignments: {self.__dict__.get('assignments') if self.__dict__.get('assignments') else 'not fetched'}\n"
+                      f"Assignments: { {assignment['name'] for assignment in self.assignments} if hasattr(self, 'assignments') else 'not fetched'}\n" +\
+                      f"Students: { f'{len(self.students)} students in total' if hasattr(self, 'people') else 'not fetched'}\n" +\
+                      f"Teaching Assistants: { {ta['name'] for ta in self.teaching_assistants} if hasattr(self, 'people') else 'not fetched'}\n" +\
+                      f"Instructors: { { instructor['name'] for instructor in self.instructors} if hasattr(self, 'people') else 'not fetched'}\n"  
+
 
         return course_info
 
