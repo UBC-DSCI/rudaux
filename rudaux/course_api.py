@@ -172,7 +172,7 @@ def _canvas_get_overrides(canvas_domain, canvas_token, course_id, assignment_id)
     overs = _canvas_get(canvas_domain, canvas_token, course_id, 'assignments/'+assignment_id+'/overrides')
     for over in overs:
         over['id'] = str(over['id'])
-        over['student_ids'] = list(map(str, over['student_ids']))
+        over['student_ids'] = list(map(str, over['student_ids'])) if 'students' in over else []
         for key in ['due_at', 'lock_at', 'unlock_at']:
             if over.get(key) is not None:
                 over[key] = plm.parse(over[key])
@@ -257,7 +257,14 @@ class Course:
 
     @property
     def assignments(self):
+        return [{key: a[key] for key in a.keys() if key != 'overrides'} for a in self.__assignments]
+
+    @property
+    def overrides(self):
         return self.__assignments
+
+    def overrides_by_assignment(self, assignment_id):
+        return list(filter(lambda x: x['id'] == assignment_id, self.overrides))[0]['overrides']
 
     def _get_course_info(self):
         info = _canvas_get(self.domain, self.token, self.id, '')[0]
@@ -335,7 +342,7 @@ class Course:
                 'has_overrides' : a['has_overrides'],
                 'overrides' : [],
                 'published' : a['published']
-                } for a in asgns if a['name'] in asgns]
+                } for a in asgns]
         
         if verbose:
             print("Done!")
@@ -362,6 +369,28 @@ class Course:
             sig.course_id = self.id
             raise sig
 
+    def get_submissions(self, assignment_id, verbose=False):
+        subms = _canvas_get(self.domain, self.token, self.id, 'assignments/'+assignment_id+'/submissions')
+        processed_subms =  [ {
+                    'student_id' : str(subm['user_id']),
+                    'assignment_id' : assignment['id'],
+                    'score' : subm['score'],
+                    'posted_at' : None if subm['posted_at'] is None else plm.parse(subm['posted_at']),
+                    'late' : subm['late'],
+                    'missing' : subm['missing'],
+                    'excused' : subm['excused'],
+                } for subm in subms ]
+
+        logger = get_logger()
+        logger.info(f"Retrieved {len(processed_subms)} submissions for assignment {assignment['name']} from LMS for {config.course_names[course_id]}")
+
+        subms_map = {}
+        for subm in processed_subms:
+            if subm['assignment_id'] not in subms_map:
+                subms_map[subm['assignment_id']] = {}
+            subms_map[subm['assignment_id']][subm['student_id']] = subm
+        return subms_map
+
     def __str__(self):
         course_info = f"Course: {self.name}\n" +\
                       f"Code: {self.code}\n" +\
@@ -381,7 +410,7 @@ class Course:
 def generate_get_submissions_name(config, course_id, assignment, **kwargs):
     return 'get-subms-'+assignment['name']
 
-@task(checkpoint=False,task_run_name=generate_get_submissions_name)
+@task(checkpoint=False, task_run_name=generate_get_submissions_name)
 def get_submissions(config, course_id, assignment):
     subms = _canvas_get(config, course_id, 'assignments/'+assignment['id']+'/submissions')
     processed_subms =  [ {
