@@ -271,7 +271,7 @@ class Course:
         return list(filter(lambda x: x['id'] == assignment_id, self.overrides))[0]['overrides']
 
     def assignments_by_id(self, assignment_id):
-        return list(filter(lambda x: x['id'] == assignment_id, self.assignments))[0]
+        return list(filter(lambda x: x['id'] == assignment_id, self._assignments))[0]
 
     def _get_course_info(self):
         info = _canvas_get(self.domain, self.token, self.id, '')[0]
@@ -386,9 +386,10 @@ class Course:
 
         if verbose:
             print("Done!")
-            print("Processing submissions: ")
+            print(f"\t* Retrieved {len(subms)} submissions for assignment {self.assignments_by_id(assignment_id)['name']} from LMS for {self.name}")
+            print("Processing submissions: ", end='')
 
-        self._submissions =  [ {
+        self.assignments_by_id(assignment_id)['submissions'] =  [ {
                     'student_id' : str(subm['user_id']),
                     'assignment_id' : assignment_id,
                     'score' : subm['score'],
@@ -399,14 +400,7 @@ class Course:
                 } for subm in subms ]
 
         if verbose:
-            print(f"Retrieved {len(self.submissions)} submissions for assignment {self.assignments_by_id(assignment_id)['name']} from LMS for {self.name}")
-
-        subms_map = {}
-        for subm in self._submissions:
-            if subm['assignment_id'] not in subms_map:
-                subms_map[subm['assignment_id']] = {}
-            subms_map[subm['assignment_id']][subm['student_id']] = subm
-        return subms_map
+            print(f"Done!")
 
     def __str__(self):
         course_info = f"COURSE: {self.name}\n" +\
@@ -417,7 +411,6 @@ class Course:
                       f"STUDENTS: { f'{len(self.students)} students in total' if hasattr(self, 'people') else 'not fetched'}\n" +\
                       f"TEACHING ASSISTANTS: { {ta['name'] for ta in self.teaching_assistants} if hasattr(self, 'people') else 'not fetched'}\n" +\
                       f"INSTRUCTORS: { { instructor['name'] for instructor in self.instructors} if hasattr(self, 'people') else 'not fetched'}\n"  
-
 
         return course_info
 
@@ -430,33 +423,10 @@ class Course:
 def generate_get_submissions_name(config, course_id, assignment, **kwargs):
     return 'get-subms-'+assignment['name']
 
-@task(checkpoint=False, task_run_name=generate_get_submissions_name)
-def get_submissions(config, course_id, assignment):
-    subms = _canvas_get(config, course_id, 'assignments/'+assignment['id']+'/submissions')
-    processed_subms =  [ {
-                   'student_id' : str(subm['user_id']),
-                   'assignment_id' : assignment['id'],
-                   'score' : subm['score'],
-                   'posted_at' : None if subm['posted_at'] is None else plm.parse(subm['posted_at']),
-                   'late' : subm['late'],
-                   'missing' : subm['missing'],
-                   'excused' : subm['excused'],
-            } for subm in subms ]
-
-    logger = get_logger()
-    logger.info(f"Retrieved {len(processed_subms)} submissions for assignment {assignment['name']} from LMS for {config.course_names[course_id]}")
-
-    subms_map = {}
-    for subm in processed_subms:
-        if subm['assignment_id'] not in subms_map:
-            subms_map[subm['assignment_id']] = {}
-        subms_map[subm['assignment_id']][subm['student_id']] = subm
-    return subms_map
-
 def generate_update_override_name(config, course_id, override_update_tuple, **kwargs):
     return 'upd-override-'+ override_update_tuple[1]['title']
 
-@task(checkpoint=False,task_run_name=generate_update_override_name)
+@task(checkpoint=False, task_run_name=generate_update_override_name)
 def update_override(config, course_id, override_update_tuple):
     assignment, to_create, to_remove = override_update_tuple
     if to_remove is not None:
