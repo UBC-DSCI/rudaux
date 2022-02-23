@@ -237,7 +237,7 @@ class Course:
 
     @property
     def people(self):
-        return self.__people
+        return self._people
 
     @property
     def students(self):
@@ -253,18 +253,25 @@ class Course:
 
     @property
     def groups(self):
-        return self.__groups
+        return self._groups
 
     @property
     def assignments(self):
-        return [{key: a[key] for key in a.keys() if key != 'overrides'} for a in self.__assignments]
+        return [{key: a[key] for key in a.keys() if key != 'overrides'} for a in self._assignments]
 
     @property
     def overrides(self):
-        return self.__assignments
+        return self._assignments
+    
+    @property
+    def submissions(self):
+        return self._submissions
 
     def overrides_by_assignment(self, assignment_id):
         return list(filter(lambda x: x['id'] == assignment_id, self.overrides))[0]['overrides']
+
+    def assignments_by_id(self, assignment_id):
+        return list(filter(lambda x: x['id'] == assignment_id, self.assignments))[0]
 
     def _get_course_info(self):
         info = _canvas_get(self.domain, self.token, self.id, '')[0]
@@ -276,7 +283,7 @@ class Course:
 
     def get_people(self, force=False, verbose=False):
         """
-        Get all people involved in the couse (e.g., instructors, TAs, students)
+        Get all people involved in the couse (e.g., instructors, TAs, students) from Canvas.
 
         Parameters
         ----------
@@ -290,7 +297,7 @@ class Course:
             print("Fetching course enrollments.", end='')
 
         people = _canvas_get(self.domain, self.token, self.id, 'enrollments')
-        self.__people = [ { 'id': str(p['user']['id']),
+        self._people = [ { 'id': str(p['user']['id']),
                 'name': p['user']['name'],
                 'sortable_name': p['user']['sortable_name'],
                 'school_id': str(p['user']['sis_user_id']),
@@ -298,6 +305,7 @@ class Course:
                 'status': p['enrollment_state'],
                 'type': p['type']
                 } for p in people ]
+        
         if verbose:
             print("Done!")
         
@@ -312,7 +320,7 @@ class Course:
             print(f"Retrieved {len(grps)} groups from Canvas for {self.name}")
             print(f"Retrieving group members. ", end='')
 
-        self.__groups = [{
+        self._groups = [{
                 'name': g['name'],
                 'id': str(g['id']),
                 'members': [str(m['user_id']) for m in _canvas_get(self.domain, self.token, self.id, str(g['id'])+'/memberships', use_group_base=True)]
@@ -333,7 +341,7 @@ class Course:
             print(f"Retrieved {len(asgns)} assignments from Canvas for {self.name}")
             print("Processing assignments: ", end='')
         
-        self.__assignments = [ {
+        self._assignments = [ {
                 'id' : str(a['id']),
                 'name' : a['name'],
                 'due_at' : None if a['due_at'] is None else plm.parse(a['due_at']),
@@ -349,7 +357,7 @@ class Course:
             print("Fetching overrides: ", end='')
         
         # fill out overrides
-        for a in self.__assignments:
+        for a in self._assignments:
             if a['has_overrides']:
                 a['overrides'] = _canvas_get_overrides(self.domain, self.token, self.id, a['id'])
 
@@ -358,8 +366,8 @@ class Course:
 
         # check for duplicate IDs and names
         # we require both of these to be unique (snapshots, grader accounts, etc all depend on unique human-readable names)
-        ids = [a['id'] for a in self.__assignments]
-        names = [a['name'] for a in self.__assignments]
+        ids = [a['id'] for a in self._assignments]
+        names = [a['name'] for a in self._assignments]
         if len(set(ids)) != len(ids):
             sig = signals.FAIL(f"Course ID {self.id}: Two assignments detected with the same ID. IDs: {ids}")
             sig.course_id = self.id
@@ -370,10 +378,19 @@ class Course:
             raise sig
 
     def get_submissions(self, assignment_id, verbose=False):
+
+        if verbose:
+            print(f"Fetching submissions of assignment {assignment_id} from Canvas for {self.name}: ", end='')
+
         subms = _canvas_get(self.domain, self.token, self.id, 'assignments/'+assignment_id+'/submissions')
-        processed_subms =  [ {
+
+        if verbose:
+            print("Done!")
+            print("Processing submissions: ")
+
+        self._submissions =  [ {
                     'student_id' : str(subm['user_id']),
-                    'assignment_id' : assignment['id'],
+                    'assignment_id' : assignment_id,
                     'score' : subm['score'],
                     'posted_at' : None if subm['posted_at'] is None else plm.parse(subm['posted_at']),
                     'late' : subm['late'],
@@ -381,26 +398,25 @@ class Course:
                     'excused' : subm['excused'],
                 } for subm in subms ]
 
-        logger = get_logger()
-        logger.info(f"Retrieved {len(processed_subms)} submissions for assignment {assignment['name']} from LMS for {config.course_names[course_id]}")
+        if verbose:
+            print(f"Retrieved {len(self.submissions)} submissions for assignment {self.assignments_by_id(assignment_id)['name']} from LMS for {self.name}")
 
         subms_map = {}
-        for subm in processed_subms:
+        for subm in self._submissions:
             if subm['assignment_id'] not in subms_map:
                 subms_map[subm['assignment_id']] = {}
             subms_map[subm['assignment_id']][subm['student_id']] = subm
         return subms_map
 
     def __str__(self):
-        course_info = f"Course: {self.name}\n" +\
-                      f"Code: {self.code}\n" +\
-                      f"Id: {self.id}\n" +\
-                      f"Start at: {self.start_at}\n" +\
-                      f"End at: {self.end_at}\n" +\
-                      f"Assignments: { {assignment['name'] for assignment in self.assignments} if hasattr(self, 'assignments') else 'not fetched'}\n" +\
-                      f"Students: { f'{len(self.students)} students in total' if hasattr(self, 'people') else 'not fetched'}\n" +\
-                      f"Teaching Assistants: { {ta['name'] for ta in self.teaching_assistants} if hasattr(self, 'people') else 'not fetched'}\n" +\
-                      f"Instructors: { { instructor['name'] for instructor in self.instructors} if hasattr(self, 'people') else 'not fetched'}\n"  
+        course_info = f"COURSE: {self.name}\n" +\
+                      f"CODE: {self.code}\n" +\
+                      f"ID: {self.id}\n" +\
+                      f"START AT: {self.start_at}\n" +\
+                      f"ASSIGNMENTS: { {assignment['name'] for assignment in self.assignments} if hasattr(self, 'assignments') else 'not fetched'}\n" +\
+                      f"STUDENTS: { f'{len(self.students)} students in total' if hasattr(self, 'people') else 'not fetched'}\n" +\
+                      f"TEACHING ASSISTANTS: { {ta['name'] for ta in self.teaching_assistants} if hasattr(self, 'people') else 'not fetched'}\n" +\
+                      f"INSTRUCTORS: { { instructor['name'] for instructor in self.instructors} if hasattr(self, 'people') else 'not fetched'}\n"  
 
 
         return course_info
