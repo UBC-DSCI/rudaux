@@ -257,21 +257,21 @@ class Course:
 
     @property
     def assignments(self):
-        return [{key: a[key] for key in a.keys() if key != 'overrides'} for a in self._assignments]
+        return self._assignments
 
     @property
     def overrides(self):
-        return self._assignments
+        return self._overrides
     
     @property
     def submissions(self):
         return self._submissions
 
     def overrides_by_assignment(self, assignment_id):
-        return list(filter(lambda x: x['id'] == assignment_id, self.overrides))[0]['overrides']
+        return self.overrides.get(assignment_id)
 
     def assignments_by_id(self, assignment_id):
-        return list(filter(lambda x: x['id'] == assignment_id, self._assignments))[0]
+        return list(filter(lambda x: x['id'] == assignment_id, self.assignments))[0]
 
     def _get_course_info(self):
         info = _canvas_get(self.domain, self.token, self.id, '')[0]
@@ -354,15 +354,7 @@ class Course:
         
         if verbose:
             print("Done!")
-            print("Fetching overrides: ", end='')
-        
-        # fill out overrides
-        for a in self._assignments:
-            if a['has_overrides']:
-                a['overrides'] = _canvas_get_overrides(self.domain, self.token, self.id, a['id'])
 
-        if verbose:
-            print("Done!")
 
         # check for duplicate IDs and names
         # we require both of these to be unique (snapshots, grader accounts, etc all depend on unique human-readable names)
@@ -377,6 +369,26 @@ class Course:
             sig.course_id = self.id
             raise sig
 
+    def get_overrides(self, assignment_id=None, verbose=False):
+        
+        if not hasattr(self, "_assigments"):
+            raise AttributeError("Assignments haven't been fetched yet. You must fetch assignments before fetching overrides.")
+
+        if assignment_id is not None:
+            overrides_to_fetch = [assignment_id]
+        else:
+            overrides_to_fetch = self.assignments
+
+        if verbose:
+            print(f"Fetching overrides for {len(overrides_to_fetch)} assignments: ", end='')
+        
+        for assignment in overrides_to_fetch:
+            if assignment['has_overrides']:
+                self._overrides[assignment['id']] = _canvas_get_overrides(self.domain, self.token, self.id, assignment['id'])
+
+        if verbose:
+            print("Done!")
+
     def get_submissions(self, assignment_id, verbose=False):
 
         if verbose:
@@ -389,7 +401,7 @@ class Course:
             print(f"\t* Retrieved {len(subms)} submissions for assignment {self.assignments_by_id(assignment_id)['name']} from LMS for {self.name}")
             print("Processing submissions: ", end='')
 
-        self.assignments_by_id(assignment_id)['submissions'] =  [ {
+        self._submissions[assignment_id] =  [ {
                     'student_id' : str(subm['user_id']),
                     'assignment_id' : assignment_id,
                     'score' : subm['score'],
