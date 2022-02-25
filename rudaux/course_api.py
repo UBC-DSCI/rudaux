@@ -1,4 +1,5 @@
 import inspect
+from black import assert_equivalent
 import requests
 import urllib.parse
 import pendulum as plm
@@ -294,7 +295,7 @@ class Course:
             raise AttributeError("People has already been fetched. Use force=True to overwrite it.")
 
         if verbose:
-            print("Fetching course enrollments.", end='')
+            print("Fetching course enrollments: ", end='')
 
         people = _canvas_get(self.domain, self.token, self.id, 'enrollments')
         self._people = [ { 'id': str(p['user']['id']),
@@ -307,7 +308,7 @@ class Course:
                 } for p in people ]
         
         if verbose:
-            print("Done!")
+            print("done!")
         
     def get_groups(self, verbose=False):
         
@@ -353,7 +354,7 @@ class Course:
                 } for a in asgns]
         
         if verbose:
-            print("Done!")
+            print("done!")
 
 
         # check for duplicate IDs and names
@@ -369,13 +370,13 @@ class Course:
             sig.course_id = self.id
             raise sig
 
-    def get_overrides(self, assignment_id=None, verbose=False):
+    def get_overrides(self, assignments_id=None, verbose=False):
         
         if not hasattr(self, "_assigments"):
             raise AttributeError("Assignments haven't been fetched yet. You must fetch assignments before fetching overrides.")
 
-        if assignment_id is not None:
-            overrides_to_fetch = [assignment_id]
+        if assignments_id is not None:
+            overrides_to_fetch = [assignments_id]
         else:
             overrides_to_fetch = self.assignments
 
@@ -387,32 +388,42 @@ class Course:
                 self._overrides[assignment['id']] = _canvas_get_overrides(self.domain, self.token, self.id, assignment['id'])
 
         if verbose:
-            print("Done!")
+            print("done!")
 
-    def get_submissions(self, assignment_id, verbose=False):
+    def get_submissions(self, assignments_id=None, verbose=False):
 
-        if verbose:
-            print(f"Fetching submissions of assignment {assignment_id} from Canvas for {self.name}: ", end='')
+        submissions_to_fetch = []
+        if assignments_id is not None:
+            try:
+                submissions_to_fetch.extend(assignments_id)
+            except TypeError:
+                submissions_to_fetch.append(assignments_id)
+        else:
+            submissions_to_fetch = self.assignments
 
-        subms = _canvas_get(self.domain, self.token, self.id, 'assignments/'+assignment_id+'/submissions')
+        for assignment_id in submissions_to_fetch:
+            if verbose:
+                print(f"Fetching submissions of assignment(s) {submissions_to_fetch} from Canvas for {self.name}: ", end='')
+            
+            subms = _canvas_get(self.domain, self.token, self.id, 'assignments/'+assignment_id+'/submissions')
 
-        if verbose:
-            print("Done!")
-            print(f"\t* Retrieved {len(subms)} submissions for assignment {self.assignments_by_id(assignment_id)['name']} from LMS for {self.name}")
-            print("Processing submissions: ", end='')
+            if verbose:
+                print("Done!")
+                print(f"\t* Retrieved {len(subms)} submissions for assignment {self.assignments_by_id(assignment_id)['name']} from LMS for {self.name}")
+                print("Processing submissions: ", end='')
 
-        self._submissions[assignment_id] =  [ {
-                    'student_id' : str(subm['user_id']),
-                    'assignment_id' : assignment_id,
-                    'score' : subm['score'],
-                    'posted_at' : None if subm['posted_at'] is None else plm.parse(subm['posted_at']),
-                    'late' : subm['late'],
-                    'missing' : subm['missing'],
-                    'excused' : subm['excused'],
-                } for subm in subms ]
+            self._submissions[assignment_id] =  [ {
+                        'student_id' : str(subm['user_id']),
+                        'assignment_id' : assignment_id,
+                        'score' : subm['score'],
+                        'posted_at' : None if subm['posted_at'] is None else plm.parse(subm['posted_at']),
+                        'late' : subm['late'],
+                        'missing' : subm['missing'],
+                        'excused' : subm['excused'],
+                    } for subm in subms ]
 
-        if verbose:
-            print(f"Done!")
+            if verbose:
+                print(f"done!")
 
     def __str__(self):
         course_info = f"COURSE: {self.name}\n" +\
