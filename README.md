@@ -2,8 +2,8 @@
 
 Rudaux provides automated grading workflow orchestration for courses that use a
 learning management system (LMS) (e.g. Canvas, EdX) with external tools (e.g.
-JupyterHub and NbGrader).  Rudaux schedules and coordinates collecting assignments,
-automatic and manual grading, grade upload, TA and instructor task
+JupyterHub and NbGrader).  Rudaux schedules and coordinates collecting
+assignments, automatic and manual grading, grade upload, TA and instructor task
 notification, automatic assignment extensions for late registrants, solution
 and feedback return, and more.
 
@@ -24,7 +24,7 @@ NbGrader notebook autograder.
 
 The repo is currently in progress towards a first general version that is 
 not specific to these tools and can be used more widely. Work is underway 
-in the `Version 1.0` project in the `prefect-by-assignment` branch.
+to produce version 1.0 on this branch. 
 
 ### Documentation
 The official documentation (will eventually be) hosted on Read the Docs: <https://ubc-dsci.github.io/rudaux>

@@ -1,11 +1,17 @@
-import sys, os
+import sys
+import os
 import prefect
+from prefect import Flow, unmapped, task
+from prefect.engine import signals
+from prefect.schedules import IntervalSchedule
+from prefect.executors import LocalExecutor
+from prefect.backend import FlowView, FlowRunView
+from prefect.tasks.control_flow.filter import FilterTask
 from traitlets.config import Config
 from traitlets.config.loader import PyFileConfigLoader
 import pendulum as plm
 from requests.exceptions import ConnectionError
-from subprocess import check_output, STDOUT, CalledProcessError
-import time
+from subprocess import check_output, CalledProcessError
 
 import threading
 
@@ -15,30 +21,24 @@ from . import course_api as api
 from . import grader as grd
 from . import notification as ntfy
 
-def run(args):
-    print("Creating/running flows in local threads")
-    flows, config = _collect_flows(args)
-    threads = []
-    for flow in flows:
-        threads.append(threading.Thread(target=flow[0], name=flow[1], args=(config,)))
 
-    for thread in threads:
-        thread.start()
+filter_skip = FilterTask(
+    filter_func = lambda x: not isinstance(x, (signals.SKIP, type(None)))
+)
 
-    for thread in threads:
-        thread.join()
-    return
+__PROJECT_NAME = "rudaux"
 
-def _collect_flows(args):
+
+def _build_flows(args):
     print("Loading the rudaux_config.py file...")
     if not os.path.exists(os.path.join(args.directory, 'rudaux_config.py')):
-            sys.exit(
-              f"""
-              There is no rudaux_config.py in the directory {args.directory},
-              and no course directory was specified on the command line. Please
-              specify a directory with a valid rudaux_config.py file.
-              """
-            )
+        sys.exit(
+            f"""
+            There is no rudaux_config.py in the directory {args.directory},
+            and no course directory was specified on the command line. Please
+            specify a directory with a valid rudaux_config.py file.
+            """
+        )
     config = Config()
     config.merge(PyFileConfigLoader('rudaux_config.py', path=args.directory).load_config())
 
@@ -50,71 +50,160 @@ def _collect_flows(args):
     grd.validate_config(config)
     ntfy.validate_config(config)
 
-    flows = []
-    if args.snap or args.all_flows:
-        flows.append((snapshot_flow, 'snapshot'))
-    if args.autoext or args.all_flows:
-        flows.append((autoext_flow, 'autoextension'))
-    if args.grade or args.all_flows:
-        flows.append((grading_flow, 'grading'))
+    if config.debug:
+        print("***DEBUG MODE***")
+        print("***DEBUG MODE***")
+        print("***DEBUG MODE***")
 
-    return flows, config
+    print("Creating the executor")
+    executor = LocalExecutor()
+    # LocalDaskExecutor(num_workers = args.dask_threads)
+    # for DaskExecutor: cluster_kwargs = {'n_workers': 8}) #address="tcp://localhost:8786")
+
+    flow_builders = []
+    if args.snap or args.all_flows:
+        flow_builders.append((build_snapshot_flows, 'snapshot', config.snapshot_interval, config.snapshot_minute))
+    if args.autoext or args.all_flows:
+        flow_builders.append((build_autoext_flows, 'autoextension', config.autoext_interval, config.autoext_minute))
+    if args.grade or args.all_flows:
+        flow_builders.append((build_grading_flows, 'grading', config.grade_interval, config.grade_minute))
+
+    flows = []
+    for build_func, flow_name, interval, minute in flow_builders:
+        print(f"Building/registering the {flow_name} flow...")
+        _flows = build_func(config)
+        for flow in _flows:
+            flow.executor = executor
+            if not config.debug:
+                flow.schedule = IntervalSchedule(start_date=plm.now('UTC').set(minute=minute),
+                                   interval=plm.duration(minutes=interval))
+            flows.append(flow)
+    return flows
 
 def fail_handler_gen(config):
     def fail_handler(flow, state, ref_task_states):
         if state.is_failed():
             sm = ntfy.SendMail(config)
-            sm.notify(config.instructor_user, f"Hi Instructor, \r\n Flow failed!\r\n Message:\r\n{state.message}")
+            fail_messages = ""
+            if hasattr(state.result, "msg"):
+                fail_messages += state.result.msg + "\r\n-------------------------\r\n"
+            for st in ref_task_states:
+                if hasattr(st.result, "msg"):
+                    fail_messages += st.result.msg + "\r\n-------------------------\r\n"
+            sm.notify(config.instructor_user, f"Hi Instructor, \r\n Flow failed!\r\nMessage:\r\n{fail_messages}") 
     return fail_handler
 
-def snapshot_flow(config):
-    interval = config.snapshot_interval
-    while True:
-        for group in config.course_groups:
-            # Create an LMS API connection
-            lms = LMSAPI(group, config)
+def register(args):
+    print("Creating/running flows via server orchestration")
+    try:
+        print(f"Creating the {__PROJECT_NAME} prefect project...")
+        prefect.client.client.Client().create_project(__PROJECT_NAME)
+    except ConnectionError as e:
+        print(e)
+        sys.exit(
+            """
+            Could not connect to the prefect server. Is the server running?
+            Make sure to start the server before trying to register flows.
+            To start the prefect server, run the command:
 
-            # Create a Student API connection
-            stu = StudentAPI(group, config)
+            prefect server start
+            """
+            )
+    flows = _build_flows(args)
+    for flow in flows:
+        flow.register(__PROJECT_NAME)
+    return
 
-            # Obtain assignments from the course API
-            assignments = lms.get_assignments()
+def _run_flow(flow):
+    print(f"Flow {flow.name} starting...")
+    flow.run()
+    print(f"Flow {flow.name} stopping...")
+    return
 
-            # obtain the list of existing snapshots
-            existing_snaps = stu.get_snapshots()
+def run(args):
+    print("Creating/running flows in local threads")
+    flows = _build_flows(args)
+    threads = []
+    for flow in flows:
+        threads.append(threading.Thread(name=flow.name, target=_run_flow, args=(flow,)))
 
-            # compute snapshots to take
-            snaps_to_take = stu.compute_snaps_to_take(assignments, existing_snaps)
+    for thread in threads:
+        thread.start()
 
-            # take new snapshots
-            stu.take_snapshots(snaps_to_take)
+    for thread in threads:
+        thread.join()
 
-        # sleep until the next run time
-        print(f"Snapshot waiting {interval} minutes for next run...")
-        time.sleep(interval*60)
-    # end func
+    return
 
-def autoext_flow(config):
-    interval = config.autoext_interval
-    while True:
-        for group in config.course_groups:
-            # Create an LMS API connection
-            lms = LMSAPI(group, config)
+def build_snapshot_flows(config):
+    flows = []
+    for group in config.course_groups:
+        for course_id in config.course_groups[group]:
+            with Flow(config.course_names[course_id]+"-snap", terminal_state_handler = fail_handler_gen(config)) as flow:
+                # Obtain course/student/assignment/etc info from the course API
+                course_info = api.get_course_info(config, course_id)
+                assignments = api.get_assignments(config, course_id, list(config.assignments[group].keys()))
 
-            # Obtain assignments/students/submissions from the course API
-            assignments = lms.get_assignments()
-            students = lms.get_students()
+                # extract the total list of snapshots to take from assignment data
+                snaps = snap.get_all_snapshots(config, course_id, assignments)
 
-            # Compute automatic extensions
-            extensions = lms.get_automatic_extensions(assignments, students)
+                # obtain the list of existing snapshots
+                existing_snaps = snap.get_existing_snapshots(config, course_id)
 
-            # Update LMS with automatic extensions
-            lms.update_extensions(extensions)
+                # take new snapshots
+                snap.take_snapshot.map(unmapped(config), unmapped(course_info), snaps, unmapped(existing_snaps))
+            flows.append(flow)
+    return flows
 
-        # sleep until the next run time
-        print(f"Autoext waiting {interval} minutes for next run...")
-        time.sleep(interval*60)
-    # end func
+
+@task(checkpoint=False)
+def combine_dictionaries(dicts):
+    return {k: v for d in dicts for k, v in d.items()}
+
+
+def build_autoext_flows(config):
+    """
+    Build the flow for the auto-extension of assignments for students
+    who register late.
+
+    Params
+    ------
+    config: traitlets.config.loader.Config
+        a dictionary-like object containing the configurations
+        from rudaux_config.py
+    """
+    flows = []
+    for group in config.course_groups:
+        for course_id in config.course_groups[group]:
+            with Flow(config.course_names[course_id] + "-autoext",
+                      terminal_state_handler=fail_handler_gen(config)) as flow:
+
+                assignment_names = list(config.assignments[group].keys())
+
+                # Obtain course/student/assignment/etc info from the course API
+                course_info = api.get_course_info(config, course_id)
+                assignments = api.get_assignments(config, course_id, assignment_names)
+                students = api.get_students(config, course_id)
+                submission_info = combine_dictionaries(api.get_submissions.map(unmapped(config), unmapped(course_id), assignments))
+
+                # Create submissions
+                submission_sets = subm.initialize_submission_sets(config, [course_info], [assignments], [students], [submission_info])
+
+                # Fill in submission deadlines
+                submission_sets = subm.build_submission_set.map(unmapped(config), submission_sets)
+
+                # Compute override updates
+                overrides = subm.get_latereg_overrides.map(unmapped(config.latereg_extension_days[group]), submission_sets, unmapped(config))
+
+                # TODO: we would ideally do flatten(overrides) and then
+                # api.update_override.map(unmapped(config), unmapped(course_id), flatten(overrides))
+                # but that will cause prefect to fail. see https://github.com/PrefectHQ/prefect/issues/4084
+                # so instead we will code a temporary hack for update_override.
+                api.update_override_flatten.map(unmapped(config), unmapped(course_id), overrides)
+
+            flows.append(flow)
+    return flows
+
 
 # this creates one flow per grading group,
 # not one flow per assignment. In the future we might
@@ -122,36 +211,18 @@ def autoext_flow(config):
 # rather dynamically from LMS; there we dont know what
 # assignments there are until runtime. So doing it by group is the
 # right strategy.
-def grading_flow(config):
+def build_grading_flows(config):
     try:
         check_output(['sudo', '-n', 'true'])
     except CalledProcessError as e:
         assert False, f"You must have sudo permissions to run the flow. Command: {e.cmd}. returncode: {e.returncode}. output {e.output}. stdout {e.stdout}. stderr {e.stderr}"
-    hour = config.grade_hour
-    minute = config.grade_minute
-    while True:
-        # wait for next grading run
-        t = plm.now().in_tz(config.grading_timezone)
-        print(f"Time now: {t}")
-        tgrd = plm.now().at(hour = hour, minute = minute)
-        if t > tgrd:
-            tgrd = tgrd.add(days=1)
-        print(f"Next grading flow run: {tgrd}")
-        print(f"Grading waiting {(tgrd-t).total_hours()} hours for run...")
-        time.sleep((tgrd-t).total_seconds())
 
-        # start grading run
-        for group in config.course_groups:
-            # get the course names in this group
-            course_names = config.course_groups[group]
-            # create connections to APIs
-            lsapis = {}
-            for course_name in course_names:
-                lsapis[course_name]['lms'] = LMSAPI(course_name, config)
-                lsapis[course_name]['stu'] = StudentAPI(course_name, config)
-            # Create a Grader API connection
-            grd = GraderAPI(group, config)
-
+    flows = []
+    for group in config.course_groups:
+        with Flow(group+"-grading", terminal_state_handler = fail_handler_gen(config)) as flow:
+            # get the course ids in this group
+            course_ids = config.course_groups[group]
+            assignment_names = list(config.assignments[group].keys())
 
             # Obtain course/student/assignment/etc info from the course API
             course_infos = api.get_course_info.map(unmapped(config), course_ids)
@@ -216,8 +287,9 @@ def grading_flow(config):
             grading_notifications = filter_skip(grading_notifications)
             posting_notifications = filter_skip(posting_notifications)
             ntfy.notify(config, grading_notifications, posting_notifications)
-        # end while
-    # end func
+
+        flows.append(flow)
+    return flows
 
 # TODO a flow that resets an assignment; take in parameter, no interval,
 # require manual task "do you really want to do this"
