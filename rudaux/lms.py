@@ -1,27 +1,37 @@
-from traitlets.config.configurable import Configurable
+from abc import ABC, abstractmethod
+from pydantic import BaseModel
+from .models import Student, Assignment, Override
 
-class LMSAPI(Configurable):
+class LMS(ABC, BaseModel):
 
-    def __init__(self):
+    @abstractmethod
+    def get_course_info(self):
         pass
 
-    def get_course_info(self):
-        raise NotImplementedError
+    @abstractmethod
+    def get_students(self):
+        pass
 
-    def get_people(self, enrollment_type):
-        raise NotImplementedError
+    @abstractmethod
+    def get_instructors(self):
+        pass
 
+    @abstractmethod
     def get_groups(self):
-        raise NotImplementedError
+        pass
 
+    @abstractmethod
     def get_assignments(self):
-        raise NotImplementedError
+        pass 
 
-    def get_submissions(self, assignment):
-        raise NotImplementedError
+    @abstractmethod
+    def get_submissions(self, assignment : Assignment):
+        pass
 
-    def update_grade(self, submission):
-        raise NotImplementedError
+    @abstractmethod
+    def update_grade(self, submission : Submission):
+        pass
 
-    def update_extension(self, assignment, extension):
-        raise NotImplementedError
+    @abstractmethod
+    def update_override(self, override : Override):
+        pass

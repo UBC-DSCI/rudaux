@@ -14,55 +14,17 @@ subparsers = parser.add_subparsers(
 )
 
 # ---------------------------------------------
-#           Run workflows with orchestration
-# ---------------------------------------------
-reg_parser = subparsers.add_parser(
-    'register', help='Register course management workflows with an orchestration server')
-reg_parser.set_defaults(func=flows.register)
-reg_parser.add_argument(
-    '--dir',
-    dest='directory',
-    action='store',
-    default=os.getcwd(),
-    help="the directory containing the rudaux configuration file."
-)
-reg_parser.add_argument(
-    '--all',
-    dest='all_flows',
-    action='store_true',
-    help="Register all flows"
-)
-reg_parser.add_argument(
-    '--autoext',
-    dest='autoext',
-    action='store_true',
-    help="Register the autoextension flow"
-)
-reg_parser.add_argument(
-    '--snap',
-    dest='snap',
-    action='store_true',
-    help="Register the snapshot flow"
-)
-reg_parser.add_argument(
-    '--grade',
-    dest='grade',
-    action='store_true',
-    help="Register the grading flow"
-)
-
-# ---------------------------------------------
-#           Run workflows in threads locally
+#           Run workflows 
 # ---------------------------------------------
 run_parser = subparsers.add_parser(
     'run', help='Run course management workflows locally in threads')
 run_parser.set_defaults(func=flows.run)
 run_parser.add_argument(
-    '--dir',
-    dest='directory',
+    '--config',
+    dest='config_path',
     action='store',
-    default=os.getcwd(),
-    help="the directory containing the rudaux configuration file."
+    default=os.path.join(os.getcwd(), "rudaux_config.py"),
+    help="the path to the rudaux configuration file."
 )
 run_parser.add_argument(
     '--all',
@@ -88,6 +50,18 @@ run_parser.add_argument(
     action='store_true',
     help="Run the grading flow"
 )
+run_parser.add_argument(
+    '--solution',
+    dest='grade',
+    action='store_true',
+    help="Run the solution return flow"
+)
+run_parser.add_argument(
+    '--feedback',
+    dest='grade',
+    action='store_true',
+    help="Run the feedback return flow"
+)
 
 # ---------------------------------------------
 #           List workflows/runs and status
@@ -103,55 +77,12 @@ list_parser = subparsers.add_parser(
     'list', help='Print a list of assignments, students, etc')
 list_parser.set_defaults(func=flows.list_course_info)
 list_parser.add_argument(
-    '--dir',
-    dest='directory',
+    '--config',
+    dest='config_path',
     action='store',
     default=os.getcwd(),
-    help="The directory containing the rudaux configuration file."
+    help="the path to the rudaux configuration file."
 )
-
-# ------------------------------------
-# Snapshot
-# ------------------------------------
-#
-#snap_parser = subparsers.add_parser('snapshot', help='Take a snapshot of submissions past the assignment due date.')
-# snap_parser.set_defaults(func=commands.snapshot)
-# snap_parser.add_argument(
-#  '--dir',
-#  dest='directory',
-#  action='store',
-#  default=os.getcwd(),
-#  help="The directory containing the rudaux configuration file."
-# )
-# snap_parser.add_argument(
-#  '--dry-run',
-#  dest='dry_run',
-#  action='store_true',
-#  default=False,
-#  help="Specify that the snapshot should not actually be taken and print the zfs command instead."
-# )
-#
-#
-# ---------------------------------------------
-# Extensions for Late Registrants
-# ---------------------------------------------
-#
-#latereg_parser = subparsers.add_parser('extend_lateregs', help='Create due date overrides for late registrants')
-# latereg_parser.set_defaults(func=commands.apply_latereg_extensions)
-# latereg_parser.add_argument(
-#  '--dir',
-#  dest='directory',
-#  action='store',
-#  default=os.getcwd(),
-#  help="The directory containing the rudaux configuration file."
-# )
-# latereg_parser.add_argument(
-#  '--dry-run',
-#  dest='dry_run',
-#  action='store_true',
-#  default=False,
-#  help="Specify that late registrations should not actually be provided canvas extensions and print the canvas api calls instead."
-# )
 
 
 # Parse the arguments!
