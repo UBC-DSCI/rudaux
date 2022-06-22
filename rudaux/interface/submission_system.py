@@ -1,6 +1,6 @@
 from traitlets.config.configurable import Configurable
 
-class SubmissionStorage(Configurable):
+class SubmissionSystem(Configurable):
 
     def __init__(self):
         pass
