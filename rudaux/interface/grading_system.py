@@ -1,6 +1,6 @@
 from traitlets.config.configurable import Configurable
 
-class GraderAPI(Configurable):
+class GradingSystem(Configurable):
     def __init__(self):
         pass
 

@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from .models import Student, Assignment, Override
 
-class LMS(ABC):
+class LearningManagementSystem(ABC):
 
     def __init__(self, api_info):
         self.api_info = api_info
