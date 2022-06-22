@@ -1,8 +1,7 @@
 from abc import ABC, abstractmethod
-from pydantic import BaseModel
 from .models import Student, Assignment, Override
 
-class LMS(ABC, BaseModel):
+class LMS(ABC):
 
     def __init__(self, api_info):
         self.api_info = api_info
