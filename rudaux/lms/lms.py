@@ -4,6 +4,9 @@ from .models import Student, Assignment, Override
 
 class LMS(ABC, BaseModel):
 
+    def __init__(self, api_info):
+        self.api_info = api_info
+
     @abstractmethod
     def get_course_info(self):
         pass

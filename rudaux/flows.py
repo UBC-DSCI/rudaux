@@ -67,6 +67,70 @@ def fail_handler_gen(config):
             sm.notify(config.instructor_user, f"Hi Instructor, \r\n Flow failed!\r\n Message:\r\n{state.message}")
     return fail_handler
 
+@flow
+def autoext_flow(api_info):
+    interval = config.autoext_interval
+    # Create an LMS API connection
+    lms = LMSAPI(api_info)
+
+    # Obtain assignments/students/submissions from the course API
+    assignments = lms.get_assignments()
+    students = lms.get_students()
+
+    # Compute automatic extensions
+    extensions = lms.get_automatic_extensions(assignments, students, interval)
+
+    # Update LMS with automatic extensions
+    lms.update_overrides(extensions)
+
+    # end func
+
+def build_autoext_flows(config):
+    """
+    Build the flow for the auto-extension of assignments for students
+    who register late.
+
+    Params
+    ------
+    config: traitlets.config.loader.Config
+        a dictionary-like object containing the configurations
+        from rudaux_config.py
+    """
+    flows = []
+    for group in config.course_groups:
+        for course_id in config.course_groups[group]:
+            with Flow(config.course_names[course_id] + "-autoext",
+                      terminal_state_handler=fail_handler_gen(config)) as flow:
+
+                assignment_names = list(config.assignments[group].keys())
+
+                # Obtain course/student/assignment/etc info from the course API
+                course_info = api.get_course_info(config, course_id)
+                assignments = api.get_assignments(config, course_id, assignment_names)
+                students = api.get_students(config, course_id)
+                submission_info = combine_dictionaries(api.get_submissions.map(unmapped(config), unmapped(course_id), assignments))
+
+                # Create submissions
+                submission_sets = subm.initialize_submission_sets(config, [course_info], [assignments], [students], [submission_info])
+
+                # Fill in submission deadlines
+                submission_sets = subm.build_submission_set.map(unmapped(config), submission_sets)
+
+                # Compute override updates
+                overrides = subm.get_latereg_overrides.map(unmapped(config.latereg_extension_days[group]), submission_sets, unmapped(config))
+
+                # TODO: we would ideally do flatten(overrides) and then
+                # api.update_override.map(unmapped(config), unmapped(course_id), flatten(overrides))
+                # but that will cause prefect to fail. see https://github.com/PrefectHQ/prefect/issues/4084
+                # so instead we will code a temporary hack for update_override.
+                api.update_override_flatten.map(unmapped(config), unmapped(course_id), overrides)
+
+            flows.append(flow)
+    return flows
+
+
+
+
 def snapshot_flow(config):
     interval = config.snapshot_interval
     while True:
@@ -91,28 +155,6 @@ def snapshot_flow(config):
 
         # sleep until the next run time
         print(f"Snapshot waiting {interval} minutes for next run...")
-        time.sleep(interval*60)
-    # end func
-
-def autoext_flow(config):
-    interval = config.autoext_interval
-    while True:
-        for group in config.course_groups:
-            # Create an LMS API connection
-            lms = LMSAPI(group, config)
-
-            # Obtain assignments/students/submissions from the course API
-            assignments = lms.get_assignments()
-            students = lms.get_students()
-
-            # Compute automatic extensions
-            extensions = lms.get_automatic_extensions(assignments, students)
-
-            # Update LMS with automatic extensions
-            lms.update_extensions(extensions)
-
-        # sleep until the next run time
-        print(f"Autoext waiting {interval} minutes for next run...")
         time.sleep(interval*60)
     # end func
 
