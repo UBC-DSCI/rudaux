@@ -16,55 +16,61 @@ subparsers = parser.add_subparsers(
 # ---------------------------------------------
 #           Run workflows 
 # ---------------------------------------------
-test_parser = subparsers.add_parser(
-    'test', help='test deployent')
-test_parser.set_defaults(func=flows.test)
-
-
-# ---------------------------------------------
-#           Run workflows 
-# ---------------------------------------------
 run_parser = subparsers.add_parser(
-    'run', help='Run course management workflows locally in threads')
+    'run', help='Run course management workflows locally')
 run_parser.set_defaults(func=flows.run)
 run_parser.add_argument(
     '--config',
     dest='config_path',
     action='store',
-    default=os.path.join(os.getcwd(), "rudaux_config.py"),
+    default=os.path.join(os.getcwd(), "rudaux_config.json"),
     help="the path to the rudaux configuration file."
 )
-run_parser.add_argument(
+
+# ---------------------------------------------
+#           Register workflows 
+# ---------------------------------------------
+register_parser = subparsers.add_parser(
+    'register', help='Register course management workflows')
+register_parser.set_defaults(func=flows.register)
+register_parser.add_argument(
+    '--config',
+    dest='config_path',
+    action='store',
+    default=os.path.join(os.getcwd(), "rudaux_config.json"),
+    help="the path to the rudaux configuration file."
+)
+register_parser.add_argument(
     '--all',
     dest='all_flows',
     action='store_true',
     help="Run all flows"
 )
-run_parser.add_argument(
+register_parser.add_argument(
     '--autoext',
     dest='autoext',
     action='store_true',
     help="Run the autoextension flow"
 )
-run_parser.add_argument(
+register_parser.add_argument(
     '--snap',
     dest='snap',
     action='store_true',
     help="Run the snapshot flow"
 )
-run_parser.add_argument(
+register_parser.add_argument(
     '--grade',
     dest='grade',
     action='store_true',
     help="Run the grading flow"
 )
-run_parser.add_argument(
+register_parser.add_argument(
     '--solution',
     dest='grade',
     action='store_true',
     help="Run the solution return flow"
 )
-run_parser.add_argument(
+register_parser.add_argument(
     '--feedback',
     dest='grade',
     action='store_true',
@@ -82,7 +88,7 @@ list_parser.add_argument(
     '--config',
     dest='config_path',
     action='store',
-    default=os.getcwd(),
+    default=os.path.join(os.getcwd(), "rudaux_config.json"),
     help="the path to the rudaux configuration file."
 )
 

@@ -6,23 +6,11 @@ from prefect import task, flow
 from prefect.flow_runners import SubprocessFlowRunner
 from prefect.blocks.storage import TempStorageBlock
 from prefect.client import get_client
-from prefect.cli.agent import start
-from .models.settings import Settings
-
-#from traitlets.config import Config
-#from traitlets.config.loader import PyFileConfigLoader
-#import pendulum as plm
-#from requests.exceptions import ConnectionError
-#from subprocess import check_output, STDOUT, CalledProcessError
-#import time
-
-#import threading
-#
-#from . import snapshot as snap
-#from . import submission as subm
-#from . import course_api as api
-#from . import grader as grd
-#from . import notification as ntfy
+from prefect.cli.agent import start as start_prefect_agent
+from prefect.cli.deployment import ls as ls_prefect_deployments
+from prefect.cli.work_queue import ls as ls_prefect_workqueues
+from prefect.orion.schemas.filters import DeploymentFilter
+from .model.settings import Settings
 
 @task
 def create_list():
@@ -49,44 +37,13 @@ def test_flow_2():
     s = sum_list(li)
     return s
 
-async def test(args):
-    print("Test flow")
-
-    ds1 = DeploymentSpec(
-        name="deployment-1",
-        flow = test_flow_1,
-        flow_storage = TempStorageBlock(),
-        schedule=CronSchedule(cron="* * * * *"),
-        flow_runner = SubprocessFlowRunner(),
-        #flow_location="/path/to/flow.py",
-        #timezone = "America/Vancouver"
-    )
-
-    ds2 = DeploymentSpec(
-        name="deployment-2",
-        flow = test_flow_2,
-        flow_storage = TempStorageBlock(),
-        schedule=CronSchedule(cron="* * * * *"),
-        flow_runner = SubprocessFlowRunner(),
-        #flow_location="/path/to/flow.py",
-        #timezone = "America/Vancouver"
-    )
-
-    dpl1 = await ds1.create_deployment()
-    dpl2 = await ds2.create_deployment()
-
-    try:
-        async with get_client() as client:
-            await client.create_work_queue(
-                  name = "rudaux_queue",
-                  deployment_ids = [dpl1, dpl2]
-            )
-    except:
-        pass
-
-    await start("rudaux_queue")
 
 async def run(args):
+    # start the prefect agent
+    await start_prefect_agent(settings.prefect_queue_name)
+
+async def register(args):
+    # load settings from the config
     print(f"Loading the rudaux configuration file {args.config_path}...")
     if not os.path.exists(args.config_path):
             sys.exit(
@@ -96,14 +53,62 @@ async def run(args):
               specify a valid configuration file path.
               """
             )
-
     settings = Settings.parse_file(args.config_path)
 
+    
+    # start the client
+    async with get_client() as client:
+        # remove old rudaux deployments
+        current_deployments = await client.read_deployments()
+        for deployment in current_deployments:
+            if settings.prefect_deployment_prefix in deployment.name:
+                await client.delete_deployment(deployment.id)
+        
+        deployment_ids = []
 
+        # add fresh autoext deployments
+        for group_name in settings.course_groups:
+            for course_name in settings.course_groups[group_name]:
+                deployspec = DeploymentSpec(
+                    name=settings.prefect_deployment_prefix + settings.autoext_prefix + course_name,
+                    flow = autoext_flow,
+                    flow_storage = TempStorageBlock(),
+                    schedule=CronSchedule(cron=settings.autoext_cron_string),
+                    flow_runner = SubprocessFlowRunner(),
+                    parameters = {'settings' : settings, 'config_path': args.config_path, 'course_name': course_name}
+                    #flow_location="/path/to/flow.py",
+                    #timezone = "America/Vancouver"
+                )
+                deployment_ids.append(await deployspec.create_deployment())
+        
+        # TODO other deployments
+
+        # create the rudaux work queue if necessary, update it otherwise
+        wqs = await client.read_work_queues()
+        wqs = [wq for wq in wqs if wq.name == settings.prefect_queue_name]
+        if len(wqs) >= 1:
+            if len(wqs) > 1:
+                raise ValueError
+            await client.delete_work_queue_by_id(wqs[0].id)
+        await client.create_work_queue(
+          name = settings.prefect_queue_name,
+          deployment_ids = deployment_ids
+        )
+
+        print("Flows registered.")
+        await ls_prefect_workqueues(verbose=False)
+        await ls_prefect_workqueues(verbose=True)
+        await ls_prefect_deployments()
+
+    return
+          
 @flow
-def autoext_flow(settings, args.config_path):
+def autoext_flow(settings, config_path, course_name):
     # Create an LMS API connection
-    lms = LMSAPI(api_info)
+    print(settings)
+    print(config_path)
+    print(course_name)
+    #lms = LMSAPI(api_info)
 
 async def list_course_info(args):
     pass
