@@ -10,8 +10,8 @@ from prefect.cli.agent import start as start_prefect_agent
 from prefect.cli.deployment import ls as ls_prefect_deployments
 from prefect.cli.work_queue import ls as ls_prefect_workqueues
 from prefect.orion.schemas.filters import DeploymentFilter
-from .model import Settings
-from .tasks import get_learning_management_system, get_grading_system, get_submission_system
+from rudaux.model import Settings
+from rudaux.tasks import get_learning_management_system, get_grading_system, get_submission_system
 
 def load_settings(path):
     # load settings from the config
@@ -61,7 +61,7 @@ async def register(args):
                         flow_storage = TempStorageBlock(),
                         schedule=CronSchedule(cron=cron),
                         flow_runner = SubprocessFlowRunner(),
-                        parameters = {'settings' : settings, 'config_path': args.config_path, 'group_name': group_name}
+                        parameters = {'settings' : settings.dict(), 'config_path': args.config_path, 'group_name': group_name}
                         #flow_location="/path/to/flow.py",
                         #timezone = "America/Vancouver"
                     )
@@ -74,7 +74,7 @@ async def register(args):
                         flow_storage = TempStorageBlock(),
                         schedule=CronSchedule(cron=cron),
                         flow_runner = SubprocessFlowRunner(),
-                        parameters = {'settings' : settings, 'config_path': args.config_path, 'group_name': group_name, 'course_name': course_name}
+                        parameters = {'settings' : settings.dict(), 'config_path': args.config_path, 'group_name': group_name, 'course_name': course_name}
                         #flow_location="/path/to/flow.py",
                         #timezone = "America/Vancouver"
                     )
@@ -101,31 +101,33 @@ async def register(args):
           
 @flow
 def autoext_flow(settings, config_path, group_name, course_name):
+    settings = Settings.parse_obj(settings)
     # Create an LMS object
     lms = get_learning_management_system(settings, config_path, group_name)
     
 
 @flow
 def snap_flow(settings, config_path, group_name, course_name):
+    settings = Settings.parse_obj(settings)
     # create LMS and Submission system objects
     lms = get_learning_management_system(settings, config_path, group_name)
     subs = get_submission_system(settings, config_path, group_name)
 
 @flow
 def grade_flow(settings, config_path, group_name):
-    print(group_name)
+    settings = Settings.parse_obj(settings)
     # create LMS and Submission system objects
-    #lms = get_learning_management_system(settings, config_path, group_name)
-    #subs = get_submission_system(settings, config_path, group_name)
-    #grds = get_grading_system(settings, config_path, group_name)
+    lms = get_learning_management_system(settings, config_path, group_name)
+    subs = get_submission_system(settings, config_path, group_name)
+    grds = get_grading_system(settings, config_path, group_name)
 
 @flow
 def soln_flow(settings, config_path, group_name):
-    print(group_name)
+    settings = Settings.parse_obj(settings)
 
 @flow
 def fdbk_flow(settings, config_path, group_name):
-    print(group_name)
+    settings = Settings.parse_obj(settings)
 
 async def list_course_info(args):
     # load settings from the config

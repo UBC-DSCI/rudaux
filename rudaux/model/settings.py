@@ -20,6 +20,6 @@ class Settings(BaseModel):
     course_groups : Dict[str, List[str]]
     # maps course_group to LMS, GMS, SMS class type
     lms_classes : Dict[str, str]
-    #gs_classes : Dict[str, str]
-    #ss_classes : Dict[str, str]
+    gs_classes : Dict[str, str]
+    ss_classes : Dict[str, str]
     
