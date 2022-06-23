@@ -87,7 +87,7 @@ async def register(args):
         
         # TODO other deployments
 
-        # create the rudaux work queue if necessary, update it otherwise
+        # if the work_queue already exists, delete it; then create it (refresh deployment ids)
         wqs = await client.read_work_queues()
         wqs = [wq for wq in wqs if wq.name == settings.prefect_queue_name]
         if len(wqs) >= 1:
