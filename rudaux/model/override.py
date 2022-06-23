@@ -1,6 +1,7 @@
 import pendulum as plm
 from typing import Optional, List
 from pydantic import BaseModel
+from .student import Student
 
 class Override(BaseModel):
     lms_id : str
@@ -9,4 +10,3 @@ class Override(BaseModel):
     lock_at : plm.DateTime
     unlock_at : plm.DateTime
     students : List[Student]
-    assignment : Assignment

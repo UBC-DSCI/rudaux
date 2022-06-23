@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from abc import ABC, abstractmethod
-from .models import Student, Assignment, Override
+from ..model import Student, Assignment, Override
 
 class LearningManagementSystem(ABC,BaseModel):
 

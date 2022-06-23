@@ -10,32 +10,8 @@ from prefect.cli.agent import start as start_prefect_agent
 from prefect.cli.deployment import ls as ls_prefect_deployments
 from prefect.cli.work_queue import ls as ls_prefect_workqueues
 from prefect.orion.schemas.filters import DeploymentFilter
-from rudaux.model.settings import Settings
-
-@task
-def create_list():
-    return [1, 2, 3, 4, 5]
-
-@task
-def multiply(li):
-    return [a*3 for a in li]
-
-@task 
-def sum_list(li):
-    return sum(li)
-
-@flow(name = "test-flow-1")
-def test_flow_1():
-    li = create_list()
-    li2 = multiply(li)
-    s = sum_list(li)
-    return s
-    
-@flow(name = "test-flow-2")
-def test_flow_2():
-    li = create_list()
-    s = sum_list(li)
-    return s
+from .model import Settings
+from .tasks import get_learning_management_system, get_grading_system, get_submission_system
 
 def load_settings(path):
     # load settings from the config
@@ -59,7 +35,7 @@ async def run(args):
 async def register(args):
     # load settings from the config
     settings = load_settings(args.config_path)
-    
+
     # start the client
     async with get_client() as client:
         # remove old rudaux deployments
@@ -98,7 +74,7 @@ async def register(args):
                         flow_storage = TempStorageBlock(),
                         schedule=CronSchedule(cron=cron),
                         flow_runner = SubprocessFlowRunner(),
-                        parameters = {'settings' : settings, 'config_path': args.config_path, 'course_name': course_name}
+                        parameters = {'settings' : settings, 'config_path': args.config_path, 'group_name': group_name, 'course_name': course_name}
                         #flow_location="/path/to/flow.py",
                         #timezone = "America/Vancouver"
                     )
@@ -124,20 +100,24 @@ async def register(args):
     return
           
 @flow
-def autoext_flow(settings, config_path, course_name):
-    # Create an LMS API connection
-    print(settings)
-    print(config_path)
-    print(course_name)
-    #lms = LMSAPI(api_info)
+def autoext_flow(settings, config_path, group_name, course_name):
+    # Create an LMS object
+    lms = get_learning_management_system(settings, config_path, group_name)
+    
 
 @flow
-def snap_flow(settings, config_path, course_name):
-    print(course_name)
+def snap_flow(settings, config_path, group_name, course_name):
+    # create LMS and Submission system objects
+    lms = get_learning_management_system(settings, config_path, group_name)
+    subs = get_submission_system(settings, config_path, group_name)
 
 @flow
 def grade_flow(settings, config_path, group_name):
     print(group_name)
+    # create LMS and Submission system objects
+    #lms = get_learning_management_system(settings, config_path, group_name)
+    #subs = get_submission_system(settings, config_path, group_name)
+    #grds = get_grading_system(settings, config_path, group_name)
 
 @flow
 def soln_flow(settings, config_path, group_name):
@@ -148,56 +128,44 @@ def fdbk_flow(settings, config_path, group_name):
     print(group_name)
 
 async def list_course_info(args):
-    pass
+    # load settings from the config
+    settings = load_settings(args.config_path)
+    for group_name in settings.course_groups:
+        lms = get_learning_management_system(settings, config_path, group_name)
+        pass #TODO
 
-async def status(args):
-    pass
+    #asgns = []
+    #studs = []
+    #tas = []
+    #insts = []
+    #for group in config.course_groups:
+    #    for course_id in config.course_groups[group]:
+    #        course_name = config.course_names[course_id]
+    #        asgns.extend([(course_name, a) for a in api._canvas_get(config, course_id, 'assignments')])
+    #        studs.extend([(course_name, s) for s in api._canvas_get_people_by_type(config, course_id, 'StudentEnrollment')])
+    #        tas.extend([(course_name, s) for s in api._canvas_get_people_by_type(config, course_id, 'TaEnrollment')])
+    #        insts.extend([(course_name, s) for s in api._canvas_get_people_by_type(config, course_id, 'TeacherEnrollment')])
+    #print()
+    #print('Assignments')
+    #print()
+    #print('\n'.join([f"{c[0] : <16}{c[1]['name'] : <32}{c[1]['id'] : <16}" for c in asgns]))
+
+    #print()
+    #print('Students')
+    #print()
+    #print('\n'.join([f"{c[0] : <16}{c[1]['name'] : <32}{c[1]['id'] : <16}{str(c[1]['reg_date'].in_timezone(config.notify_timezone)) : <32}{c[1]['status'] : <16}" for c in studs]))
+
+    #print()
+    #print('Teaching Assistants')
+    #print()
+    #print('\n'.join([f"{c[0] : <16}{c[1]['name'] : <32}{c[1]['id'] : <16}{str(c[1]['reg_date'].in_timezone(config.notify_timezone)) : <32}{c[1]['status'] : <16}" for c in tas]))
+
+    #print()
+    #print('Instructors')
+    #print()
+    #print('\n'.join([f"{c[0] : <16}{c[1]['name'] : <32}{c[1]['id'] : <16}{str(c[1]['reg_date'].in_timezone(config.notify_timezone)) : <32}{c[1]['status'] : <16}" for c in insts]))
  
-#def run(args):
-#    print("Creating/running flows in local threads")
-#    flows, config = _collect_flows(args)
-#    threads = []
-#    for flow in flows:
-#        threads.append(threading.Thread(target=flow[0], name=flow[1], args=(config,)))
-#
-#    for thread in threads:
-#        thread.start()
-#
-#    for thread in threads:
-#        thread.join()
-#    return
-#
-#def _collect_flows(args):
-#    print("Loading the rudaux_config.py file...")
-#    if not os.path.exists(os.path.join(args.directory, 'rudaux_config.py')):
-#            sys.exit(
-#              f"""
-#              There is no rudaux_config.py in the directory {args.directory},
-#              and no course directory was specified on the command line. Please
-#              specify a directory with a valid rudaux_config.py file.
-#              """
-#            )
-#    config = Config()
-#    config.merge(PyFileConfigLoader('rudaux_config.py', path=args.directory).load_config())
-#
-#    # validate the config file
-#    print("Validating the config file...")
-#    api.validate_config(config)
-#    snap.validate_config(config)
-#    subm.validate_config(config)
-#    grd.validate_config(config)
-#    ntfy.validate_config(config)
-#
-#    flows = []
-#    if args.snap or args.all_flows:
-#        flows.append((snapshot_flow, 'snapshot'))
-#    if args.autoext or args.all_flows:
-#        flows.append((autoext_flow, 'autoextension'))
-#    if args.grade or args.all_flows:
-#        flows.append((grading_flow, 'grading'))
-#
-#    return flows, config
-#
+
 #def fail_handler_gen(config):
 #    def fail_handler(flow, state, ref_task_states):
 #        if state.is_failed():
@@ -205,39 +173,7 @@ async def status(args):
 #            sm.notify(config.instructor_user, f"Hi Instructor, \r\n Flow failed!\r\n Message:\r\n{state.message}")
 #    return fail_handler
 #
-#@flow
-#def autoext_flow(api_info):
-#    # Create an LMS API connection
-#    lms = LMSAPI(api_info)
-#
-#    # Get raw student / assignment info from LMS
-#    _students, _assignments = get_students_assignments(lms)
-#
-#    # map over each list, creating and validating student / assignment object lists (validation)
-#    students = validate_student.map(_students)
-#    assignments = validate_assignment.map(_assignments)
-#
-#    # pairwise map student/assignment lists to compute extensions / updates (consider students who need to be removed from multiple-extension lists)
-#    override_updates = compute_override_update.product_map(students, assignments)
-#
-#    # reduce to set of updates to apply 
-#    override_updates = reduce_override_updates(override_updates)
-#
-#    # apply each update
-#
-#
-#    # Obtain assignments/students/submissions from the course API
-#    assignments = lms.get_assignments()
-#    students = lms.get_students()
-#
-#    # Compute automatic extensions
-#    extensions = lms.get_automatic_extensions(assignments, students, interval)
-#
-#    # Update LMS with automatic extensions
-#    lms.update_overrides(extensions)
-#
-#    # end func
-#
+
 #def build_autoext_flows(config):
 #    """
 #    Build the flow for the auto-extension of assignments for students
@@ -476,64 +412,4 @@ async def status(args):
 #    for flowrun in flowruns:
 #        print(FlowRunView.from_flow_run_id(flowrun['id']))
 #
-#def print_list(args):
-#    course = rudaux.Course(args.directory)
-#    printouts = {'students' : 'Students', 'groups' : 'Groups', 'instructors' : 'Instructors', 'tas' : 'Teaching Assistants', 'assignments' : 'Assignments'}
-#    none_selected = not any([vars(args)[po] for po in printouts])
-#    for po in printouts:
-#        if vars(args)[po] or none_selected:
-#            title = printouts[po]
-#            if len(course.__dict__[po]) > 0:
-#                tbl = [type(course.__dict__[po][0]).table_headings()]
-#                for obj in course.__dict__[po]:
-#                    tbl.append(obj.table_items())
-#            else:
-#                tbl = []
-#            print(ttbl.AsciiTable(tbl, title).table)
-#
-#def list_course_info(args):
-#    print("Loading the rudaux_config.py file...")
-#    if not os.path.exists(os.path.join(args.directory, 'rudaux_config.py')):
-#            sys.exit(
-#              f"""
-#              There is no rudaux_config.py in the directory {args.directory},
-#              and no course directory was specified on the command line. Please
-#              specify a directory with a valid rudaux_config.py file.
-#              """
-#            )
-#    config = Config()
-#    config.merge(PyFileConfigLoader('rudaux_config.py', path=args.directory).load_config())
-#
-#    # validate the config file
-#    print("Validating the config file...")
-#    api.validate_config(config)
-#    asgns = []
-#    studs = []
-#    tas = []
-#    insts = []
-#    for group in config.course_groups:
-#        for course_id in config.course_groups[group]:
-#            course_name = config.course_names[course_id]
-#            asgns.extend([(course_name, a) for a in api._canvas_get(config, course_id, 'assignments')])
-#            studs.extend([(course_name, s) for s in api._canvas_get_people_by_type(config, course_id, 'StudentEnrollment')])
-#            tas.extend([(course_name, s) for s in api._canvas_get_people_by_type(config, course_id, 'TaEnrollment')])
-#            insts.extend([(course_name, s) for s in api._canvas_get_people_by_type(config, course_id, 'TeacherEnrollment')])
-#    print()
-#    print('Assignments')
-#    print()
-#    print('\n'.join([f"{c[0] : <16}{c[1]['name'] : <32}{c[1]['id'] : <16}" for c in asgns]))
-#
-#    print()
-#    print('Students')
-#    print()
-#    print('\n'.join([f"{c[0] : <16}{c[1]['name'] : <32}{c[1]['id'] : <16}{str(c[1]['reg_date'].in_timezone(config.notify_timezone)) : <32}{c[1]['status'] : <16}" for c in studs]))
-#
-#    print()
-#    print('Teaching Assistants')
-#    print()
-#    print('\n'.join([f"{c[0] : <16}{c[1]['name'] : <32}{c[1]['id'] : <16}{str(c[1]['reg_date'].in_timezone(config.notify_timezone)) : <32}{c[1]['status'] : <16}" for c in tas]))
-#
-#    print()
-#    print('Instructors')
-#    print()
-#    print('\n'.join([f"{c[0] : <16}{c[1]['name'] : <32}{c[1]['id'] : <16}{str(c[1]['reg_date'].in_timezone(config.notify_timezone)) : <32}{c[1]['status'] : <16}" for c in insts]))
+

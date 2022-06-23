@@ -92,11 +92,11 @@ list_parser.add_argument(
     help="the path to the rudaux configuration file."
 )
 
-# -------------------------------------
-#       Status of workflows/runs
-# -------------------------------------
-status_parser = subparsers.add_parser('status', help='Print workflow status')
-status_parser.set_defaults(func=flows.status)
+## -------------------------------------
+##       Status of workflows/runs
+## -------------------------------------
+#status_parser = subparsers.add_parser('status', help='Print workflow status')
+#status_parser.set_defaults(func=flows.status)
 
 # Parse the arguments!
 args = parser.parse_args()

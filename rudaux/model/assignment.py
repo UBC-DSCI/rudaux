@@ -1,6 +1,7 @@
 import pendulum as plm
 from typing import List
 from pydantic import BaseModel
+from .override import Override
 
 class Assignment(BaseModel):
     lms_id : str

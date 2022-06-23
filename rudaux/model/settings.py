@@ -1,5 +1,6 @@
-from typing import Dict, Type, List
-from pydantic import BaseModel
+from typing import Dict, List
+from pydantic import BaseModel, validator
+import importlib
 
 class Settings(BaseModel):
     # various constants
@@ -18,7 +19,7 @@ class Settings(BaseModel):
     # map of course_group to list of course names in that group
     course_groups : Dict[str, List[str]]
     # maps course_group to LMS, GMS, SMS class type
-    #lms_classes : Dict[str, Type]
-    #gms_classes : Dict[str, Type]
-    #sms_classes : Dict[str, Type]
-
+    lms_classes : Dict[str, str]
+    #gs_classes : Dict[str, str]
+    #ss_classes : Dict[str, str]
+    

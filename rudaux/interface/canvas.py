@@ -2,12 +2,10 @@ from typing import Dict, List
 from .learning_management_system import LearningManagementSystem
 
 class Canvas(LearningManagementSystem):
-    base_domain : str 
-    course_names : Dict[str, str]
-    course_lms_ids : Dict[str, str]
-    course_groups : Dict[str, List[str]]
-    registration_deadlines : Dict[str, str]
-    api_tokens : Dict[str, str]
+    canvas_base_domain : str 
+    canvas_course_lms_ids : Dict[str, str]
+    canvas_registration_deadlines : Dict[str, str]
+    canvas_api_tokens : Dict[str, str]
 
     def open(self):
         pass
