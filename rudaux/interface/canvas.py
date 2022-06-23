@@ -1,45 +1,42 @@
-from pydantic import BaseModel
-from abc import ABC, abstractmethod
-from .models import Student, Assignment, Override
+from typing import Dict, List
+from .learning_management_system import LearningManagementSystem
 
-class LearningManagementSystem(ABC,BaseModel):
+class Canvas(LearningManagementSystem):
+    base_domain : str 
+    course_names : Dict[str, str]
+    course_lms_ids : Dict[str, str]
+    course_groups : Dict[str, List[str]]
+    registration_deadlines : Dict[str, str]
+    api_tokens : Dict[str, str]
 
-    @abstractmethod
     def open(self):
         pass
 
-    @abstractmethod
     def close(self):
         pass
 
-    @abstractmethod
     def get_course_info(self):
         pass
 
-    @abstractmethod
     def get_students(self):
         pass
 
-    @abstractmethod
     def get_instructors(self):
         pass
 
-    @abstractmethod
     def get_groups(self):
         pass
 
-    @abstractmethod
     def get_assignments(self):
         pass 
 
-    @abstractmethod
     def get_submissions(self, assignment):
         pass
 
-    @abstractmethod
     def update_grade(self, submission):
         pass
 
-    @abstractmethod
     def update_override(self, override):
         pass
+
+

@@ -7,6 +7,7 @@ from prefect.flow_runners import SubprocessFlowRunner
 from prefect.blocks.storage import TempStorageBlock
 from prefect.client import get_client
 from prefect.cli.agent import start
+from .models.settings import Settings
 
 #from traitlets.config import Config
 #from traitlets.config.loader import PyFileConfigLoader
@@ -86,7 +87,23 @@ async def test(args):
     await start("rudaux_queue")
 
 async def run(args):
-    pass
+    print(f"Loading the rudaux configuration file {args.config_path}...")
+    if not os.path.exists(args.config_path):
+            sys.exit(
+              f"""
+              There is no configuration file at {args.config_path},
+              and no other file was specified on the command line. Please
+              specify a valid configuration file path.
+              """
+            )
+
+    settings = Settings.parse_file(args.config_path)
+
+
+@flow
+def autoext_flow(settings, args.config_path):
+    # Create an LMS API connection
+    lms = LMSAPI(api_info)
 
 async def list_course_info(args):
     pass
