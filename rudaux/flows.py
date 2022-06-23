@@ -70,23 +70,40 @@ async def register(args):
         
         deployment_ids = []
 
+        per_course_flows = [(autoext_flow, settings.autoext_prefix, settings.autoext_cron_string), 
+			    (snap_flow, settings.snap_prefix, settings.snap_cron_string)]
+        per_group_flows = [(grade_flow, settings.grade_prefix, settings.grade_cron_string),
+                           (soln_flow, settings.soln_prefix, settings.soln_cron_string),
+                           (fdbk_flow, settings.fdbk_prefix, settings.fdbk_cron_string)]
+
         # add fresh autoext deployments
         for group_name in settings.course_groups:
-            for course_name in settings.course_groups[group_name]:
+            for fl, prefix, cron in per_group_flows:
                 deployspec = DeploymentSpec(
-                    name=settings.prefect_deployment_prefix + settings.autoext_prefix + course_name,
-                    flow = autoext_flow,
-                    flow_storage = TempStorageBlock(),
-                    schedule=CronSchedule(cron=settings.autoext_cron_string),
-                    flow_runner = SubprocessFlowRunner(),
-                    parameters = {'settings' : settings, 'config_path': args.config_path, 'course_name': course_name}
-                    #flow_location="/path/to/flow.py",
-                    #timezone = "America/Vancouver"
-                )
+                        name=settings.prefect_deployment_prefix + prefix + group_name,
+                        flow = fl,
+                        flow_storage = TempStorageBlock(),
+                        schedule=CronSchedule(cron=cron),
+                        flow_runner = SubprocessFlowRunner(),
+                        parameters = {'settings' : settings, 'config_path': args.config_path, 'group_name': group_name}
+                        #flow_location="/path/to/flow.py",
+                        #timezone = "America/Vancouver"
+                    )
                 deployment_ids.append(await deployspec.create_deployment())
+            for course_name in settings.course_groups[group_name]:
+                for fl, prefix, cron in per_course_flows:
+                    deployspec = DeploymentSpec(
+                        name=settings.prefect_deployment_prefix + prefix + course_name,
+                        flow = fl,
+                        flow_storage = TempStorageBlock(),
+                        schedule=CronSchedule(cron=cron),
+                        flow_runner = SubprocessFlowRunner(),
+                        parameters = {'settings' : settings, 'config_path': args.config_path, 'course_name': course_name}
+                        #flow_location="/path/to/flow.py",
+                        #timezone = "America/Vancouver"
+                    )
+                    deployment_ids.append(await deployspec.create_deployment())
         
-        # TODO other deployments
-
         # if the work_queue already exists, delete it; then create it (refresh deployment ids)
         wqs = await client.read_work_queues()
         wqs = [wq for wq in wqs if wq.name == settings.prefect_queue_name]
@@ -113,6 +130,22 @@ def autoext_flow(settings, config_path, course_name):
     print(config_path)
     print(course_name)
     #lms = LMSAPI(api_info)
+
+@flow
+def snap_flow(settings, config_path, course_name):
+    print(course_name)
+
+@flow
+def grade_flow(settings, config_path, group_name):
+    print(group_name)
+
+@flow
+def soln_flow(settings, config_path, group_name):
+    print(group_name)
+
+@flow
+def fdbk_flow(settings, config_path, group_name):
+    print(group_name)
 
 async def list_course_info(args):
     pass
