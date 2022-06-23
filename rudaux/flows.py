@@ -10,7 +10,7 @@ from prefect.cli.agent import start as start_prefect_agent
 from prefect.cli.deployment import ls as ls_prefect_deployments
 from prefect.cli.work_queue import ls as ls_prefect_workqueues
 from prefect.orion.schemas.filters import DeploymentFilter
-from .model.settings import Settings
+from rudaux.model.settings import Settings
 
 @task
 def create_list():
