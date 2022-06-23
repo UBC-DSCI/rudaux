@@ -37,24 +37,28 @@ def test_flow_2():
     s = sum_list(li)
     return s
 
+def load_settings(path):
+    # load settings from the config
+    print(f"Loading the rudaux configuration file {path}...")
+    if not os.path.exists(path):
+            sys.exit(
+              f"""
+              There is no configuration file at {path},
+              and no other file was specified on the command line. Please
+              specify a valid configuration file path.
+              """
+            )
+    return Settings.parse_file(path)
 
 async def run(args):
+    # load settings from the config
+    settings = load_settings(args.config_path)
     # start the prefect agent
     await start_prefect_agent(settings.prefect_queue_name)
 
 async def register(args):
     # load settings from the config
-    print(f"Loading the rudaux configuration file {args.config_path}...")
-    if not os.path.exists(args.config_path):
-            sys.exit(
-              f"""
-              There is no configuration file at {args.config_path},
-              and no other file was specified on the command line. Please
-              specify a valid configuration file path.
-              """
-            )
-    settings = Settings.parse_file(args.config_path)
-
+    settings = load_settings(args.config_path)
     
     # start the client
     async with get_client() as client:
