@@ -11,19 +11,25 @@ def get_learning_management_system(settings, config_path, group_name):
     LMS = get_class_from_string(settings.lms_classes[group_name])
     if not issubclass(LMS, LearningManagementSystem):
         raise ValueError
-    return LMS.parse_file(config_path)
+    lms = LMS.parse_file(config_path)
+    # TODO any additional runtime validation (e.g. check if all assignments for all courses in group are the same, etc)
+    return lms
 
 @task
 def get_grading_system(settings, config_path, group_name):
     GrdS = get_class_from_string(settings.gs_classes[group_name])
     if not issubclass(GrdS, GradingSystem):
         raise ValueError
-    return GrdS.parse_file(config_path)
+    grds = GrdS.parse_file(config_path)
+    # TODO any additional runtime validation
+    return grds
 
 @task
 def get_submission_system(settings, config_path, group_name):
     SubS = get_class_from_string(settings.ss_classes[group_name])
     if not issubclass(SubS, SubmissionSystem):
         raise ValueError
-    return SubS.parse_file(config_path)
+    subs = SubS.parse_file(config_path)
+    # TODO any additional runtime validation
+    return subs
 

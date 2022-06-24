@@ -12,6 +12,7 @@ from prefect.cli.work_queue import ls as ls_prefect_workqueues
 from prefect.orion.schemas.filters import DeploymentFilter
 from rudaux.model import Settings
 from rudaux.tasks import get_learning_management_system, get_grading_system, get_submission_system
+from rudaux.task.learning_management_system import get_students, get_assignments, get_course_info
 
 def load_settings(path):
     # load settings from the config
@@ -101,17 +102,51 @@ async def register(args):
           
 @flow
 def autoext_flow(settings, config_path, group_name, course_name):
+    # settings was serialized by prefect when registering the flow, so need to re-parse it
     settings = Settings.parse_obj(settings)
+
     # Create an LMS object
     lms = get_learning_management_system(settings, config_path, group_name)
+
+    # Get course info, list of students, and list of assignments from lms
+    course_info = get_course_info(lms)
+    students = get_students(lms)
+    assignments = get_assignments(lms)
+
+    # Compute the set of overrides to delete and new ones to create
+    # we formulate override updates as delete first, wait, then create to avoid concurrency issues 
+    # TODO map over assignments here (still fine with concurrency)
+    overrides_to_delete, overrides_to_create = compute_autoextension_override_updates(course_info, students, assignments)
+    delete_response = delete_overrides(lms, overrides_to_delete)
+    create_response = create_overrides(lms, overrides_to_create, wait_for=[delete_response])
     
 
 @flow
 def snap_flow(settings, config_path, group_name, course_name):
+    # settings was serialized by prefect when registering the flow, so need to re-parse it
     settings = Settings.parse_obj(settings)
-    # create LMS and Submission system objects
+
+    # Create an LMS and SubS object 
     lms = get_learning_management_system(settings, config_path, group_name)
     subs = get_submission_system(settings, config_path, group_name)
+
+    # Get course info, list of students, and list of assignments from lms
+    course_info = get_course_info(lms)
+    students = get_students(lms)
+    assignments = get_assignments(lms)
+
+    # get list of snapshots past their due date from assignments
+    pastdue_snaps = get_snapshots_to_take(assignments)
+
+    # get list of existing snapshots from submission system
+    existing_snaps = get_existing_snapshots(subs)
+
+    # compute snapshots to take 
+    snaps_to_take = get_snapshots_to_take(pastdue_snaps, existing_snaps)
+   
+    # take snapshots
+    take_snapshots(snaps_to_take)
+
 
 @flow
 def grade_flow(settings, config_path, group_name):
