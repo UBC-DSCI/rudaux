@@ -3,7 +3,7 @@ import prefect
 from prefect.deployments import Deployment
 from prefect.orion.schemas.schedules import CronSchedule
 from prefect import task, flow
-#from prefect.flow_runners import SubprocessFlowRunner
+#from prefect.flow_runners.subprocess import SubprocessFlowRunner
 #from prefect.blocks.storage import TempStorageBlock
 from prefect.client import get_client
 from prefect.cli.agent import start as start_prefect_agent
@@ -66,10 +66,10 @@ async def register(args):
                         #flow_location="/path/to/flow.py",
                         #timezone = "America/Vancouver"
                     )
-                deployment_ids.append(await deployment.create(client))
+                deployment_ids.append(await deployment.create())
             for course_name in settings.course_groups[group_name]:
                 for fl, prefix, cron in per_course_flows:
-                    deployspec = DeploymentSpec(
+                    deployspec = Deployment(
                         name=settings.prefect_deployment_prefix + prefix + course_name,
                         flow = fl,
                         #flow_storage = TempStorageBlock(),
@@ -79,7 +79,7 @@ async def register(args):
                         #flow_location="/path/to/flow.py",
                         #timezone = "America/Vancouver"
                     )
-                    deployment_ids.append(await deployment.create(client))
+                    deployment_ids.append(await deployment.create())
 
         # if the work_queue already exists, delete it; then create it (refresh deployment ids)
         wqs = await client.read_work_queues()
@@ -105,20 +105,20 @@ def autoext_flow(settings, config_path, group_name, course_name):
     # settings was serialized by prefect when registering the flow, so need to re-parse it
     settings = Settings.parse_obj(settings)
 
-    # Create an LMS object
-    lms = get_learning_management_system(settings, config_path, group_name)
+    ## Create an LMS object
+    #lms = get_learning_management_system(settings, config_path, group_name)
 
-    # Get course info, list of students, and list of assignments from lms
-    course_info = get_course_info(lms)
-    students = get_students(lms)
-    assignments = get_assignments(lms)
+    ## Get course info, list of students, and list of assignments from lms
+    #course_info = get_course_info(lms)
+    #students = get_students(lms)
+    #assignments = get_assignments(lms)
 
-    # Compute the set of overrides to delete and new ones to create
-    # we formulate override updates as delete first, wait, then create to avoid concurrency issues
-    # TODO map over assignments here (still fine with concurrency)
-    overrides_to_delete, overrides_to_create = compute_autoextension_override_updates(course_info, students, assignments)
-    delete_response = delete_overrides(lms, overrides_to_delete)
-    create_response = create_overrides(lms, overrides_to_create, wait_for=[delete_response])
+    ## Compute the set of overrides to delete and new ones to create
+    ## we formulate override updates as delete first, wait, then create to avoid concurrency issues
+    ## TODO map over assignments here (still fine with concurrency)
+    #overrides_to_delete, overrides_to_create = compute_autoextension_override_updates(course_info, students, assignments)
+    #delete_response = delete_overrides(lms, overrides_to_delete)
+    #create_response = create_overrides(lms, overrides_to_create, wait_for=[delete_response])
 
 
 @flow
@@ -126,35 +126,35 @@ def snap_flow(settings, config_path, group_name, course_name):
     # settings was serialized by prefect when registering the flow, so need to re-parse it
     settings = Settings.parse_obj(settings)
 
-    # Create an LMS and SubS object
-    lms = get_learning_management_system(settings, config_path, group_name)
-    subs = get_submission_system(settings, config_path, group_name)
+    ## Create an LMS and SubS object
+    #lms = get_learning_management_system(settings, config_path, group_name)
+    #subs = get_submission_system(settings, config_path, group_name)
 
-    # Get course info, list of students, and list of assignments from lms
-    course_info = get_course_info(lms)
-    students = get_students(lms)
-    assignments = get_assignments(lms)
+    ## Get course info, list of students, and list of assignments from lms
+    #course_info = get_course_info(lms)
+    #students = get_students(lms)
+    #assignments = get_assignments(lms)
 
-    # get list of snapshots past their due date from assignments
-    pastdue_snaps = get_snapshots_to_take(assignments)
+    ## get list of snapshots past their due date from assignments
+    #pastdue_snaps = get_snapshots_to_take(assignments)
 
-    # get list of existing snapshots from submission system
-    existing_snaps = get_existing_snapshots(subs)
+    ## get list of existing snapshots from submission system
+    #existing_snaps = get_existing_snapshots(subs)
 
-    # compute snapshots to take
-    snaps_to_take = get_snapshots_to_take(pastdue_snaps, existing_snaps)
+    ## compute snapshots to take
+    #snaps_to_take = get_snapshots_to_take(pastdue_snaps, existing_snaps)
 
-    # take snapshots
-    take_snapshots(snaps_to_take)
+    ## take snapshots
+    #take_snapshots(snaps_to_take)
 
 
 @flow
 def grade_flow(settings, config_path, group_name):
     settings = Settings.parse_obj(settings)
-    # create LMS and Submission system objects
-    lms = get_learning_management_system(settings, config_path, group_name)
-    subs = get_submission_system(settings, config_path, group_name)
-    grds = get_grading_system(settings, config_path, group_name)
+    ## create LMS and Submission system objects
+    #lms = get_learning_management_system(settings, config_path, group_name)
+    #subs = get_submission_system(settings, config_path, group_name)
+    #grds = get_grading_system(settings, config_path, group_name)
 
 @flow
 def soln_flow(settings, config_path, group_name):
