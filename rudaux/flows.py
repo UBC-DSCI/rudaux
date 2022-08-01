@@ -1,10 +1,10 @@
 import sys, os
 import prefect
-from prefect.deployments import DeploymentSpec
+from prefect.deployments import Deployment
 from prefect.orion.schemas.schedules import CronSchedule
 from prefect import task, flow
-from prefect.flow_runners import SubprocessFlowRunner
-from prefect.blocks.storage import TempStorageBlock
+#from prefect.flow_runners import SubprocessFlowRunner
+#from prefect.blocks.storage import TempStorageBlock
 from prefect.client import get_client
 from prefect.cli.agent import start as start_prefect_agent
 from prefect.cli.deployment import ls as ls_prefect_deployments
@@ -44,10 +44,10 @@ async def register(args):
         for deployment in current_deployments:
             if settings.prefect_deployment_prefix in deployment.name:
                 await client.delete_deployment(deployment.id)
-        
+
         deployment_ids = []
 
-        per_course_flows = [(autoext_flow, settings.autoext_prefix, settings.autoext_cron_string), 
+        per_course_flows = [(autoext_flow, settings.autoext_prefix, settings.autoext_cron_string),
 			    (snap_flow, settings.snap_prefix, settings.snap_cron_string)]
         per_group_flows = [(grade_flow, settings.grade_prefix, settings.grade_cron_string),
                            (soln_flow, settings.soln_prefix, settings.soln_cron_string),
@@ -56,31 +56,31 @@ async def register(args):
         # add fresh autoext deployments
         for group_name in settings.course_groups:
             for fl, prefix, cron in per_group_flows:
-                deployspec = DeploymentSpec(
+                deployment = Deployment(
                         name=settings.prefect_deployment_prefix + prefix + group_name,
                         flow = fl,
-                        flow_storage = TempStorageBlock(),
+                        #flow_storage = TempStorageBlock(),
                         schedule=CronSchedule(cron=cron),
-                        flow_runner = SubprocessFlowRunner(),
+                        #flow_runner = SubprocessFlowRunner(),
                         parameters = {'settings' : settings.dict(), 'config_path': args.config_path, 'group_name': group_name}
                         #flow_location="/path/to/flow.py",
                         #timezone = "America/Vancouver"
                     )
-                deployment_ids.append(await deployspec.create_deployment())
+                deployment_ids.append(await deployment.create(client))
             for course_name in settings.course_groups[group_name]:
                 for fl, prefix, cron in per_course_flows:
                     deployspec = DeploymentSpec(
                         name=settings.prefect_deployment_prefix + prefix + course_name,
                         flow = fl,
-                        flow_storage = TempStorageBlock(),
+                        #flow_storage = TempStorageBlock(),
                         schedule=CronSchedule(cron=cron),
-                        flow_runner = SubprocessFlowRunner(),
+                        #flow_runner = SubprocessFlowRunner(),
                         parameters = {'settings' : settings.dict(), 'config_path': args.config_path, 'group_name': group_name, 'course_name': course_name}
                         #flow_location="/path/to/flow.py",
                         #timezone = "America/Vancouver"
                     )
-                    deployment_ids.append(await deployspec.create_deployment())
-        
+                    deployment_ids.append(await deployment.create(client))
+
         # if the work_queue already exists, delete it; then create it (refresh deployment ids)
         wqs = await client.read_work_queues()
         wqs = [wq for wq in wqs if wq.name == settings.prefect_queue_name]
@@ -99,7 +99,7 @@ async def register(args):
         await ls_prefect_deployments()
 
     return
-          
+
 @flow
 def autoext_flow(settings, config_path, group_name, course_name):
     # settings was serialized by prefect when registering the flow, so need to re-parse it
@@ -114,19 +114,19 @@ def autoext_flow(settings, config_path, group_name, course_name):
     assignments = get_assignments(lms)
 
     # Compute the set of overrides to delete and new ones to create
-    # we formulate override updates as delete first, wait, then create to avoid concurrency issues 
+    # we formulate override updates as delete first, wait, then create to avoid concurrency issues
     # TODO map over assignments here (still fine with concurrency)
     overrides_to_delete, overrides_to_create = compute_autoextension_override_updates(course_info, students, assignments)
     delete_response = delete_overrides(lms, overrides_to_delete)
     create_response = create_overrides(lms, overrides_to_create, wait_for=[delete_response])
-    
+
 
 @flow
 def snap_flow(settings, config_path, group_name, course_name):
     # settings was serialized by prefect when registering the flow, so need to re-parse it
     settings = Settings.parse_obj(settings)
 
-    # Create an LMS and SubS object 
+    # Create an LMS and SubS object
     lms = get_learning_management_system(settings, config_path, group_name)
     subs = get_submission_system(settings, config_path, group_name)
 
@@ -141,9 +141,9 @@ def snap_flow(settings, config_path, group_name, course_name):
     # get list of existing snapshots from submission system
     existing_snaps = get_existing_snapshots(subs)
 
-    # compute snapshots to take 
+    # compute snapshots to take
     snaps_to_take = get_snapshots_to_take(pastdue_snaps, existing_snaps)
-   
+
     # take snapshots
     take_snapshots(snaps_to_take)
 
@@ -201,7 +201,7 @@ async def list_course_info(args):
     #print('Instructors')
     #print()
     #print('\n'.join([f"{c[0] : <16}{c[1]['name'] : <32}{c[1]['id'] : <16}{str(c[1]['reg_date'].in_timezone(config.notify_timezone)) : <32}{c[1]['status'] : <16}" for c in insts]))
- 
+
 
 #def fail_handler_gen(config):
 #    def fail_handler(flow, state, ref_task_states):
