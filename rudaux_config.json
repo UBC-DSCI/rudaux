@@ -1,0 +1,13 @@
+{
+    "course_groups" : {"group1" : ["course1", "course2"], "group2" : ["course3"]},
+    "lms_classes" : {"group1" : "rudaux.interface.Canvas", "group2": "rudaux.interface.Canvas"},
+    "gs_classes" : {"group1" : "rudaux.interface.NBGrader", "group2": "rudaux.interface.NBGrader"},
+    "ss_classes" : {"group1" : "rudaux.interface.RemoteZFS", "group2": "rudaux.interface.RemoteZFS"},
+    "canvas_base_domain" : "https://canvas.ubc.ca",
+    "canvas_course_lms_ids" : {"course1" : "12345", "course2" : "23456", "course3" : "43563"},
+    "canvas_registration_deadlines" : {"course1" : "01-05-2022", "course2" : "01-05-2022", "course3" : "01-05-2022"},
+    "canvas_api_tokens" : {"course1" : "asdfkjhasdf", "course2" : "kjahsdfkjh", "course3" : "lkjhdflkjhs"},
+    "autoext_cron_string" : "* * * * *",
+    "snap_cron_string" : "* * * * *",
+    "grade_cron_string" : "* * * * *"
+}
