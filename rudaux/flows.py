@@ -49,6 +49,7 @@ async def register(args):
                 await client.delete_deployment(deployment.id)
 
         deployment_ids = []
+        tags = []
 
         per_course_flows = [(autoext_flow, settings.autoext_prefix, settings.autoext_cron_string),
                             (snap_flow, settings.snap_prefix, settings.snap_cron_string)]
@@ -75,13 +76,14 @@ async def register(args):
                 # deployment_ids.append(await deployment.create())
 
                 name = settings.prefect_deployment_prefix + prefix + group_name
+                tag = name
 
                 # prep IDs
                 data = {
                     'name': name,
                     'description': None,
                     'version': f'2a908fb32d4ff67640989c6bf7cd5c29{counter}',
-                    'tags': ['test'],
+                    'tags': [tag],
                     'parameters': {},
                     'schedule': None,
                     'infra_overrides': {},
@@ -137,7 +139,10 @@ async def register(args):
                     parameter_openapi_schema=deployment.parameter_openapi_schema.dict(),
                 )
 
+                print(f"Deployment '{deployment.flow_name}/{deployment.name}' successfully created with id '{deployment_id}'.",)
+
                 deployment_ids.append(deployment_id)
+                tags.append(tag)
 
             # for course_name in settings.course_groups[group_name]:
             #     for fl, prefix, cron in per_course_flows:
@@ -163,7 +168,7 @@ async def register(args):
             await client.delete_work_queue_by_id(wqs[0].id)
         await client.create_work_queue(
             name=settings.prefect_queue_name,
-            deployment_ids=deployment_ids
+            tags=tags
         )
 
         print("Flows registered.")
