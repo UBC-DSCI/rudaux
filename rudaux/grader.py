@@ -159,7 +159,7 @@ def initialize_volumes(config, graders):
         # if the solution hasn't been generated yet, generate it
         if not os.path.exists(grader['soln_path']):
             logger.info(f"Solution for {aname} not yet generated for grader {grader['name']}")
-            output = run_container(config, 'jupyter nbconvert ' + grader['local_source_path'] + ' --output=' + grader['soln_name'] + ' --output-dir=.', grader['folder'])
+            output = run_container(config, 'jupyter nbconvert ' + grader['local_source_path'] + ' --output=' + grader['soln_name'] + ' --output-dir=.' + ' --to html', grader['folder'])
             logger.info(output['log'])
             if 'ERROR' in output['log']:
                 msg = f"Error generating solution for {aname} for grader {grader['name']} at path {grader['folder']}"
