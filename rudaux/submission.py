@@ -407,6 +407,10 @@ def clean_submissions(subm_set):
 
                 #need to check for duplicate cell ids, see
                 #https://github.com/jupyter/nbgrader/issues/1083
+                
+                #need to make sure the cell_type agrees with nbgrader cell_type
+                #(students accidentally sometimes change it)
+                
                 #open the student's notebook
                 try:
                     f = open(subm['collected_assignment_path'], 'r')
@@ -421,9 +425,22 @@ def clean_submissions(subm_set):
                     sig = signals.FAIL(msg)
                     sig.msg = msg
                     raise sig
-                #go through and delete the nbgrader metadata from any duplicated cells
+                #go through and 
+                # 1) make sure cell type agrees with nbgrader cell type
+                # 2) delete the nbgrader metadata from any duplicated cells
                 cell_ids = set()
                 for cell in nb['cells']:
+                  # align celltype with nbgrader celltype
+                  try:
+                    # ensure cell has both types by trying to read them
+                    cell_type = cell['cell_type']
+                    nbgrader_cell_type = cell['metadata']['nbgrader']['cell_type']
+                    # make cell_type align
+                    cell['cell_type'] = nbgrader_cell_type
+                  except:
+                    pass
+                  
+                  # delete nbgrader metadata from duplicated cells
                   try:
                     cell_id = cell['metadata']['nbgrader']['grade_id']
                   except:
