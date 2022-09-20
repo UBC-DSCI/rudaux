@@ -11,6 +11,7 @@ import git
 import shutil
 from .container import run_container
 from .utilities import get_logger, recursive_chown
+import time
 
 def validate_config(config):
     pass
@@ -190,5 +191,7 @@ def initialize_accounts(config, graders):
                         digest = None)
             add_user(args)
             check_output(['systemctl', 'stop', 'jupyterhub'])
+            time.sleep(1)
             check_output(['systemctl', 'start', 'jupyterhub'])
+            time.sleep(3)
     return graders
