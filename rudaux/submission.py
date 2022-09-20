@@ -435,8 +435,11 @@ def clean_submissions(subm_set):
                     # ensure cell has both types by trying to read them
                     cell_type = cell['cell_type']
                     nbgrader_cell_type = cell['metadata']['nbgrader']['cell_type']
-                    # make cell_type align
-                    cell['cell_type'] = nbgrader_cell_type
+                    if cell_type != nbgrader_cell_type:
+                        logger.info(f"Student {student['name']} assignment {assignment['name']} grader {grader['name']} had incorrect cell type, {cell_type} != {nbgrader_cell_type}, cell ID = {cell_id}")
+                        logger.info(f"Setting cell type to {nbgrader_cell_type} to avoid bugs in autograde")
+                        # make cell_type align
+                        cell['cell_type'] = nbgrader_cell_type
                   except:
                     pass
                   
