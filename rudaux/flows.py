@@ -1,20 +1,21 @@
-import sys, os
-import prefect
-from prefect.deployments import Deployment
-from prefect.orion.schemas.schedules import CronSchedule
-from prefect import task, flow
+import os
+import sys
+
+from prefect import flow
 # from prefect.flow_runners.subprocess import SubprocessFlowRunner
 # from prefect.blocks.storage import TempStorageBlock
 from prefect.client import get_client
-from prefect.cli.agent import start as start_prefect_agent
-from prefect.cli.deployment import ls as ls_prefect_deployments
-from prefect.cli.work_queue import ls as ls_prefect_workqueues
-from prefect.orion.schemas.filters import DeploymentFilter
+from prefect.deployments import Deployment
+from prefect.orion.schemas.schedules import CronSchedule
+
 from rudaux.model import Settings
+from rudaux.task.autoext import compute_autoextension_override_updates
 from rudaux.tasks import get_learning_management_system, get_grading_system, get_submission_system
-from rudaux.task.learning_management_system import get_students, get_assignments, get_course_info
+from rudaux.task.learning_management_system import get_students, get_assignments, get_course_info, \
+    update_override, create_overrides, delete_overrides
 
 
+# -------------------------------------------------------------------------------------------------------------
 def load_settings(path):
     # load settings from the config
     print(f"Loading the rudaux configuration file {path}...")
@@ -29,13 +30,15 @@ def load_settings(path):
     return Settings.parse_file(path)
 
 
+# -------------------------------------------------------------------------------------------------------------
 async def run(args):
     # load settings from the config
     settings = load_settings(args.config_path)
     # start the prefect agent
-    await start_prefect_agent(settings.prefect_queue_name)
+    os.system(f"prefect agent start --work-queue {settings.prefect_queue_name}")
 
 
+# -------------------------------------------------------------------------------------------------------------
 async def register(args):
     # load settings from the config
     settings = load_settings(args.config_path)
@@ -49,208 +52,137 @@ async def register(args):
                 await client.delete_deployment(deployment.id)
 
         deployment_ids = []
-        tags = []
 
-        per_course_flows = [(autoext_flow, settings.autoext_prefix, settings.autoext_cron_string),
-                            (snap_flow, settings.snap_prefix, settings.snap_cron_string)]
-        per_group_flows = [(grade_flow, settings.grade_prefix, settings.grade_cron_string),
-                           (soln_flow, settings.soln_prefix, settings.soln_cron_string),
-                           (fdbk_flow, settings.fdbk_prefix, settings.fdbk_cron_string)]
+        per_section_flows = [(autoext_flow, settings.autoext_prefix, settings.autoext_cron_string),
+                             (snap_flow, settings.snap_prefix, settings.snap_cron_string)]
 
-        # add fresh autoext deployments
+        per_course_flows = [(grade_flow, settings.grade_prefix, settings.grade_cron_string),
+                            (soln_flow, settings.soln_prefix, settings.soln_cron_string),
+                            (fdbk_flow, settings.fdbk_prefix, settings.fdbk_cron_string)]
 
-        counter = 0
-        for group_name in settings.course_groups:
-            for fl, prefix, cron in per_group_flows:
-                counter = counter + 1
-                # deployment = Deployment(
-                #         name=settings.prefect_deployment_prefix + prefix + group_name,
-                #         flow = fl,
-                #         #flow_storage = TempStorageBlock(),
-                #         schedule=CronSchedule(cron=cron),
-                #         #flow_runner = SubprocessFlowRunner(),
-                #         parameters = {'settings' : settings.dict(), 'config_path': args.config_path, 'group_name': group_name}
-                #         #flow_location="/path/to/flow.py",
-                #         #timezone = "America/Vancouver"
-                #     )
-                # deployment_ids.append(await deployment.create())
+        for course_name in settings.course_groups:
+            # -------------------------------------------------------------------------------------------------
+            # building deployments for course groups
+            for fl, prefix, cron in per_course_flows:
+                name = settings.prefect_deployment_prefix + prefix + course_name
 
-                name = settings.prefect_deployment_prefix + prefix + group_name
-                tag = name
-
-                # prep IDs
-                data = {
-                    'name': name,
-                    'description': None,
-                    'version': f'2a908fb32d4ff67640989c6bf7cd5c29{counter}',
-                    'tags': [tag],
-                    'parameters': {},
-                    'schedule': None,
-                    'infra_overrides': {},
-                    'infrastructure': {'type': 'process', 'env': {}, 'labels': {}, 'name': None,
-                                       'command': ['python', '-m', 'prefect.engine'], 'stream_output': True},
-                    'flow_name': name,
-                    'manifest_path': None,
-                    'storage': None,
-                    'path': '/home/alireza/Desktop/SES/rudaux/rudaux',
-                    'entrypoint': f'rudaux/flows.py:{name}',
-                    'parameter_openapi_schema': {
-                        'title': 'Parameters',
-                        'type': 'object',
-                        'properties': {'name': {'title': 'name', 'type': 'string'}},
-                        'required': ['name'],
-                        'definitions': None
-                    }
-                }
-
-                deployment = Deployment(**data)
-                flow_id = await client.create_flow_from_name(deployment.flow_name)
-
-                if not deployment.infrastructure._block_document_id:
-                    # if not building off a block, will create an anonymous block
-                    deployment.infrastructure = deployment.infrastructure.copy()
-                    infrastructure_document_id = await deployment.infrastructure._save(
-                        is_anonymous=True,
-                    )
-                else:
-                    infrastructure_document_id = (
-                        deployment.infrastructure._block_document_id
-                    )
-
-                # we assume storage was already saved
-                storage_document_id = getattr(
-                    deployment.storage, "_block_document_id", None
+                deployment = await Deployment.build_from_flow(
+                    flow=fl,
+                    name=name,
+                    work_queue_name=settings.prefect_queue_name,
+                    schedule=CronSchedule(cron=cron, timezone="America/Vancouver"),
+                    parameters={'settings': settings.dict(),
+                                'config_path': args.config_path, 'course_name': course_name},
                 )
-
-                deployment_id = await client.create_deployment(
-                    flow_id=flow_id,
-                    name=deployment.name,
-                    version=deployment.version,
-                    schedule=deployment.schedule,
-                    parameters=deployment.parameters,
-                    description=deployment.description,
-                    tags=deployment.tags,
-                    manifest_path=deployment.manifest_path,
-                    path=deployment.path,
-                    entrypoint=deployment.entrypoint,
-                    infra_overrides=deployment.infra_overrides,
-                    storage_document_id=storage_document_id,
-                    infrastructure_document_id=infrastructure_document_id,
-                    parameter_openapi_schema=deployment.parameter_openapi_schema.dict(),
-                )
-
-                print(f"Deployment '{deployment.flow_name}/{deployment.name}' successfully created with id '{deployment_id}'.",)
-
+                print(deployment)
+                print('\n')
+                deployment_id = await deployment.apply()
                 deployment_ids.append(deployment_id)
-                tags.append(tag)
 
-            # for course_name in settings.course_groups[group_name]:
-            #     for fl, prefix, cron in per_course_flows:
-            #         deployspec = Deployment(
-            #             name=settings.prefect_deployment_prefix + prefix + course_name,
-            #             flow=fl,
-            #             # flow_storage = TempStorageBlock(),
-            #             schedule=CronSchedule(cron=cron),
-            #             # flow_runner = SubprocessFlowRunner(),
-            #             parameters={'settings': settings.dict(), 'config_path': args.config_path,
-            #                         'group_name': group_name, 'course_name': course_name}
-            #             # flow_location="/path/to/flow.py",
-            #             # timezone = "America/Vancouver"
-            #         )
-            #         deployment_ids.append(await deployment.create())
+            # -------------------------------------------------------------------------------------------------
+            # building deployments for course sections
+            for section_name in settings.course_groups[course_name]:
+                for fl, prefix, cron in per_section_flows:
+                    name = settings.prefect_deployment_prefix + prefix + section_name
 
-        # if the work_queue already exists, delete it; then create it (refresh deployment ids)
-        wqs = await client.read_work_queues()
-        wqs = [wq for wq in wqs if wq.name == settings.prefect_queue_name]
-        if len(wqs) >= 1:
-            if len(wqs) > 1:
-                raise ValueError
-            await client.delete_work_queue_by_id(wqs[0].id)
-        await client.create_work_queue(
-            name=settings.prefect_queue_name,
-            tags=tags
-        )
+                    deployment = await Deployment.build_from_flow(
+                        flow=fl,
+                        name=name,
+                        work_queue_name=settings.prefect_queue_name,
+                        schedule=CronSchedule(cron=cron, timezone="America/Vancouver"),
+                        parameters={'settings': settings.dict(), 'config_path': args.config_path,
+                                    'course_name': course_name, 'section_name': section_name},
+                    )
+                    print(deployment)
+                    print('\n')
+                    deployment_id = await deployment.apply()
+                    deployment_ids.append(deployment_id)
 
+            # -------------------------------------------------------------------------------------------------
         print("Flows registered.")
-        await ls_prefect_workqueues(verbose=False)
-        await ls_prefect_workqueues(verbose=True)
-        await ls_prefect_deployments()
-
     return
 
 
+# -------------------------------------------------------------------------------------------------------------
 @flow
-def autoext_flow(settings, config_path, group_name, course_name):
-    # settings was serialized by prefect when registering the flow, so need to re-parse it
+def autoext_flow(settings, config_path, course_name, section_name):
+    # settings object was serialized by prefect when registering the flow, so need to re-parse it
     settings = Settings.parse_obj(settings)
 
-    ## Create an LMS object
-    # lms = get_learning_management_system(settings, config_path, group_name)
+    # Create an LMS object
+    lms = get_learning_management_system(settings, config_path, course_name)
 
-    ## Get course info, list of students, and list of assignments from lms
-    # course_info = get_course_info(lms)
-    # students = get_students(lms)
-    # assignments = get_assignments(lms)
+    # Get course info, list of students, and list of assignments from lms
+    course_info = get_course_info(lms)
+    students = get_students(lms)
+    assignments = get_assignments(lms)
 
-    ## Compute the set of overrides to delete and new ones to create
-    ## we formulate override updates as delete first, wait, then create to avoid concurrency issues
-    ## TODO map over assignments here (still fine with concurrency)
-    # overrides_to_delete, overrides_to_create = compute_autoextension_override_updates(course_info, students, assignments)
-    # delete_response = delete_overrides(lms, overrides_to_delete)
-    # create_response = create_overrides(lms, overrides_to_create, wait_for=[delete_response])
+    # Compute the set of overrides to delete and new ones to create
+    # we formulate override updates as delete first, wait, then create to avoid concurrency issues
+    # TODO map over assignments here (still fine with concurrency)
+
+    overrides_to_delete, overrides_to_create = compute_autoextension_override_updates(
+        course_info, students, assignments)
+    delete_response = delete_overrides(lms, overrides_to_delete)
+    create_response = create_overrides(lms, overrides_to_create, wait_for=[delete_response])
 
 
+# -------------------------------------------------------------------------------------------------------------
 @flow
-def snap_flow(settings, config_path, group_name, course_name):
-    # settings was serialized by prefect when registering the flow, so need to re-parse it
+def snap_flow(settings, config_path, course_name, section_name):
+    # settings object was serialized by prefect when registering the flow, so need to re-parse it
     settings = Settings.parse_obj(settings)
 
-    ## Create an LMS and SubS object
-    # lms = get_learning_management_system(settings, config_path, group_name)
-    # subs = get_submission_system(settings, config_path, group_name)
+    # Create an LMS and SubS object
+    lms = get_learning_management_system(settings, config_path, course_name)
+    subs = get_submission_system(settings, config_path, course_name)
 
-    ## Get course info, list of students, and list of assignments from lms
-    # course_info = get_course_info(lms)
-    # students = get_students(lms)
-    # assignments = get_assignments(lms)
+    # Get course info, list of students, and list of assignments from lms
+    course_info = get_course_info(lms)
+    students = get_students(lms)
+    assignments = get_assignments(lms)
 
-    ## get list of snapshots past their due date from assignments
+    # get list of snapshots past their due date from assignments
     # pastdue_snaps = get_snapshots_to_take(assignments)
 
-    ## get list of existing snapshots from submission system
+    # get list of existing snapshots from submission system
     # existing_snaps = get_existing_snapshots(subs)
 
-    ## compute snapshots to take
+    # compute snapshots to take
     # snaps_to_take = get_snapshots_to_take(pastdue_snaps, existing_snaps)
 
-    ## take snapshots
+    # take snapshots
     # take_snapshots(snaps_to_take)
 
 
+# -------------------------------------------------------------------------------------------------------------
 @flow
-def grade_flow(settings, config_path, group_name):
+def grade_flow(settings, config_path, course_name):
     settings = Settings.parse_obj(settings)
     ## create LMS and Submission system objects
-    # lms = get_learning_management_system(settings, config_path, group_name)
-    # subs = get_submission_system(settings, config_path, group_name)
-    # grds = get_grading_system(settings, config_path, group_name)
+    # lms = get_learning_management_system(settings, config_path, course_name)
+    # subs = get_submission_system(settings, config_path, course_name)
+    # grds = get_grading_system(settings, config_path, course_name)
 
 
+# -------------------------------------------------------------------------------------------------------------
 @flow
-def soln_flow(settings, config_path, group_name):
+def soln_flow(settings, config_path, course_name):
     settings = Settings.parse_obj(settings)
 
 
+# -------------------------------------------------------------------------------------------------------------
 @flow
-def fdbk_flow(settings, config_path, group_name):
+def fdbk_flow(settings, config_path, course_name):
     settings = Settings.parse_obj(settings)
 
 
+# -------------------------------------------------------------------------------------------------------------
 async def list_course_info(args):
     # load settings from the config
     settings = load_settings(args.config_path)
-    for group_name in settings.course_groups:
-        lms = get_learning_management_system(settings, config_path, group_name)
+    for course_name in settings.course_groups:
+        lms = get_learning_management_system(settings, config_path, course_name)
         pass  # TODO
 
     # asgns = []
@@ -259,11 +191,11 @@ async def list_course_info(args):
     # insts = []
     # for group in config.course_groups:
     #    for course_id in config.course_groups[group]:
-    #        course_name = config.course_names[course_id]
-    #        asgns.extend([(course_name, a) for a in api._canvas_get(config, course_id, 'assignments')])
-    #        studs.extend([(course_name, s) for s in api._canvas_get_people_by_type(config, course_id, 'StudentEnrollment')])
-    #        tas.extend([(course_name, s) for s in api._canvas_get_people_by_type(config, course_id, 'TaEnrollment')])
-    #        insts.extend([(course_name, s) for s in api._canvas_get_people_by_type(config, course_id, 'TeacherEnrollment')])
+    #        section_name = config.section_names[course_id]
+    #        asgns.extend([(section_name, a) for a in api._canvas_get(config, course_id, 'assignments')])
+    #        studs.extend([(section_name, s) for s in api._canvas_get_people_by_type(config, course_id, 'StudentEnrollment')])
+    #        tas.extend([(section_name, s) for s in api._canvas_get_people_by_type(config, course_id, 'TaEnrollment')])
+    #        insts.extend([(section_name, s) for s in api._canvas_get_people_by_type(config, course_id, 'TeacherEnrollment')])
     # print()
     # print('Assignments')
     # print()
@@ -306,7 +238,7 @@ async def list_course_info(args):
 #    flows = []
 #    for group in config.course_groups:
 #        for course_id in config.course_groups[group]:
-#            with Flow(config.course_names[course_id] + "-autoext",
+#            with Flow(config.section_names[course_id] + "-autoext",
 #                      terminal_state_handler=fail_handler_gen(config)) as flow:
 #
 #                assignment_names = list(config.assignments[group].keys())
@@ -392,12 +324,12 @@ async def list_course_info(args):
 #        # start grading run
 #        for group in config.course_groups:
 #            # get the course names in this group
-#            course_names = config.course_groups[group]
+#            section_names = config.course_groups[group]
 #            # create connections to APIs
 #            lsapis = {}
-#            for course_name in course_names:
-#                lsapis[course_name]['lms'] = LMSAPI(course_name, config)
-#                lsapis[course_name]['stu'] = StudentAPI(course_name, config)
+#            for section_name in section_names:
+#                lsapis[section_name]['lms'] = LMSAPI(section_name, config)
+#                lsapis[section_name]['stu'] = StudentAPI(section_name, config)
 #            # Create a Grader API connection
 #            grd = GraderAPI(group, config)
 #
