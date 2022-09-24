@@ -136,6 +136,8 @@ def generate_build_subm_set_name(config, subm_set, **kwargs):
 @task(checkpoint=False,task_run_name=generate_build_subm_set_name)
 def build_submission_set(config, subm_set):
     logger = get_logger()
+    logger.info(f"Building submission set for assignment {subm_set['__name__']}")
+
     # check assignment date validity and build subm list
     for course_name in subm_set:
         if course_name == '__name__':
@@ -204,6 +206,8 @@ def build_submission_set(config, subm_set):
                 all_returned = all_returned and (os.path.exists(subm['fdbk_path']) or (subm['score'] == 0 and not os.path.exists(subm['snapped_assignment_path'])))
     if all_posted and all_returned:
         raise signals.SKIP(f"All grades are posted, all solutions returned, and all feedback returned for assignment {subm_set['__name__']}. Workflow done. Skipping.")
+    
+    logger.info(f"Done building submission set for assignment {subm_set['__name__']}")
 
     return subm_set
 
@@ -496,11 +500,12 @@ def autograde(config, subm_set):
                                     subm['grader']['folder'])
 
                 # validate the results
-                if 'ERROR' in res['log']:
-                    msg = f"Docker error autograding submission {subm['name']}: exited with status {res['exit_status']},  {res['log']}"
-                    sig = signals.FAIL(msg)
-                    sig.msg = msg
-                    raise sig
+                #if 'ERROR' in res['log']:
+                #    msg = f"Docker error autograding submission {subm['name']}: exited with status {res['exit_status']},  {res['log']}"
+                #    sig = signals.FAIL(msg)
+                #    sig.msg = msg
+                #    raise sig
+                # as long as we generate a file, assume success (avoids weird errors that dont actually cause a problem killing rudaux)
                 if not os.path.exists(subm['autograded_assignment_path']):
                     msg = f"Docker error autograding submission {subm['name']}: did not generate expected file at {subm['autograded_assignment_path']}"
                     sig = signals.FAIL(msg)
@@ -542,7 +547,7 @@ def check_manual_grading(config, subm_set):
                     subm['status'] = GradingStatus.DONE_GRADING
     return subm_set
 
-def generate_collectgradingntfy_name(notifications, subm_set, **kwargs):
+def generate_collectgradingntfy_name(subm_set, **kwargs):
     return 'collect-grding-ntfy-'+subm_set['__name__']
 
 @task(checkpoint=False,task_run_name=generate_collectgradingntfy_name)
@@ -565,7 +570,7 @@ def collect_grading_notifications(subm_set):
                 notifications[guser][gnm]['count'] += 1
     return notifications
 
-def generate_collectpostingntfy_name(notifications, subm_set, **kwargs):
+def generate_collectpostingntfy_name(subm_set, **kwargs):
     return 'collect-psting-ntfy-'+subm_set['__name__']
 
 @task(checkpoint=False,task_run_name=generate_collectpostingntfy_name)
@@ -616,10 +621,11 @@ def generate_feedback(config, subm_set):
                                 subm['grader']['folder'])
 
             # validate the results
-            if 'ERROR' in res['log']:
-                msg = f"Docker error generating feedback for submission {subm['name']}: exited with status {res['exit_status']},  {res['log']}"
-                sig = signals.FAIL(msg)
-                raise sig
+            #if 'ERROR' in res['log']:
+            #    msg = f"Docker error generating feedback for submission {subm['name']}: exited with status {res['exit_status']},  {res['log']}"
+            #    sig = signals.FAIL(msg)
+            #    raise sig
+            # limit errors to just missing output
             if not os.path.exists(subm['generated_feedback_path']):
                 msg = f"Docker error generating feedback for submission {subm['name']}: did not generate expected file at {subm['generated_feedback_path']}"
                 sig = signals.FAIL(msg)
