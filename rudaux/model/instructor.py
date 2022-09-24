@@ -2,7 +2,7 @@ import pendulum as plm
 from pydantic import BaseModel
 
 
-class Student(BaseModel):
+class Instructor(BaseModel):
     lms_id: str
     name: str
     sortable_name: str
