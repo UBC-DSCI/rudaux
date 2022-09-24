@@ -1,12 +1,46 @@
 {
-    "course_groups" : {"group1" : ["course1", "course2"], "group2" : ["course3"]},
-    "lms_classes" : {"group1" : "rudaux.interface.Canvas", "group2": "rudaux.interface.Canvas"},
-    "gs_classes" : {"group1" : "rudaux.interface.NBGrader", "group2": "rudaux.interface.NBGrader"},
-    "ss_classes" : {"group1" : "rudaux.interface.RemoteZFS", "group2": "rudaux.interface.RemoteZFS"},
+    "course_groups" : {
+        "course_dsci_100_test" : ["section_dsci_100_test_01"],
+        "group2" : ["course3"]
+    },
+    "lms_classes" : {
+        "course_dsci_100_test" : "rudaux.interface.Canvas",
+        "group2": "rudaux.interface.Canvas"
+    },
+    "gs_classes" : {
+        "course_dsci_100_test" : "rudaux.interface.NBGrader",
+        "group2": "rudaux.interface.NBGrader"
+    },
+    "ss_classes" : {
+        "course_dsci_100_test" : "rudaux.interface.RemoteZFS",
+        "group2": "rudaux.interface.RemoteZFS"
+    },
     "canvas_base_domain" : "https://canvas.ubc.ca",
-    "canvas_course_lms_ids" : {"course1" : "12345", "course2" : "23456", "course3" : "43563"},
-    "canvas_registration_deadlines" : {"course1" : "01-05-2022", "course2" : "01-05-2022", "course3" : "01-05-2022"},
-    "canvas_api_tokens" : {"course1" : "asdfkjhasdf", "course2" : "kjahsdfkjh", "course3" : "lkjhdflkjhs"},
+    "canvas_course_lms_ids" : {
+        "section_dsci_100_test_01" : "92197",
+        "course2" : "23456",
+        "course3" : "43563"
+    },
+    "canvas_registration_deadlines" : {
+        "section_dsci_100_test_01" : "01-05-2022",
+        "course2" : "01-05-2022",
+        "course3" : "01-05-2022"
+    },
+    "canvas_api_tokens" : {
+
+        "section_dsci_100_test_01" : "11224~DBxLb0Bnhavc4UHQb1FxAIBGaEpXLyW1Ul1gbL0RU430rkSxUd5Rc7MOyjRlCeLQ",
+        "course2" : "token_id",
+        "course3" : "token_id"
+    },
+
+    "assignments": {
+        "course_dsci_100_test" : {
+            "test_assignment" : ["grader_jhub_username_A"]
+        }
+    },
+    "latereg_extension_days" : {
+	    "course_dsci_100_test" : 7
+    },
     "autoext_cron_string" : "* * * * *",
     "snap_cron_string" : "* * * * *",
     "grade_cron_string" : "* * * * *"
