@@ -1,9 +1,9 @@
 from prefect import task
-from ..model import Student, Assignment, CourseInfo
+from ..model import Student, Assignment, CourseInfo, Override
 
 
 # wraps the lms.get_students function in a task and enforces validation
-@task 
+@task
 def get_students(lms):
     students = lms.get_students()
     for stu in students:
@@ -11,8 +11,9 @@ def get_students(lms):
             raise ValueError
     return students
 
+
 # wraps the lms.get_assignments function in a task and enforces validation
-@task 
+@task
 def get_assignments(lms):
     assignments = lms.get_assignments()
     for asgn in assignments:
@@ -20,10 +21,40 @@ def get_assignments(lms):
             raise ValueError
     return assignments
 
+
 # wraps the lms.get_course_info function in a task and enforces validation
 @task
 def get_course_info(lms):
     ci = lms.get_course_info()
     if not isinstance(ci, CourseInfo):
         raise ValueError
-    return ci 
+    return ci
+
+
+# wraps the lms.update_override function in a task and enforces validation
+@task
+def update_override(lms):
+    override = lms.update_override()
+    if not isinstance(override, Override):
+        raise ValueError
+    return override
+
+
+# wraps the lms.create_overrides function in a task and enforces validation
+@task
+def create_overrides(lms):
+    overrides = lms.create_overrides()
+    for override in overrides:
+        if not isinstance(override, Override):
+            raise ValueError
+    return overrides
+
+
+# wraps the lms.delete_overrides function in a task and enforces validation
+@task
+def delete_overrides(lms):
+    overrides = lms.delete_overrides()
+    for override in overrides:
+        if not isinstance(override, Override):
+            raise ValueError
+    return overrides
