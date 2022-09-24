@@ -1,8 +1,8 @@
-from typing import Dict, List
-from .submission_system import SubmissionSystem
+from rudaux.interface.base.submission_system import SubmissionSystem
+
 
 class RemoteZFS(SubmissionSystem):
-    
+
     def open(self):
         pass
 

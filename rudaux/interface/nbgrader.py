@@ -1,4 +1,5 @@
-from .grading_system import GradingSystem
+from rudaux.interface.base.grading_system import GradingSystem
+
 
 class NBGrader(GradingSystem):
 
@@ -22,5 +23,3 @@ class NBGrader(GradingSystem):
 
     def autograde(self):
         pass
-
-
