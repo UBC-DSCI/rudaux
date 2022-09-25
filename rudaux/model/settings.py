@@ -4,6 +4,7 @@ import importlib
 
 
 class Settings(BaseModel):
+
     # various constants
     prefect_queue_name: str = "rudaux-queue"
     prefect_deployment_prefix: str = "rudaux-deployment-"
@@ -17,9 +18,20 @@ class Settings(BaseModel):
     soln_cron_string: str = "30 23 * * *"
     fdbk_prefix: str = "fdbk-"
     fdbk_cron_string: str = "45 23 * * *"
+
     # map of course_group to list of course names in that group
     course_groups: Dict[str, List[str]]
+
     # maps course_group to LMS, GMS, SMS class type
     lms_classes: Dict[str, str]
     gs_classes: Dict[str, str]
     ss_classes: Dict[str, str]
+
+    # canvas settings
+    canvas_base_domain: str
+    canvas_course_lms_ids: Dict[str, str]
+    canvas_registration_deadlines: Dict[str, str]
+    canvas_api_tokens: Dict[str, str]
+    assignments: Dict[str, dict]
+    latereg_extension_days: Dict[str, int]
+
