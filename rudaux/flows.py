@@ -122,7 +122,7 @@ def autoext_flow(settings: dict, course_name: str, section_name: str) -> None:
     section_name: str
     """
 
-    # settings object was serialized by prefect when registering the flow, so need to re-parse it
+    # settings object was serialized by prefect when registering the flow, so need to reparse it
     settings = Settings.parse_obj(settings)
 
     # Create an LMS object
@@ -138,9 +138,11 @@ def autoext_flow(settings: dict, course_name: str, section_name: str) -> None:
     # we formulate override updates as delete first, wait, then create to avoid concurrency issues
     # TODO map over assignments here (still fine with concurrency)
 
+    # compute the set of overrides to delete and new ones to create for all assignments
     overrides = compute_autoextension_override_updates(
         settings, course_name, section_name, course_info, students, assignments)
 
+    # for each assignment remove the old overrides and create new ones
     for assignment, overrides_to_delete, overrides_to_create in overrides:
         delete_response = delete_overrides(lms=lms, course_section_name=section_name,
                                            assignment=assignment, override=overrides_to_delete)
@@ -162,8 +164,8 @@ def snap_flow(settings: dict, course_name: str, section_name: str) -> None:
     course_name: str
     section_name: str
     """
-    
-    # settings object was serialized by prefect when registering the flow, so need to re-parse it
+
+    # settings object was serialized by prefect when registering the flow, so need to reparse it
     settings = Settings.parse_obj(settings)
 
     # Create an LMS and SubS object
