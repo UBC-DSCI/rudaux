@@ -25,5 +25,5 @@ class SubmissionSystem(ABC, BaseModel):
         pass
 
     @abstractmethod
-    def distribute(self, student, document_info, document_data):
+    def distribute(self, student, document):
         pass

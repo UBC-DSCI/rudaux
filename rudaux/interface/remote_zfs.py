@@ -35,9 +35,9 @@ class RemoteZFSSubmissions(SubmissionSystem):
 
     def collect_snapshot(self, snapshot):
         # TODO use remote_zfs_collection_pattern to read all the files
-        #return lines, modified_datetime
+        #return document_info, document_data
         pass
 
-    def distribute(self, student, document_info, document_data):
+    def distribute(self, student, document):
         # TODO  use remote_zfs_distribution_pattern to decide what file to write and where
         pass
