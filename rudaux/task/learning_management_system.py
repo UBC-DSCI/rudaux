@@ -55,7 +55,7 @@ def get_course_info(lms: LMS, course_section_name: str) -> CourseInfo:
 # wraps the lms.get_course_info function in a task and enforces validation
 @task
 def get_submissions(lms: LMS, course_group_name: str,
-                    course_section_name: str, assignment) -> List[Submission]:
+                    course_section_name: str, assignment: dict) -> List[Submission]:
     submissions = lms.get_submissions(course_group_name=course_group_name,
                                       course_section_name=course_section_name,
                                       assignment=assignment)

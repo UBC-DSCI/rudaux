@@ -7,7 +7,7 @@ from .assignment import Assignment
 
 
 class Snapshot(BaseModel):
-    assignment : Assignment
-    override : Optional[Override]
-    student : Optional[Student]
-    name : str
+    assignment: Assignment
+    override: Optional[Override]
+    student: Optional[Student]
+    name: str

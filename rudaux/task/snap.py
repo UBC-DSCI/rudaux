@@ -1,17 +1,26 @@
+from typing import List
 from prefect import task
 # from prefect.engine import signals
 from rudaux.util.util import get_logger
 from rudaux.model.snapshot import Snapshot
 import pendulum as plm
+from rudaux.model.student import Student
+from rudaux.model.override import Override
+from rudaux.model.assignment import Assignment
+from rudaux.model.course_info import CourseInfo
 
 
-def get_snapshot_name(course_name, assignment, override, student):
+# -----------------------------------------------------------------------------------------------
+def get_snapshot_name(course_name: str, assignment: Assignment,
+                      override: Override, student: Student) -> str:
+
     return f"{course_name}-{assignment.name}-{assignment.lms_id}" + (
         "" if override is None else f"-{override.name}-{override.lms_id}")
 
 
+# -----------------------------------------------------------------------------------------------
 @task
-def get_pastdue_snapshots(course_name, course_info, assignments):
+def get_pastdue_snapshots(course_name: str, course_info: CourseInfo, assignments: List[Assignment]):
     logger = get_logger()
     pastdue_snaps = []
     for asgn in assignments:
@@ -46,6 +55,7 @@ def get_pastdue_snapshots(course_name, course_info, assignments):
     return pastdue_snaps
 
 
+# -----------------------------------------------------------------------------------------------
 @task
 def get_existing_snapshots(subs):
     existing_snaps = subs.get_snapshots()
@@ -55,6 +65,7 @@ def get_existing_snapshots(subs):
     return existing_snaps
 
 
+# -----------------------------------------------------------------------------------------------
 @task
 def get_snapshots_to_take(pastdue_snaps, existing_snaps):
     pds_set = set(pastdue_snaps)
@@ -66,6 +77,7 @@ def get_snapshots_to_take(pastdue_snaps, existing_snaps):
     return snaps_to_take
 
 
+# -----------------------------------------------------------------------------------------------
 @task
 def take_snapshots(snaps_to_take, subs):
     logger = get_logger()
@@ -75,6 +87,7 @@ def take_snapshots(snaps_to_take, subs):
     return
 
 
+# -----------------------------------------------------------------------------------------------
 @task
 def verify_snapshots(snaps_to_take, new_existing_snaps):
     stt_set = set(snaps_to_take)
@@ -85,3 +98,4 @@ def verify_snapshots(snaps_to_take, new_existing_snaps):
         # system after snapshot") raise sig
         pass
     return
+# -----------------------------------------------------------------------------------------------
