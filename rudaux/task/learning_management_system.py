@@ -1,5 +1,4 @@
 from typing import List
-
 from prefect import task
 from ..model import Student, Assignment, CourseInfo, Override, Submission, Instructor
 from rudaux.interface.base.learning_management_system import LearningManagementSystem as LMS
@@ -70,7 +69,7 @@ def get_submissions(lms: LMS, course_group_name: str,
 
 # wraps the lms.update_override function in a task and enforces validation
 @task
-def update_override(lms: LMS, course_section_name: str, override: Override):
+def update_override(lms: LMS, course_section_name: str, override: Override) -> Override:
     override = lms.update_override(course_section_name=course_section_name, override=override)
     if not isinstance(override, Override):
         raise ValueError
@@ -81,7 +80,9 @@ def update_override(lms: LMS, course_section_name: str, override: Override):
 
 # wraps the lms.create_overrides function in a task and enforces validation
 @task
-def create_overrides(lms: LMS, course_section_name: str, assignment: Assignment, overrides: List[Override]):
+def create_overrides(lms: LMS, course_section_name: str, assignment: Assignment,
+                     overrides: List[Override]) -> List[Override]:
+
     overrides = lms.create_overrides(course_section_name=course_section_name,
                                      assignment=assignment, overrides=overrides)
     for override in overrides:
@@ -94,9 +95,11 @@ def create_overrides(lms: LMS, course_section_name: str, assignment: Assignment,
 
 # wraps the lms.delete_overrides function in a task and enforces validation
 @task
-def delete_overrides(lms: LMS, course_section_name: str, assignment: Assignment, override: Override):
+def delete_overrides(lms: LMS, course_section_name: str, assignment: Assignment,
+                     overrides: List[Override]) -> List[Override]:
+
     overrides = lms.delete_overrides(course_section_name=course_section_name,
-                                     assignment=assignment, override=override)
+                                     assignment=assignment, overrides=overrides)
     for override in overrides:
         if not isinstance(override, Override):
             raise ValueError
