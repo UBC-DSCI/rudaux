@@ -34,4 +34,5 @@ class Settings(BaseModel):
     canvas_api_tokens: Dict[str, str]
     assignments: Dict[str, dict]
     latereg_extension_days: Dict[str, int]
+    notify_timezone: Dict[str, str]
 
