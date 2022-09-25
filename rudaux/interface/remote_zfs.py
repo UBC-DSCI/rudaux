@@ -7,6 +7,7 @@ class RemoteZFSSubmissions(SubmissionSystem):
     remote_zfs_hostname : str
     remote_zfs_port : str
     remote_zfs_username : str
+    remote_zfs_tz : str
     remote_zfs_volume_pattern : str
     remote_zfs_collection_pattern : str
     remote_zfs_distribution_pattern : str
@@ -15,7 +16,7 @@ class RemoteZFSSubmissions(SubmissionSystem):
         info = {"host" : self.remote_hostname,
                 "port" : self.remote_zfs_port,
                 "user" : self.remote_zfs_username}
-        self.zfs = RemoteZFS(info = info)
+        self.zfs = RemoteZFS(info = info, tz = self.remote_zfs_tz)
 
     def close(self):
         self.zfs.close()
