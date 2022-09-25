@@ -229,21 +229,22 @@ if __name__ == "__main__":
         return getattr(importlib.import_module(module_name), class_name)
 
 
-    def get_learning_management_system(settings, config_path, group_name):
+    def get_learning_management_system(settings, group_name):
         LMS = get_class_from_string(settings.lms_classes[group_name])
         if not issubclass(LMS, LearningManagementSystem):
             raise ValueError
-        lms = LMS.parse_file(config_path)
+        lms = LMS.parse_obj(settings)
         return lms
 
 
-    _config_path = "/home/alireza/Desktop/SES/rudaux/rudaux_config.json"
+    _config_path = "/home/alireza/Desktop/SES/rudaux/rudaux_config.yml"
     _group_name = "course_dsci_100_test"
     _course_name = "section_dsci_100_test_01"
 
     settings = load_settings(_config_path)
+    print(settings)
     settings = Settings.parse_obj(settings)
-    lms = get_learning_management_system(settings, config_path=_config_path, group_name=_group_name)
+    lms = get_learning_management_system(settings, group_name=_group_name)
 
     print(lms.get_course_info(course_section_name=_course_name))
     print(lms.get_students(course_section_name=_course_name))
