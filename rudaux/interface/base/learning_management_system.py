@@ -47,9 +47,9 @@ class LearningManagementSystem(ABC, BaseModel):
         pass
 
     @abstractmethod
-    def create_overrides(self, course_section_name, assignment, override):
+    def create_overrides(self, course_section_name: str, assignment: Assignment, overrides: List[Override]):
         pass
 
     @abstractmethod
-    def delete_overrides(self, course_section_name, assignment, override):
+    def delete_overrides(self, course_section_name: str, assignment: Assignment, overrides: List[Override]):
         pass
