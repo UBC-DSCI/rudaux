@@ -11,8 +11,8 @@ from prefect.orion.schemas.schedules import CronSchedule
 from rudaux.model import Settings
 from rudaux.task.autoext import compute_autoextension_override_updates
 from rudaux.tasks import get_learning_management_system, get_grading_system, get_submission_system
-from rudaux.task.learning_management_system import get_students, get_assignments, get_course_info, \
-    update_override, create_overrides, delete_overrides
+from rudaux.task.learning_management_system import get_students, get_assignments, get_submissions, \
+    get_course_info, update_override, create_overrides, delete_overrides
 
 
 # -------------------------------------------------------------------------------------------------------------
@@ -119,6 +119,7 @@ def autoext_flow(settings: dict, course_name: str, section_name: str):
     course_info = get_course_info(lms)
     students = get_students(lms)
     assignments = get_assignments(lms)
+    submissions = get_submissions(lms)
 
     # Compute the set of overrides to delete and new ones to create
     # we formulate override updates as delete first, wait, then create to avoid concurrency issues

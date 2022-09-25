@@ -1,5 +1,5 @@
 from prefect import task
-from ..model import Student, Assignment, CourseInfo, Override
+from ..model import Student, Assignment, CourseInfo, Override, Submission
 
 
 # wraps the lms.get_students function in a task and enforces validation
@@ -30,6 +30,15 @@ def get_course_info(lms):
         raise ValueError
     return ci
 
+
+# wraps the lms.get_course_info function in a task and enforces validation
+@task
+def get_submissions(lms):
+    submissions = lms.get_submissions()
+    for sub in submissions:
+        if not isinstance(sub, Submission):
+            raise ValueError
+    return submissions
 
 # wraps the lms.update_override function in a task and enforces validation
 @task
