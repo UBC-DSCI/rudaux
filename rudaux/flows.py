@@ -14,6 +14,9 @@ from rudaux.tasks import get_learning_management_system, get_grading_system, get
 from rudaux.task.learning_management_system import get_students, get_assignments, get_submissions, \
     get_course_info, update_override, create_overrides, delete_overrides
 
+from rudaux.task.snap import get_pastdue_snapshots, get_existing_snapshots, \
+    get_snapshots_to_take, take_snapshots, verify_snapshots
+
 
 # -------------------------------------------------------------------------------------------------------------
 def load_settings(path):
@@ -108,7 +111,17 @@ async def register(args):
 
 # -------------------------------------------------------------------------------------------------------------
 @flow
-def autoext_flow(settings: dict, course_name: str, section_name: str):
+def autoext_flow(settings: dict, course_name: str, section_name: str) -> None:
+    """
+    applies extension overrides for certain students
+
+    Parameters
+    ----------
+    settings: dict
+    course_name: str
+    section_name: str
+    """
+
     # settings object was serialized by prefect when registering the flow, so need to re-parse it
     settings = Settings.parse_obj(settings)
 
@@ -118,8 +131,8 @@ def autoext_flow(settings: dict, course_name: str, section_name: str):
     # Get course info, list of students, and list of assignments from lms
     course_info = get_course_info(lms=lms, course_section_name=section_name)
     students = get_students(lms=lms, course_section_name=section_name)
-    assignments = get_assignments(lms=lms, course_group_name=course_name, course_section_name=section_name)
-    # submissions = get_submissions(lms)
+    assignments = get_assignments(lms=lms, course_group_name=course_name,
+                                  course_section_name=section_name)
 
     # Compute the set of overrides to delete and new ones to create
     # we formulate override updates as delete first, wait, then create to avoid concurrency issues
@@ -139,7 +152,17 @@ def autoext_flow(settings: dict, course_name: str, section_name: str):
 
 # -------------------------------------------------------------------------------------------------------------
 @flow
-def snap_flow(settings: dict, course_name: str, section_name: str):
+def snap_flow(settings: dict, course_name: str, section_name: str) -> None:
+    """
+    takes snapshots
+
+    Parameters
+    ----------
+    settings: dict
+    course_name: str
+    section_name: str
+    """
+    
     # settings object was serialized by prefect when registering the flow, so need to re-parse it
     settings = Settings.parse_obj(settings)
 
@@ -148,8 +171,10 @@ def snap_flow(settings: dict, course_name: str, section_name: str):
     subs = get_submission_system(settings, course_name)
 
     # Get course info, list of students, and list of assignments from lms
-    course_info = get_course_info(lms)
-    assignments = get_assignments(lms)
+    course_info = get_course_info(lms=lms, course_section_name=section_name)
+    assignments = get_assignments(lms=lms, course_group_name=course_name, course_section_name=section_name)
+    submissions = get_submissions(lms=lms, ourse_group_name=course_name, course_section_name=section_name,
+                                  assignment=settings.assignments[course_name])
 
     # get list of snapshots past their due date from assignments
     pastdue_snaps = get_pastdue_snapshots(course_name, course_info, assignments)
@@ -174,7 +199,7 @@ def snap_flow(settings: dict, course_name: str, section_name: str):
 @flow
 def grade_flow(settings: dict, course_name: str):
     settings = Settings.parse_obj(settings)
-    ## create LMS and Submission system objects
+    # create LMS and Submission system objects
     # lms = get_learning_management_system(settings, config_path, course_name)
     # subs = get_submission_system(settings, config_path, course_name)
     # grds = get_grading_system(settings, config_path, course_name)
