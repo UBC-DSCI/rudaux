@@ -116,19 +116,25 @@ def autoext_flow(settings: dict, course_name: str, section_name: str):
     lms = get_learning_management_system(settings, course_name)
 
     # Get course info, list of students, and list of assignments from lms
-    course_info = get_course_info(lms)
-    students = get_students(lms)
-    assignments = get_assignments(lms)
-    submissions = get_submissions(lms)
+    course_info = get_course_info(lms=lms, course_section_name=section_name)
+    students = get_students(lms=lms, course_section_name=section_name)
+    assignments = get_assignments(lms=lms, course_group_name=course_name, course_section_name=section_name)
+    # submissions = get_submissions(lms)
 
     # Compute the set of overrides to delete and new ones to create
     # we formulate override updates as delete first, wait, then create to avoid concurrency issues
     # TODO map over assignments here (still fine with concurrency)
 
-    overrides_to_delete, overrides_to_create = compute_autoextension_override_updates(
-        course_info, students, assignments)
-    delete_response = delete_overrides(lms, overrides_to_delete)
-    create_response = create_overrides(lms, overrides_to_create, wait_for=[delete_response])
+    overrides = compute_autoextension_override_updates(
+        settings, course_name, section_name, course_info, students, assignments)
+
+    for assignment, overrides_to_delete, overrides_to_create in overrides:
+        delete_response = delete_overrides(lms=lms, course_section_name=section_name,
+                                           assignment=assignment, override=overrides_to_delete)
+
+        create_response = create_overrides(lms=lms, course_section_name=section_name,
+                                           assignment=assignment, override=overrides_to_create,
+                                           wait_for=[delete_response])
 
 
 # -------------------------------------------------------------------------------------------------------------
