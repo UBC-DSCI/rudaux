@@ -30,7 +30,7 @@ class Canvas(LearningManagementSystem):
         pass
 
     # ---------------------------------------------------------------------------------------------------
-    def get_course_info(self, course_section_name) -> CourseInfo:
+    def get_course_info(self, course_section_name: str) -> CourseInfo:
         canvas_id = self.canvas_course_lms_ids[course_section_name]
         api_info = {
             'domain': self.canvas_base_domain,
@@ -192,21 +192,38 @@ class Canvas(LearningManagementSystem):
                             student=submission.student.lms_id, score=submission.score)
 
     # ---------------------------------------------------------------------------------------------------
-    def update_override(self, course_name, override):
+    def update_override(self, course_name: str, override: Override):
         pass
 
     # ---------------------------------------------------------------------------------------------------
-    def create_overrides(self, course_section_name, assignment, override):
+    def create_overrides(self, course_section_name: str, assignment: Assignment, overrides: List[Override]):
         canvas_id = self.canvas_course_lms_ids[course_section_name]
         api_info = {
             'domain': self.canvas_base_domain,
             'id': canvas_id,
             'token': self.canvas_api_tokens[course_section_name]
         }
-        return _create_override(api_info={canvas_id: api_info}, assignment=assignment, override=override)
+        assignment_dict = {
+            'id': assignment.lms_id,
+            'name': assignment.name
+        }
+        outputs = []
+        for override in overrides:
+            override_dict = {
+                'student_ids': [student.lms_id for student in override.students],
+                'unlock_at': override.unlock_at,
+                'due_at': override.due_at,
+                'lock_at': override.lock_at,
+                'title': override.name
+            }
+            output = _create_override(api_info={canvas_id: api_info}, assignment=assignment_dict,
+                                      override=override_dict)
+            outputs.append(output)
+
+        return outputs
 
     # ---------------------------------------------------------------------------------------------------
-    def delete_overrides(self, course_section_name, assignment, override):
+    def delete_overrides(self, course_section_name: str, assignment: Assignment, override: Override):
         canvas_id = self.canvas_course_lms_ids[course_section_name]
         api_info = {
             'domain': self.canvas_base_domain,
@@ -248,6 +265,7 @@ if __name__ == "__main__":
 
     print(lms.get_course_info(course_section_name=_course_name))
     print(lms.get_students(course_section_name=_course_name))
+    print()
     print(lms.get_instructors(course_section_name=_course_name))
     print(lms.get_groups(course_section_name=_course_name))
     print(lms.get_assignments(course_group_name=_group_name, course_section_name=_course_name))
