@@ -219,7 +219,6 @@ class Canvas(LearningManagementSystem):
 
 
 if __name__ == "__main__":
-    from rudaux.tasks import get_learning_management_system
     from rudaux.model.settings import Settings
     from rudaux.flows import load_settings
     import importlib
