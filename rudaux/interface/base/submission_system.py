@@ -13,17 +13,17 @@ class SubmissionSystem(ABC, BaseModel):
         pass
 
     @abstractmethod
-    def get_snapshots(self):
+    def list_snapshots(self, assignments, students):
         pass
 
     @abstractmethod
-    def take_snapshot(self, snapshot, student=None, assignment=None):
+    def take_snapshot(self, snapshot):
         pass
 
     @abstractmethod
-    def read(self, student, storage_relative_path, local_relative_path, snapshot=None):
+    def collect_snapshot(self, snapshot):
         pass
 
     @abstractmethod
-    def write(self, student, local_relative_path, storage_relative_path):
+    def distribute(self, student, document_info, document_data):
         pass

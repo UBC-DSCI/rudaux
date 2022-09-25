@@ -2,9 +2,6 @@ from prefect import task
 from prefect.engine import signals
 import pendulum as plm
 
-def get_snapshot_name(course_name, assignment, override, student):
-    return f"{course_name}-{assignment.name}-{assignment.lms_id}" + ("" if override is None else f"-{override.name}-{override.lms_id}")
-
 @task
 def get_pastdue_snapshots(course_name, course_info, assignments):
     logger = get_logger()
@@ -16,8 +13,7 @@ def get_pastdue_snapshots(course_name, course_info, assignments):
              logger.info(f"Assignment {asgn.name} deadline {asgn.due_at} prior to course start date {course_info.start_at}; skipping snapshot")
         else:
              logger.info(f"Assignment {asgn.name} deadline {asgn.due_at} past due; adding snapshot to pastdue list")
-             snap_name = get_snapshot_name(course_name, asgn, None, None)
-             pastdue_snaps.append(Snapshot(assignment = asgn, override = None, student = None, name = snap_name))
+             pastdue_snaps.append(Snapshot(course_name = course_name, assignment = asgn, override = None, student = None))
         for over in asgn.overrides:
             if over.due_at > plm.now():
                  logger.info(f"Assignment {asgn.name} override {over.name} has future deadline {over.due_at}; skipping snapshot")
@@ -26,14 +22,12 @@ def get_pastdue_snapshots(course_name, course_info, assignments):
             else:
                  logger.info(f"Assignment {asgn.name} override {over.name} deadline {over.due_at} past due; adding snapshot to pastdue list")
                  for stu in over.students:
-                     snap_name = get_snapshot_name(course_name, asgn, over, stu)
-                     pastdue_snaps.append(Snapshot(assignment = asgn, override = over, student = stu, name = snap_name))
-
+                     pastdue_snaps.append(Snapshot(course_name = course_name, assignment = asgn, override = over, student = stu))
     return pastdue_snaps
 
 @task
 def get_existing_snapshots(subs):
-    existing_snaps = subs.get_snapshots()
+    existing_snaps = subs.list_snapshots()
     logger = get_logger()
     logger.info(f"Found {len(existing_snaps)} existing snapshots.")
     logger.info(f"Snapshots: {[snap.name for snap in existing_snaps]}")
