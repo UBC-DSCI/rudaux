@@ -1,5 +1,6 @@
 from rudaux.interface.base.submission_system import SubmissionSystem
 from rudaux.util.zfs import RemoteZFS
+from rudaux.model.snapshot import parse_snapshot_name
 
 
 class RemoteZFSSubmissions(SubmissionSystem):
