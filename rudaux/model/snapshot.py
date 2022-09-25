@@ -27,4 +27,3 @@ class Snapshot(BaseModel):
     def get_name(self):
         return f"{self.course_name}-{self.assignment.name}-{self.assignment.lms_id}" + \
 			("" if override is None else f"-{self.override.name}-{self.override.lms_id}-{self.student.name}-{self.student.lms_id}")
-

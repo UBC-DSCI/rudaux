@@ -30,7 +30,7 @@ class Canvas(LearningManagementSystem):
         pass
 
     # ---------------------------------------------------------------------------------------------------
-    def get_course_info(self, course_section_name) -> CourseInfo:
+    def get_course_info(self, course_section_name: str) -> CourseInfo:
         canvas_id = self.canvas_course_lms_ids[course_section_name]
         api_info = {
             'domain': self.canvas_base_domain,
@@ -192,21 +192,38 @@ class Canvas(LearningManagementSystem):
                             student=submission.student.lms_id, score=submission.score)
 
     # ---------------------------------------------------------------------------------------------------
-    def update_override(self, course_name, override):
+    def update_override(self, course_name: str, override: Override):
         pass
 
     # ---------------------------------------------------------------------------------------------------
-    def create_overrides(self, course_section_name, assignment, override):
+    def create_overrides(self, course_section_name: str, assignment: Assignment, overrides: List[Override]):
         canvas_id = self.canvas_course_lms_ids[course_section_name]
         api_info = {
             'domain': self.canvas_base_domain,
             'id': canvas_id,
             'token': self.canvas_api_tokens[course_section_name]
         }
-        return _create_override(api_info={canvas_id: api_info}, assignment=assignment, override=override)
+        assignment_dict = {
+            'id': assignment.lms_id,
+            'name': assignment.name
+        }
+        outputs = []
+        for override in overrides:
+            override_dict = {
+                'student_ids': [student.lms_id for student in override.students],
+                'unlock_at': override.unlock_at,
+                'due_at': override.due_at,
+                'lock_at': override.lock_at,
+                'title': override.name
+            }
+            output = _create_override(api_info={canvas_id: api_info}, assignment=assignment_dict,
+                                      override=override_dict)
+            outputs.append(output)
+
+        return outputs
 
     # ---------------------------------------------------------------------------------------------------
-    def delete_overrides(self, course_section_name, assignment, override):
+    def delete_overrides(self, course_section_name: str, assignment: Assignment, override: Override):
         canvas_id = self.canvas_course_lms_ids[course_section_name]
         api_info = {
             'domain': self.canvas_base_domain,
@@ -219,7 +236,6 @@ class Canvas(LearningManagementSystem):
 
 
 if __name__ == "__main__":
-    from rudaux.tasks import get_learning_management_system
     from rudaux.model.settings import Settings
     from rudaux.flows import load_settings
     import importlib
@@ -230,24 +246,26 @@ if __name__ == "__main__":
         return getattr(importlib.import_module(module_name), class_name)
 
 
-    def get_learning_management_system(settings, config_path, group_name):
+    def get_learning_management_system(settings, group_name):
         LMS = get_class_from_string(settings.lms_classes[group_name])
         if not issubclass(LMS, LearningManagementSystem):
             raise ValueError
-        lms = LMS.parse_file(config_path)
+        lms = LMS.parse_obj(settings)
         return lms
 
 
-    _config_path = "/home/alireza/Desktop/SES/rudaux/rudaux_config.json"
+    _config_path = "/home/alireza/Desktop/SES/rudaux/rudaux_config.yml"
     _group_name = "course_dsci_100_test"
     _course_name = "section_dsci_100_test_01"
 
     settings = load_settings(_config_path)
+    print(settings)
     settings = Settings.parse_obj(settings)
-    lms = get_learning_management_system(settings, config_path=_config_path, group_name=_group_name)
+    lms = get_learning_management_system(settings, group_name=_group_name)
 
     print(lms.get_course_info(course_section_name=_course_name))
     print(lms.get_students(course_section_name=_course_name))
+    print()
     print(lms.get_instructors(course_section_name=_course_name))
     print(lms.get_groups(course_section_name=_course_name))
     print(lms.get_assignments(course_group_name=_group_name, course_section_name=_course_name))

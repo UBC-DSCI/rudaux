@@ -1,6 +1,6 @@
 import os
 import sys
-
+import yaml
 from prefect import flow
 # from prefect.flow_runners.subprocess import SubprocessFlowRunner
 # from prefect.blocks.storage import TempStorageBlock
@@ -11,8 +11,11 @@ from prefect.orion.schemas.schedules import CronSchedule
 from rudaux.model import Settings
 from rudaux.task.autoext import compute_autoextension_override_updates
 from rudaux.tasks import get_learning_management_system, get_grading_system, get_submission_system
-from rudaux.task.learning_management_system import get_students, get_assignments, get_course_info, \
-    update_override, create_overrides, delete_overrides
+from rudaux.task.learning_management_system import get_students, get_assignments, get_submissions, \
+    get_course_info, update_override, create_overrides, delete_overrides
+
+from rudaux.task.snap import get_pastdue_snapshots, get_existing_snapshots, \
+    get_snapshots_to_take, take_snapshots, verify_snapshots
 
 
 # -------------------------------------------------------------------------------------------------------------
@@ -27,7 +30,11 @@ def load_settings(path):
               specify a valid configuration file path.
               """
         )
-    return Settings.parse_file(path)
+    else:
+        with open(path) as f:
+            config = yaml.safe_load(f)
+
+    return Settings.parse_obj(obj=config)
 
 
 # -------------------------------------------------------------------------------------------------------------
@@ -71,8 +78,7 @@ async def register(args):
                     name=name,
                     work_queue_name=settings.prefect_queue_name,
                     schedule=CronSchedule(cron=cron, timezone="America/Vancouver"),
-                    parameters={'settings': settings.dict(),
-                                'config_path': args.config_path, 'course_name': course_name},
+                    parameters={'settings': settings.dict(), 'course_name': course_name},
                 )
                 print(deployment)
                 print('\n')
@@ -90,7 +96,7 @@ async def register(args):
                         name=name,
                         work_queue_name=settings.prefect_queue_name,
                         schedule=CronSchedule(cron=cron, timezone="America/Vancouver"),
-                        parameters={'settings': settings.dict(), 'config_path': args.config_path,
+                        parameters={'settings': settings.dict(),
                                     'course_name': course_name, 'section_name': section_name},
                     )
                     print(deployment)
@@ -105,41 +111,72 @@ async def register(args):
 
 # -------------------------------------------------------------------------------------------------------------
 @flow
-def autoext_flow(settings, config_path, course_name, section_name):
-    # settings object was serialized by prefect when registering the flow, so need to re-parse it
+def autoext_flow(settings: dict, course_name: str, section_name: str) -> None:
+    """
+    applies extension overrides for certain students
+
+    Parameters
+    ----------
+    settings: dict
+    course_name: str
+    section_name: str
+    """
+
+    # settings object was serialized by prefect when registering the flow, so need to reparse it
     settings = Settings.parse_obj(settings)
 
     # Create an LMS object
-    lms = get_learning_management_system(settings, config_path, course_name)
+    lms = get_learning_management_system(settings, course_name)
 
     # Get course info, list of students, and list of assignments from lms
-    course_info = get_course_info(lms)
-    students = get_students(lms)
-    assignments = get_assignments(lms)
+    course_info = get_course_info(lms=lms, course_section_name=section_name)
+    students = get_students(lms=lms, course_section_name=section_name)
+    assignments = get_assignments(lms=lms, course_group_name=course_name,
+                                  course_section_name=section_name)
 
     # Compute the set of overrides to delete and new ones to create
     # we formulate override updates as delete first, wait, then create to avoid concurrency issues
     # TODO map over assignments here (still fine with concurrency)
 
-    overrides_to_delete, overrides_to_create = compute_autoextension_override_updates(
-        course_info, students, assignments)
-    delete_response = delete_overrides(lms, overrides_to_delete)
-    create_response = create_overrides(lms, overrides_to_create, wait_for=[delete_response])
+    # compute the set of overrides to delete and new ones to create for all assignments
+    overrides = compute_autoextension_override_updates(
+        settings, course_name, section_name, course_info, students, assignments)
+
+    # for each assignment remove the old overrides and create new ones
+    for assignment, overrides_to_delete, overrides_to_create in overrides:
+        delete_response = delete_overrides(lms=lms, course_section_name=section_name,
+                                           assignment=assignment, override=overrides_to_delete)
+
+        create_response = create_overrides(lms=lms, course_section_name=section_name,
+                                           assignment=assignment, override=overrides_to_create,
+                                           wait_for=[delete_response])
 
 
 # -------------------------------------------------------------------------------------------------------------
 @flow
-def snap_flow(settings, config_path, course_name, section_name):
-    # settings object was serialized by prefect when registering the flow, so need to re-parse it
+def snap_flow(settings: dict, course_name: str, section_name: str) -> None:
+    """
+    takes snapshots
+
+    Parameters
+    ----------
+    settings: dict
+    course_name: str
+    section_name: str
+    """
+
+    # settings object was serialized by prefect when registering the flow, so need to reparse it
     settings = Settings.parse_obj(settings)
 
     # Create an LMS and SubS object
-    lms = get_learning_management_system(settings, config_path, course_name)
-    subs = get_submission_system(settings, config_path, course_name)
+    lms = get_learning_management_system(settings, course_name)
+    subs = get_submission_system(settings, course_name)
 
     # Get course info, list of students, and list of assignments from lms
-    course_info = get_course_info(lms)
-    assignments = get_assignments(lms)
+    course_info = get_course_info(lms=lms, course_section_name=section_name)
+    assignments = get_assignments(lms=lms, course_group_name=course_name, course_section_name=section_name)
+    submissions = get_submissions(lms=lms, ourse_group_name=course_name, course_section_name=section_name,
+                                  assignment=settings.assignments[course_name])
 
     # get list of snapshots past their due date from assignments
     pastdue_snaps = get_pastdue_snapshots(course_name, course_info, assignments)
@@ -162,9 +199,9 @@ def snap_flow(settings, config_path, course_name, section_name):
 
 # -------------------------------------------------------------------------------------------------------------
 @flow
-def grade_flow(settings, config_path, course_name):
+def grade_flow(settings: dict, course_name: str):
     settings = Settings.parse_obj(settings)
-    ## create LMS and Submission system objects
+    # create LMS and Submission system objects
     # lms = get_learning_management_system(settings, config_path, course_name)
     # subs = get_submission_system(settings, config_path, course_name)
     # grds = get_grading_system(settings, config_path, course_name)
@@ -172,13 +209,13 @@ def grade_flow(settings, config_path, course_name):
 
 # -------------------------------------------------------------------------------------------------------------
 @flow
-def soln_flow(settings, config_path, course_name):
+def soln_flow(settings: dict, course_name: str):
     settings = Settings.parse_obj(settings)
 
 
 # -------------------------------------------------------------------------------------------------------------
 @flow
-def fdbk_flow(settings, config_path, course_name):
+def fdbk_flow(settings: dict, course_name: str):
     settings = Settings.parse_obj(settings)
 
 
@@ -187,7 +224,7 @@ async def list_course_info(args):
     # load settings from the config
     settings = load_settings(args.config_path)
     for course_name in settings.course_groups:
-        lms = get_learning_management_system(settings, config_path, course_name)
+        lms = get_learning_management_system(settings, course_name)
         pass  # TODO
 
     # asgns = []

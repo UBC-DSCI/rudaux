@@ -1,0 +1,64 @@
+# =========================================================================
+#                       GENERAL CONFIG
+# =========================================================================
+# Provide a key, value pair where the key is the course name, and the value is
+# a list of its different sections
+# EXAMPLE: "COURSE_GROUP_NAME": ["COURSE_SECTION_NAME_01", "COURSE_SECTION_NAME_02"]
+
+course_groups:
+  course_dsci_100_test:
+  - section_dsci_100_test_01
+
+# =========================================================================
+lms_classes:
+  course_dsci_100_test: rudaux.interface.Canvas
+
+# =========================================================================
+gs_classes:
+  course_dsci_100_test: rudaux.interface.NBGrader
+
+# =========================================================================
+ss_classes:
+  course_dsci_100_test: rudaux.interface.RemoteZFS
+
+# =========================================================================
+#                       CANVAS CONFIG
+# =========================================================================
+
+canvas_base_domain: https://canvas.ubc.ca
+# =========================================================================
+# Provide a key, value pair where the key is the course section name, and the value is
+# the canvas id of that course section
+# EXAMPLE: COURSE_SECTION_NAME_01": "12345"
+
+canvas_course_lms_ids:
+  section_dsci_100_test_01: '92197'
+
+# =========================================================================
+canvas_registration_deadlines:
+  section_dsci_100_test_01: 01-05-2022
+
+# =========================================================================
+canvas_api_tokens:
+  section_dsci_100_test_01: 11224~DBxLb0Bnhavc4UHQb1FxAIBGaEpXLyW1Ul1gbL0RU430rkSxUd5Rc7MOyjRlCeLQ
+
+# =========================================================================
+assignments:
+  course_dsci_100_test:
+    test_assignment:
+    - grader_jhub_username_A
+
+# =========================================================================
+latereg_extension_days:
+  course_dsci_100_test: 7
+
+# =========================================================================
+notify_timezone:
+    course_dsci_100_test: America/Vancouver
+
+# =========================================================================
+autoext_cron_string: "* * * * *"
+snap_cron_string: "* * * * *"
+grade_cron_string: "* * * * *"
+
+# =========================================================================

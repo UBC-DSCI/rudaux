@@ -13,6 +13,8 @@ subparsers = parser.add_subparsers(
     title='Subcommands', dest="subparser", help='Commands that rudaux can process.'
 )
 
+CONFIG_FILE = 'rudaux_config.yml'
+
 # ---------------------------------------------
 #           Run workflows 
 # ---------------------------------------------
@@ -23,7 +25,7 @@ run_parser.add_argument(
     '--config',
     dest='config_path',
     action='store',
-    default=os.path.join(os.getcwd(), "rudaux_config.json"),
+    default=os.path.join(os.getcwd(), CONFIG_FILE),
     help="the path to the rudaux configuration file."
 )
 
@@ -37,7 +39,7 @@ register_parser.add_argument(
     '--config',
     dest='config_path',
     action='store',
-    default=os.path.join(os.getcwd(), "rudaux_config.json"),
+    default=os.path.join(os.getcwd(), CONFIG_FILE),
     help="the path to the rudaux configuration file."
 )
 register_parser.add_argument(
@@ -88,7 +90,7 @@ list_parser.add_argument(
     '--config',
     dest='config_path',
     action='store',
-    default=os.path.join(os.getcwd(), "rudaux_config.json"),
+    default=os.path.join(os.getcwd(), CONFIG_FILE),
     help="the path to the rudaux configuration file."
 )
 

@@ -59,7 +59,7 @@ def get_groups(api_info, course_id):
 def get_assignments(api_info, course_id, assignment_names):
     asgns = _get(api_info[course_id], 'assignments')
     processed_asgns = [{
-        'lms_id': str(a['id']),
+        'id': str(a['id']),
         'name': a['name'],
         'due_at': None if a['due_at'] is None else plm.parse(a['due_at']),
         'lock_at': None if a['lock_at'] is None else plm.parse(a['lock_at']),
@@ -253,6 +253,7 @@ def _delete(api_info, path_suffix):
 # ----------------------------------------------------------------------------------------------------------------
 def _get_overrides(api_info, assignment):
     overs = _get(api_info, 'assignments/' + assignment['id'] + '/overrides')
+    print(overs)
     for over in overs:
         over['id'] = str(over['id'])
         over['title'] = str(over['title'])
@@ -266,7 +267,7 @@ def _get_overrides(api_info, assignment):
 
 
 # ----------------------------------------------------------------------------------------------------------------
-def _create_override(api_info, assignment, override):
+def _create_override(api_info: dict, assignment: dict, override: dict):
     # check all required keys
     required_keys = ['student_ids', 'unlock_at', 'due_at', 'lock_at', 'title']
     for rk in required_keys:
