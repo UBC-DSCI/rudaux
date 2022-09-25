@@ -53,6 +53,10 @@ latereg_extension_days:
   course_dsci_100_test: 7
 
 # =========================================================================
+notify_timezone:
+    course_dsci_100_test: America/Vancouver
+
+# =========================================================================
 autoext_cron_string: "* * * * *"
 snap_cron_string: "* * * * *"
 grade_cron_string: "* * * * *"
