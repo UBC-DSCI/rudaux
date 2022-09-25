@@ -1,6 +1,6 @@
 import os
 import sys
-
+import yaml
 from prefect import flow
 # from prefect.flow_runners.subprocess import SubprocessFlowRunner
 # from prefect.blocks.storage import TempStorageBlock
@@ -27,7 +27,11 @@ def load_settings(path):
               specify a valid configuration file path.
               """
         )
-    return Settings.parse_file(path)
+    else:
+        with open(path) as f:
+            config = yaml.safe_load(f)
+
+    return Settings.parse_obj(obj=config)
 
 
 # -------------------------------------------------------------------------------------------------------------
@@ -71,8 +75,7 @@ async def register(args):
                     name=name,
                     work_queue_name=settings.prefect_queue_name,
                     schedule=CronSchedule(cron=cron, timezone="America/Vancouver"),
-                    parameters={'settings': settings.dict(),
-                                'config_path': args.config_path, 'course_name': course_name},
+                    parameters={'settings': settings.dict(), 'course_name': course_name},
                 )
                 print(deployment)
                 print('\n')
@@ -90,7 +93,7 @@ async def register(args):
                         name=name,
                         work_queue_name=settings.prefect_queue_name,
                         schedule=CronSchedule(cron=cron, timezone="America/Vancouver"),
-                        parameters={'settings': settings.dict(), 'config_path': args.config_path,
+                        parameters={'settings': settings.dict(),
                                     'course_name': course_name, 'section_name': section_name},
                     )
                     print(deployment)
@@ -105,12 +108,12 @@ async def register(args):
 
 # -------------------------------------------------------------------------------------------------------------
 @flow
-def autoext_flow(settings, config_path, course_name, section_name):
+def autoext_flow(settings: dict, course_name: str, section_name: str):
     # settings object was serialized by prefect when registering the flow, so need to re-parse it
     settings = Settings.parse_obj(settings)
 
     # Create an LMS object
-    lms = get_learning_management_system(settings, config_path, course_name)
+    lms = get_learning_management_system(settings, course_name)
 
     # Get course info, list of students, and list of assignments from lms
     course_info = get_course_info(lms)
@@ -129,13 +132,13 @@ def autoext_flow(settings, config_path, course_name, section_name):
 
 # -------------------------------------------------------------------------------------------------------------
 @flow
-def snap_flow(settings, config_path, course_name, section_name):
+def snap_flow(settings: dict, course_name: str, section_name: str):
     # settings object was serialized by prefect when registering the flow, so need to re-parse it
     settings = Settings.parse_obj(settings)
 
     # Create an LMS and SubS object
-    lms = get_learning_management_system(settings, config_path, course_name)
-    subs = get_submission_system(settings, config_path, course_name)
+    lms = get_learning_management_system(settings, course_name)
+    subs = get_submission_system(settings, course_name)
 
     # Get course info, list of students, and list of assignments from lms
     course_info = get_course_info(lms)
@@ -162,7 +165,7 @@ def snap_flow(settings, config_path, course_name, section_name):
 
 # -------------------------------------------------------------------------------------------------------------
 @flow
-def grade_flow(settings, config_path, course_name):
+def grade_flow(settings: dict, course_name: str):
     settings = Settings.parse_obj(settings)
     ## create LMS and Submission system objects
     # lms = get_learning_management_system(settings, config_path, course_name)
@@ -172,13 +175,13 @@ def grade_flow(settings, config_path, course_name):
 
 # -------------------------------------------------------------------------------------------------------------
 @flow
-def soln_flow(settings, config_path, course_name):
+def soln_flow(settings: dict, course_name: str):
     settings = Settings.parse_obj(settings)
 
 
 # -------------------------------------------------------------------------------------------------------------
 @flow
-def fdbk_flow(settings, config_path, course_name):
+def fdbk_flow(settings: dict, course_name: str):
     settings = Settings.parse_obj(settings)
 
 
@@ -187,7 +190,7 @@ async def list_course_info(args):
     # load settings from the config
     settings = load_settings(args.config_path)
     for course_name in settings.course_groups:
-        lms = get_learning_management_system(settings, config_path, course_name)
+        lms = get_learning_management_system(settings, course_name)
         pass  # TODO
 
     # asgns = []
