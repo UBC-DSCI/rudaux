@@ -43,7 +43,7 @@ class Canvas(LearningManagementSystem):
         return course_info
 
     # ---------------------------------------------------------------------------------------------------
-    def get_students(self, course_section_name) -> List[Student]:
+    def get_students(self, course_section_name) -> Dict[str, Student]:
         canvas_id = self.canvas_course_lms_ids[course_section_name]
         api_info = {
             'domain': self.canvas_base_domain,
@@ -55,13 +55,14 @@ class Canvas(LearningManagementSystem):
 
         # print(students)
 
-        students = [Student(
+        students = {s['lms_id']: Student(
             lms_id=s['lms_id'], name=s['name'], sortable_name=s['sortable_name'],
-            school_id=s['school_id'], reg_date=s['reg_date'], status=s['status']) for s in students]
+            school_id=s['school_id'], reg_date=s['reg_date'], status=s['status']) for s in students
+        }
         return students
 
     # ---------------------------------------------------------------------------------------------------
-    def get_instructors(self, course_section_name: str) -> List[Instructor]:
+    def get_instructors(self, course_section_name: str) -> Dict[str, Instructor]:
         canvas_id = self.canvas_course_lms_ids[course_section_name]
         api_info = {
             'domain': self.canvas_base_domain,
@@ -71,9 +72,10 @@ class Canvas(LearningManagementSystem):
         instructors = get_people(api_info={canvas_id: api_info}, course_id=canvas_id,
                                  enrollment_type="TeacherEnrollment")
 
-        instructors = [Instructor(
+        instructors = {i['lms_id']: Instructor(
             lms_id=i['lms_id'], name=i['name'], sortable_name=i['sortable_name'],
-            school_id=i['school_id'], reg_date=i['reg_date'], status=i['status']) for i in instructors]
+            school_id=i['school_id'], reg_date=i['reg_date'], status=i['status']) for i in instructors
+        }
         return instructors
 
     # ---------------------------------------------------------------------------------------------------
@@ -98,7 +100,7 @@ class Canvas(LearningManagementSystem):
         return get_groups(api_info={canvas_id: api_info}, course_id=canvas_id)
 
     # ---------------------------------------------------------------------------------------------------
-    def get_assignments(self, course_group_name: str, course_section_name: str) -> List[Assignment]:
+    def get_assignments(self, course_group_name: str, course_section_name: str) -> Dict[str, Assignment]:
         canvas_id = self.canvas_course_lms_ids[course_section_name]
         api_info = {
             'domain': self.canvas_base_domain,
@@ -110,27 +112,27 @@ class Canvas(LearningManagementSystem):
 
         # print(assignments_dict)
 
-        assignments = []
+        assignments = dict()
         for a in assignments_dict:
             overrides = []
             for o in a['overrides']:
-                students = []
+                students = dict()
                 for s in o['students']:
                     student = Student(
                         lms_id=s['lms_id'], name=s['name'], sortable_name=s['sortable_name'],
                         school_id=s['school_id'], reg_date=s['reg_date'], status=s['status'])
-                    students.append(student)
+                    students[student.lms_id] = student
                 override = Override(
                     lms_id=o['lms_id'], name=o['name'], due_at=o['due_at'],
                     lock_at=o['lock_at'], unlock_at=o['unlock_at'], students=students)
                 overrides.append(override)
 
             assignment = Assignment(
-                lms_id=a['lms_id'], name=a['name'], due_at=a['due_at'],
+                lms_id=a['id'], name=a['name'], due_at=a['due_at'],
                 lock_at=a['lock_at'], unlock_at=a['unlock_at'], overrides=overrides,
                 published=a['published']
             )
-            assignments.append(assignment)
+            assignments[assignment.lms_id] = assignment
 
         return assignments
 
@@ -154,29 +156,24 @@ class Canvas(LearningManagementSystem):
                                                course_section_name=course_section_name)
 
         submissions = []
-        for assignment_obj in all_assignments:
-            for student_obj in all_students:
-                # fetch the pair from submissions_dict
-                if assignment_obj.lms_id in submissions_dict:
-                    if student_obj.lms_id in submissions_dict[assignment_obj.lms_id]:
-                        submission = submissions_dict[assignment_obj.lms_id][student_obj.lms_id]
+        for assignment_id in submissions_dict:
+            for student_id in submissions_dict[assignment_id]:
+                submission = submissions_dict[assignment_id][student_id]
+                submission['score'] = 100
+                submission['posted_at'] = DateTime(2022, 9, 21, 17, 12, 10, tzinfo=Timezone('UTC'))
+                submission['excused'] = False
 
-                        submission['score'] = 100
-                        submission['posted_at'] = DateTime(2022, 9, 21, 17, 12, 10, tzinfo=Timezone('UTC'))
-                        submission['excused'] = False
-
-                        submission = Submission(
-                            lms_id=canvas_id,
-                            student=student_obj,
-                            assignment=assignment_obj,
-                            score=submission['score'],
-                            posted_at=submission['posted_at'],
-                            late=submission['late'],
-                            missing=submission['missing'],
-                            excused=submission['excused']
-                        )
-                        submissions.append(submission)
-
+                submission = Submission(
+                    lms_id=canvas_id,
+                    student=all_students[student_id],
+                    assignment=all_assignments[assignment_id],
+                    score=submission['score'],
+                    posted_at=submission['posted_at'],
+                    late=submission['late'],
+                    missing=submission['missing'],
+                    excused=submission['excused']
+                )
+                submissions.append(submission)
         return submissions
 
     # ---------------------------------------------------------------------------------------------------
@@ -210,7 +207,7 @@ class Canvas(LearningManagementSystem):
         outputs = []
         for override in overrides:
             override_dict = {
-                'student_ids': [student.lms_id for student in override.students],
+                'student_ids': [student_id for student_id in override.students],
                 'unlock_at': override.unlock_at,
                 'due_at': override.due_at,
                 'lock_at': override.lock_at,
@@ -267,7 +264,7 @@ if __name__ == "__main__":
     print(lms.get_students(course_section_name=_course_name))
     print()
     print(lms.get_instructors(course_section_name=_course_name))
-    print(lms.get_groups(course_section_name=_course_name))
+    # print(lms.get_groups(course_section_name=_course_name))
     print(lms.get_assignments(course_group_name=_group_name, course_section_name=_course_name))
     print(lms.get_submissions(course_group_name=_group_name, course_section_name=_course_name,
                               assignment={'id': '1292206', 'name': 'test_assignment'}))
