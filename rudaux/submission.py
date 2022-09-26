@@ -500,7 +500,9 @@ def autograde(config, subm_set):
                                     subm['grader']['folder'])
 
                 # validate the results
-                #if 'ERROR' in res['log']:
+                if 'ERROR' in res['log']:
+                    logger.warning(f"Docker error autograding submission {subm['name']}: exited with status {res['exit_status']},  {res['log']}")
+                    logger.warning(f"May still continue if rudaux determines this error is nonfatal")
                 #    msg = f"Docker error autograding submission {subm['name']}: exited with status {res['exit_status']},  {res['log']}"
                 #    sig = signals.FAIL(msg)
                 #    sig.msg = msg
