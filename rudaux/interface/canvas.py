@@ -114,7 +114,7 @@ class Canvas(LearningManagementSystem):
 
         assignments = dict()
         for a in assignments_dict:
-            overrides = []
+            overrides = dict()
             for o in a['overrides']:
                 students = dict()
                 for s in o['students']:
@@ -125,7 +125,8 @@ class Canvas(LearningManagementSystem):
                 override = Override(
                     lms_id=o['lms_id'], name=o['name'], due_at=o['due_at'],
                     lock_at=o['lock_at'], unlock_at=o['unlock_at'], students=students)
-                overrides.append(override)
+
+                overrides[override.lms_id] = override
 
             assignment = Assignment(
                 lms_id=a['id'], name=a['name'], due_at=a['due_at'],

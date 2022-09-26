@@ -34,9 +34,9 @@ def _get_due_date(assignment: Assignment, student: Student) -> Tuple[plm.DateTim
     original_assignment_due_date = assignment.due_at
 
     # get overrides for the student
-    student_overrides = [over for over in assignment.overrides if
+    student_overrides = [over for over_id, over in assignment.overrides.items() if
                          student.lms_id in [
-                             student.lms_id for student in over.students
+                             over_student.lms_id for over_student_id, over_student in over.students.items()
                          ] and (over.due_at is not None)]
 
     # if student has no override, return the original_assignment_due_date
