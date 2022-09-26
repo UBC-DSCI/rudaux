@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict
 from pydantic import BaseModel
 from abc import ABC, abstractmethod
 from rudaux.model import CourseInfo, Instructor, Student, Assignment, Override, Submission
@@ -22,12 +22,12 @@ class LearningManagementSystem(ABC, BaseModel):
 
     # -----------------------------------------------------------------------------------------
     @abstractmethod
-    def get_students(self, course_section_name: str) -> List[Student]:
+    def get_students(self, course_section_name: str) -> Dict[str, Student]:
         pass
 
     # -----------------------------------------------------------------------------------------
     @abstractmethod
-    def get_instructors(self, course_section_name: str) -> List[Instructor]:
+    def get_instructors(self, course_section_name: str) -> Dict[str, Instructor]:
         pass
 
     # -----------------------------------------------------------------------------------------
@@ -38,7 +38,7 @@ class LearningManagementSystem(ABC, BaseModel):
     # -----------------------------------------------------------------------------------------
     @abstractmethod
     def get_assignments(self, course_group_name: str,
-                        course_section_name: str) -> List[Assignment]:
+                        course_section_name: str) -> Dict[str, Assignment]:
         pass
 
     # -----------------------------------------------------------------------------------------
