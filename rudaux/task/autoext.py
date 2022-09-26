@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 
 from prefect import task, unmapped
 # from prefect.engine import signals
@@ -115,8 +115,8 @@ def _get_due_date(assignment: Assignment, student: Student) -> Tuple[plm.DateTim
 # ----------------------------------------------------------------------------------------------------------
 @task(name="compute_autoextension_override_updates")
 def compute_autoextension_override_updates(settings: Settings, course_name: str, section_name: str,
-                                           course_info: CourseInfo, students: List[Student],
-                                           assignments: List[Assignment]
+                                           course_info: CourseInfo, students: Dict[str, Student],
+                                           assignments: Dict[str, Assignment]
                                            ) -> List[Tuple[Assignment, List[Override], List[Override]]]:
     """
     returns the list of tuples each corresponding to an assignments and its overrides to delete and create
@@ -142,7 +142,7 @@ def compute_autoextension_override_updates(settings: Settings, course_name: str,
     extension_days = settings.latereg_extension_days[course_name]
     overrides = []
 
-    for assignment in assignments:
+    for assignment_id, assignment in assignments.items():
 
         # skip the assignment if it isn't unlocked yet
         if assignment.unlock_at > plm.now():
@@ -152,7 +152,7 @@ def compute_autoextension_override_updates(settings: Settings, course_name: str,
         overrides_to_remove = []
         overrides_to_create = []
 
-        for student in students:
+        for student_id, student in students.items():
 
             student_due_date, student_override = _get_due_date(assignment, student)
 
