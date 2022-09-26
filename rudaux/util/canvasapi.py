@@ -78,7 +78,7 @@ def get_assignments(api_info, course_id, assignment_names):
     logger.info(f"Retrieved {len(processed_asgns)} assignments from LMS for {course_id}")
     # check for duplicate IDs and names
     # we require both of these to be unique (snapshots, grader accounts, etc all depend on unique human-readable names)
-    ids = [a['lms_id'] for a in processed_asgns]
+    ids = [a['id'] for a in processed_asgns]
     names = [a['name'] for a in processed_asgns]
     if len(set(ids)) != len(ids):
         raise ValueError(f"Course ID {course_id}: Two assignments detected with the same ID. IDs: {ids}")
