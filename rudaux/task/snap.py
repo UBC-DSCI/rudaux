@@ -9,34 +9,40 @@ from rudaux.model.override import Override
 from rudaux.model.assignment import Assignment
 from rudaux.model.course_info import CourseInfo
 
+
 @task
 def get_pastdue_snapshots(course_name: str, course_info: CourseInfo, assignments: List[Assignment]):
     logger = get_logger()
     pastdue_snaps = []
-    for asgn in assignments:
-        if asgn.due_at > plm.now():
-            logger.info(f"Assignment {asgn.name} has future deadline {asgn.due_at}; skipping snapshot")
-        elif asgn.due_at < course_info.start_at:
+    for assignment in assignments:
+        if assignment.due_at > plm.now():
+            logger.info(f"Assignment {assignment.name} has future deadline {assignment.due_at}; skipping snapshot")
+        elif assignment.due_at < course_info.start_at:
             logger.info(
-                f"Assignment {asgn.name} deadline {asgn.due_at} prior to course start date {course_info.start_at}; "
-                f"skipping snapshot")
+                f"Assignment {assignment.name} deadline {assignment.due_at} "
+                f"prior to course start date {course_info.start_at}; skipping snapshot")
         else:
-             logger.info(f"Assignment {asgn.name} deadline {asgn.due_at} past due; adding snapshot to pastdue list")
-             pastdue_snaps.append(Snapshot(course_name = course_name, assignment = asgn, override = None, student = None))
+            logger.info(f"Assignment {assignment.name} deadline {assignment.due_at} "
+                        f"past due; adding snapshot to pastdue list")
+            pastdue_snaps.append(Snapshot(course_name=course_name, assignment=assignment,
+                                          override=None, student=None))
 
-        for over in asgn.overrides:
+        for over in assignment.overrides:
             if over.due_at > plm.now():
                 logger.info(
-                    f"Assignment {asgn.name} override {over.name} has future deadline {over.due_at}; "
+                    f"Assignment {assignment.name} override {over.name} has future deadline {over.due_at}; "
                     f"skipping snapshot")
             elif over.due_at < course_info.start_at:
                 logger.info(
-                    f"Assignment {asgn.name} override {over.name} deadline {over.due_at} prior to course "
+                    f"Assignment {assignment.name} override {over.name} deadline {over.due_at} prior to course "
                     f"start date {course_info.start_at}; skipping snapshot")
             else:
-                 logger.info(f"Assignment {asgn.name} override {over.name} deadline {over.due_at} past due; adding snapshot to pastdue list")
-                 for stu in over.students:
-                     pastdue_snaps.append(Snapshot(course_name = course_name, assignment = asgn, override = over, student = stu))
+                logger.info(
+                    f"Assignment {assignment.name} override {over.name} deadline {over.due_at} past due; "
+                    f"adding snapshot to pastdue list")
+                for stu in over.students:
+                    pastdue_snaps.append(Snapshot(course_name=course_name, assignment=assignment,
+                                                  override=over, student=stu))
 
     return pastdue_snaps
 

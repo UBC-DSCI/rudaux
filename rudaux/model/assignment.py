@@ -1,5 +1,5 @@
 import pendulum as plm
-from typing import Optional, List
+from typing import Optional, List, Dict
 from pydantic import BaseModel
 from .override import Override
 
@@ -10,5 +10,5 @@ class Assignment(BaseModel):
     due_at: plm.DateTime
     lock_at: plm.DateTime
     unlock_at: plm.DateTime
-    overrides: List[Override]
+    overrides: Dict[str, Override]
     published: bool

@@ -3,5 +3,5 @@ from pydantic import BaseModel
 
 
 class Document(BaseModel):
-    info : Any
-    data : Any
+    info: Any
+    data: Any
