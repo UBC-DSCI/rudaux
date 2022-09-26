@@ -655,13 +655,16 @@ def return_feedback(config, pastdue_frac, subm_set):
             student = subm['student']
             #logger.info(f"Checking whether feedback for submission {subm['name']} can be returned")
             if subm['due_at'] < plm.now() and subm['status'] != GradingStatus.MISSING:
+                if not os.path.exists(subm['generated_feedback_path']):
+                    logger.warning(f"Warning: feedback file {subm['generated_feedback_path']} doesnt exist yet. Skipping feedback return.")
+                    continue
                 if not os.path.exists(subm['fdbk_path']):
                     logger.info(f"Returning feedback for submission {subm['name']}")
                     if os.path.exists(subm['student_folder']):
                         shutil.copy(subm['generated_feedback_path'], subm['fdbk_path'])
                         recursive_chown(subm['fdbk_path'], subm['grader']['unix_user'], subm['grader']['unix_group'])
                     else:
-                        logger.warning(f"Warning: student folder {subm['student_folder']} doesnt exist. Skipping solution return.")
+                        logger.warning(f"Warning: student folder {subm['student_folder']} doesnt exist. Skipping feedback return.")
             #else:
             #    logger.info(f"Not returnable yet; the student-specific due date ({subm['due_at']}) has not passed.")
     return
