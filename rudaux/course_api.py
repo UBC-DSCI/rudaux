@@ -294,7 +294,7 @@ def update_override(config, course_id, override_update_tuple):
 # TODO remove this function once https://github.com/PrefectHQ/prefect/issues/4084 is resolved
 # and fix where this gets called in flows.py
 def generate_update_override_flatten_name(config, course_id, override_update_tuples, **kwargs):
-    return 'upd-override-'+ override_update_tuples[1]['title']
+    return 'upd-override-flattened'
 
 @task(checkpoint=False,task_run_name=generate_update_override_flatten_name)
 def update_override_flatten(config, course_id, override_update_tuples):
