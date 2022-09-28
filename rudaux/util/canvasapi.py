@@ -253,11 +253,12 @@ def _delete(api_info, path_suffix):
 # ----------------------------------------------------------------------------------------------------------------
 def _get_overrides(api_info, assignment):
     overs = _get(api_info, 'assignments/' + assignment['id'] + '/overrides')
-    print(overs)
+    # print(overs)
     for over in overs:
         over['id'] = str(over['id'])
         over['title'] = str(over['title'])
-        over['student_ids'] = list(map(str, over['student_ids']))
+        if 'student_ids' in over:
+            over['student_ids'] = list(map(str, over['student_ids']))
         for key in ['due_at', 'lock_at', 'unlock_at']:
             if over.get(key) is not None:
                 over[key] = plm.parse(over[key])

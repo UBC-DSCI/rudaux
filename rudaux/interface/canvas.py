@@ -51,7 +51,7 @@ class Canvas(LearningManagementSystem):
             'token': self.canvas_api_tokens[course_section_name]
         }
         students = get_people(api_info={canvas_id: api_info}, course_id=canvas_id,
-                              enrollment_type="StudentViewEnrollment")  # StudentEnrollment
+                              enrollment_type="StudentEnrollment")  # StudentEnrollment
 
         # print(students)
 
@@ -111,22 +111,25 @@ class Canvas(LearningManagementSystem):
                                            assignment_names=self.assignments[course_group_name])
 
         # print(assignments_dict)
+        all_students = self.get_students(course_section_name=course_section_name)
 
         assignments = dict()
         for a in assignments_dict:
             overrides = dict()
             for o in a['overrides']:
                 students = dict()
-                for s in o['students']:
-                    student = Student(
-                        lms_id=s['lms_id'], name=s['name'], sortable_name=s['sortable_name'],
-                        school_id=s['school_id'], reg_date=s['reg_date'], status=s['status'])
-                    students[student.lms_id] = student
-                override = Override(
-                    lms_id=o['lms_id'], name=o['name'], due_at=o['due_at'],
-                    lock_at=o['lock_at'], unlock_at=o['unlock_at'], students=students)
+                if 'student_ids' in o:
+                    for s_id in o['student_ids']:
+                        student = all_students[s_id]
+                        # student = Student(
+                        #     lms_id=s['lms_id'], name=s['name'], sortable_name=s['sortable_name'],
+                        #     school_id=s['school_id'], reg_date=s['reg_date'], status=s['status'])
+                        students[student.lms_id] = student
+                    override = Override(
+                        lms_id=o['id'], name=o['title'], due_at=o['due_at'],
+                        lock_at=o['lock_at'], unlock_at=o['unlock_at'], students=students)
 
-                overrides[override.lms_id] = override
+                    overrides[override.lms_id] = override
 
             assignment = Assignment(
                 lms_id=a['id'], name=a['name'], due_at=a['due_at'],
@@ -160,21 +163,27 @@ class Canvas(LearningManagementSystem):
         for assignment_id in submissions_dict:
             for student_id in submissions_dict[assignment_id]:
                 submission = submissions_dict[assignment_id][student_id]
+
+                # ----------------------------------------------------------------------------------
+                # temporary assignment so it won't be None for testing (should be removed)
                 submission['score'] = 100
                 submission['posted_at'] = DateTime(2022, 9, 21, 17, 12, 10, tzinfo=Timezone('UTC'))
                 submission['excused'] = False
+                # ----------------------------------------------------------------------------------
 
-                submission = Submission(
-                    lms_id=canvas_id,
-                    student=all_students[student_id],
-                    assignment=all_assignments[assignment_id],
-                    score=submission['score'],
-                    posted_at=submission['posted_at'],
-                    late=submission['late'],
-                    missing=submission['missing'],
-                    excused=submission['excused']
-                )
-                submissions.append(submission)
+                if assignment_id in all_assignments:
+                    if student_id in all_students:
+                        submission = Submission(
+                            lms_id=canvas_id,
+                            student=all_students[student_id],
+                            assignment=all_assignments[assignment_id],
+                            score=submission['score'],
+                            posted_at=submission['posted_at'],
+                            late=submission['late'],
+                            missing=submission['missing'],
+                            excused=submission['excused']
+                        )
+                        submissions.append(submission)
         return submissions
 
     # ---------------------------------------------------------------------------------------------------
@@ -260,12 +269,11 @@ if __name__ == "__main__":
     print(settings)
     settings = Settings.parse_obj(settings)
     lms = get_learning_management_system(settings, group_name=_group_name)
-
-    print(lms.get_course_info(course_section_name=_course_name))
-    print(lms.get_students(course_section_name=_course_name))
     print()
-    print(lms.get_instructors(course_section_name=_course_name))
+    print('course_info: ', lms.get_course_info(course_section_name=_course_name), '\n')
+    print('students: ', lms.get_students(course_section_name=_course_name), '\n')
+    print('instructors: ', lms.get_instructors(course_section_name=_course_name), '\n')
     # print(lms.get_groups(course_section_name=_course_name))
-    print(lms.get_assignments(course_group_name=_group_name, course_section_name=_course_name))
-    print(lms.get_submissions(course_group_name=_group_name, course_section_name=_course_name,
-                              assignment={'id': '1292206', 'name': 'test_assignment'}))
+    print('assignments: ', lms.get_assignments(course_group_name=_group_name, course_section_name=_course_name), '\n')
+    print('submissions: ', lms.get_submissions(course_group_name=_group_name, course_section_name=_course_name,
+                                               assignment={'id': '1292206', 'name': 'test_assignment'}), '\n')
