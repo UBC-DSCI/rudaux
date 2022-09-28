@@ -201,7 +201,7 @@ def compute_autoextension_override_updates(settings: Settings, course_name: str,
             else:
                 continue
             overrides.append((assignment, overrides_to_create, overrides_to_remove))
-            return overrides
+    return overrides
 
 # ----------------------------------------------------------------------------------------------------------
 # @task(name="generate_update_override_name")

@@ -60,12 +60,16 @@ async def register(args):
 
         deployment_ids = []
 
-        per_section_flows = [(autoext_flow, settings.autoext_prefix, settings.autoext_cron_string),
-                             (snap_flow, settings.snap_prefix, settings.snap_cron_string)]
+        per_section_flows = [
+            (autoext_flow, settings.autoext_prefix, settings.autoext_cron_string),
+            # (snap_flow, settings.snap_prefix, settings.snap_cron_string)
+        ]
 
-        per_course_flows = [(grade_flow, settings.grade_prefix, settings.grade_cron_string),
-                            (soln_flow, settings.soln_prefix, settings.soln_cron_string),
-                            (fdbk_flow, settings.fdbk_prefix, settings.fdbk_cron_string)]
+        per_course_flows = [
+            # (grade_flow, settings.grade_prefix, settings.grade_cron_string),
+            # (soln_flow, settings.soln_prefix, settings.soln_cron_string),
+            # (fdbk_flow, settings.fdbk_prefix, settings.fdbk_cron_string)
+        ]
 
         for course_name in settings.course_groups:
             # -------------------------------------------------------------------------------------------------

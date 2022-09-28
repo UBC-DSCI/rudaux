@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict
 from prefect import task
 from ..model import Student, Assignment, CourseInfo, Override, Submission, Instructor
 from rudaux.interface.base.learning_management_system import LearningManagementSystem as LMS
@@ -7,10 +7,10 @@ from rudaux.interface.base.learning_management_system import LearningManagementS
 # -----------------------------------------------------------------------------------------
 # wraps the lms.get_students function in a task and enforces validation
 @task
-def get_students(lms: LMS, course_section_name: str) -> List[Student]:
+def get_students(lms: LMS, course_section_name: str) -> Dict[str, Student]:
     students = lms.get_students(course_section_name=course_section_name)
-    for stu in students:
-        if not isinstance(stu, Student):
+    for student_id, student in students.items():
+        if not isinstance(student, Student):
             raise ValueError
     return students
 
@@ -18,9 +18,9 @@ def get_students(lms: LMS, course_section_name: str) -> List[Student]:
 # -----------------------------------------------------------------------------------------
 # wraps the lms.get_instructors function in a task and enforces validation
 @task
-def get_instructors(lms: LMS, course_section_name: str) -> List[Instructor]:
+def get_instructors(lms: LMS, course_section_name: str) -> Dict[str, Instructor]:
     instructors = lms.get_instructors(course_section_name=course_section_name)
-    for instructor in instructors:
+    for instructor_id, instructor in instructors:
         if not isinstance(instructor, Instructor):
             raise ValueError
     return instructors
@@ -30,10 +30,10 @@ def get_instructors(lms: LMS, course_section_name: str) -> List[Instructor]:
 
 # wraps the lms.get_assignments function in a task and enforces validation
 @task
-def get_assignments(lms: LMS, course_group_name: str, course_section_name: str) -> List[Assignment]:
+def get_assignments(lms: LMS, course_group_name: str, course_section_name: str) -> Dict[str, Assignment]:
     assignments = lms.get_assignments(course_group_name=course_group_name,
                                       course_section_name=course_section_name)
-    for assignment in assignments:
+    for assignment_id, assignment in assignments.items():
         if not isinstance(assignment, Assignment):
             raise ValueError
     return assignments
