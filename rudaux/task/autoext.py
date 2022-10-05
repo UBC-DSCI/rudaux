@@ -155,6 +155,13 @@ def compute_autoextension_override_updates(settings: Settings, course_name: str,
             else:
                 continue
 
+            override_to_create_for_student = Override(
+                lms_id=-1, name=f"{student.name}-{assignment.name}-latereg",
+                due_at=student_late_reg_date, lock_at=assignment.lock_at,
+                unlock_at=assignment.unlock_at, students=[student]
+            )
+            overrides_to_create.append(override_to_create_for_student)
+
             # create a dict of students whose overrides need to be removed
             students_with_overrides_to_remove = {student.lms_id: student for student, override in
                                                  student_override_pairs_to_remove}
@@ -169,7 +176,7 @@ def compute_autoextension_override_updates(settings: Settings, course_name: str,
                                                    if student_id not in students_with_overrides_to_remove}
 
                 override_to_create_for_remaining_students = Override(
-                    lms_id=-1, name=f"{assignment.name}-latereg",
+                    lms_id=override_including_student.lms_id, name=override_including_student.name,
                     due_at=override_including_student.due_at, lock_at=assignment.lock_at,
                     unlock_at=assignment.unlock_at, students=students_with_overrides_to_keep
                 )
