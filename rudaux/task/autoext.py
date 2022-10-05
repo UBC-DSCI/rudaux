@@ -47,16 +47,20 @@ def _get_due_date(assignment: Assignment, student: Student) -> Tuple[plm.DateTim
         return original_assignment_due_date, None
 
     # if there was one, get the latest override date
-    latest_override = student_overrides[0]
-    for student_override in student_overrides:
-        if student_override.due_at > latest_override.due_at:
-            latest_override = student_override
+    # latest_override = student_overrides[0]
+    # for student_override in student_overrides:
+    #     if student_override.due_at > latest_override.due_at:
+    #         latest_override = student_override
+    if len(student_overrides) > 1:
+        print(f"Student with lms_id: {student.lms_id} and name: {student.name} has multiple overrides. "
+              f"Please make sure each student has at most 1 override per assignment")
+        raise ValueError
 
     # return the latest date between the original and override dates
-    if latest_override.due_at > original_assignment_due_date:
-        return latest_override.due_at, latest_override
-    else:
-        return original_assignment_due_date, None
+    # if latest_override.due_at > original_assignment_due_date:
+    return student_overrides[0].due_at, student_overrides[0]
+    # else:
+    #     return original_assignment_due_date, None
 
 
 # ----------------------------------------------------------------------------------------------------------
@@ -107,51 +111,33 @@ def compute_autoextension_override_updates(settings: Settings, course_name: str,
         for student_id, student in students.items():
 
             student_due_date, student_override = _get_due_date(assignment, student)
+            # the late registration due date
+            student_late_reg_date = student.reg_date.add(days=extension_days).in_timezone(
+                tz=tz).end_of('day').set(microsecond=0)
 
-            if student.reg_date > assignment.unlock_at and assignment.unlock_at <= registration_deadline:
+            if student.reg_date > assignment.unlock_at and \
+                    assignment.unlock_at <= registration_deadline and \
+                    student_late_reg_date > student_due_date:
+                # ----------------------------------------------------------------------------------------
+                # logging related information
+                logger.info(f"Student {student.name} needs an extension on assignment {assignment.name}")
+                logger.info(f"Student registration date: {student.reg_date}    Status: {student.status}")
+                logger.info(
+                    f"Assignment unlock: {assignment.unlock_at}    Assignment deadline: {assignment.due_at}")
+                logger.info("Current student-specific due date: " + student_due_date.in_timezone(
+                    tz=tz).format(date_logging_format) + " from override: " +
+                            str(True if (student_override is not None) else False))
+                logger.info('Late registration extension date: ' + student_late_reg_date.in_timezone(
+                    tz=tz).format(date_logging_format))
+                logger.info('Creating automatic late registration extension.')
+                # ----------------------------------------------------------------------------------------
 
-                # the late registration due date
-                student_late_reg_date = student.reg_date.add(days=extension_days).in_timezone(
-                    tz=tz).end_of('day').set(microsecond=0)
-
-                # if student's registration date is later than the assignment's due date
-                if student_late_reg_date > assignment.due_at:
-                    # ----------------------------------------------------------------------------------------
-                    # logging related information
-                    logger.info(f"Student {student.name} needs an extension on assignment {assignment.name}")
-                    logger.info(f"Student registration date: {student.reg_date}    Status: {student.status}")
-                    logger.info(
-                        f"Assignment unlock: {assignment.unlock_at}    Assignment deadline: {assignment.due_at}")
-                    logger.info("Current student-specific due date: " + student_due_date.in_timezone(
-                        tz=tz).format(date_logging_format) + " from override: " +
-                                str(True if (student_override is not None) else False))
-                    logger.info('Late registration extension date: ' + student_late_reg_date.in_timezone(
-                        tz=tz).format(date_logging_format))
-                    logger.info('Creating automatic late registration extension.')
-                    # ----------------------------------------------------------------------------------------
-
-                    if student_override is not None:
-                        logger.info("Need to remove old override " + str(student_override.lms_id))
-                        # append the student override to list of overrides to remove
-                        overrides_to_remove.append(student_override)
-                        # append the student-override pair to the student_override_pairs_to_remove
-                        student_override_pairs_to_remove.append((student, student_override))
-
-                    # to_create = {'student_ids': [student.lms_id],
-                    #              'due_at': late_reg_date,
-                    #              'lock_at': assignment.lock_at,
-                    #              'unlock_at': assignment.unlock_at,
-                    #              'title': student.name + '-' + assignment.name + '-latereg'}
-
-                    # what should the lms_id be?
-
-                    # overrides_to_create.append(
-                    #     Override(lms_id=-1, name=f"{student.name}-{assignment.name}-latereg",
-                    #              due_at=student_late_reg_date, lock_at=assignment.lock_at,
-                    #              unlock_at=assignment.unlock_at, students=[student])
-                    # )
-                else:
-                    continue
+                if student_override is not None:
+                    logger.info("Need to remove old override " + str(student_override.lms_id))
+                    # append the student override to list of overrides to remove
+                    overrides_to_remove.append(student_override)
+                    # append the student-override pair to the student_override_pairs_to_remove
+                    student_override_pairs_to_remove.append((student, student_override))
             else:
                 continue
 
@@ -175,14 +161,15 @@ def compute_autoextension_override_updates(settings: Settings, course_name: str,
                                                    override_including_student.students.items()
                                                    if student_id not in students_with_overrides_to_remove}
 
-                override_to_create_for_remaining_students = Override(
-                    lms_id=override_including_student.lms_id, name=override_including_student.name,
-                    due_at=override_including_student.due_at, lock_at=assignment.lock_at,
-                    unlock_at=assignment.unlock_at, students=students_with_overrides_to_keep
-                )
-                overrides_to_create.append(override_to_create_for_remaining_students)
+                if len(students_with_overrides_to_keep) > 0:
+                    override_to_create_for_remaining_students = Override(
+                        lms_id=override_including_student.lms_id, name=override_including_student.name,
+                        due_at=override_including_student.due_at, lock_at=override_including_student.lock_at,
+                        unlock_at=override_including_student.unlock_at, students=students_with_overrides_to_keep
+                    )
+                    overrides_to_create.append(override_to_create_for_remaining_students)
 
-            overrides.append((assignment, overrides_to_create, overrides_to_remove))
+        overrides.append((assignment, overrides_to_create, overrides_to_remove))
     return overrides
 
 # ----------------------------------------------------------------------------------------------------------
@@ -196,56 +183,3 @@ def compute_autoextension_override_updates(settings: Settings, course_name: str,
 
 
 # ----------------------------------------------------------------------------------------------------------
-# @task(name="generate_latereg_overrides_name")
-# def get_latereg_overrides(extension_days, subm_set, config):
-#     logger = get_logger()
-#     date_logging_format = 'ddd YYYY-MM-DD HH:mm:ss'
-#     overrides = []
-#     for course_name in subm_set:
-#         if course_name == '__name__':
-#             continue
-#         assignment = subm_set[course_name]['assignment']
-#         course_info = subm_set[course_name]['course_info']
-#         tz = course_info['time_zone']
-#
-#         # skip the assignment if it isn't unlocked yet
-#         if assignment['unlock_at'] > plm.now():
-#             # raise signals.SKIP(
-#             #     f"Assignment {assignment['name']} ({assignment['id']}) unlock date "
-#             #     f"{assignment['unlock_at']} is in the future. Skipping.")
-#             pass
-#
-#         for subm in subm_set[course_name]['submissions']:
-#             student = subm['student']
-#             regdate = student['reg_date']
-#             override = subm['override']
-#
-#             to_remove = None
-#             to_create = None
-#             if regdate > assignment['unlock_at'] and assignment['unlock_at'] <= plm.from_format(
-#                     config.registration_deadline, f'YYYY-MM-DD', tz=config.notify_timezone):
-#                 # the late registration due date
-#                 latereg_date = regdate.add(days=extension_days).in_timezone(tz).end_of('day').set(microsecond=0)
-#                 if latereg_date > subm['due_at']:
-#                     logger.info(f"Student {student['name']} needs an extension on assignment {assignment['name']}")
-#                     logger.info(f"Student registration date: {regdate}    Status: {student['status']}")
-#                     logger.info(
-#                         f"Assignment unlock: {assignment['unlock_at']}    Assignment deadline: {assignment['due_at']}")
-#                     logger.info("Current student-specific due date: " + subm['due_at'].in_timezone(tz).format(
-#                         date_logging_format) + " from override: " + str(True if (override is not None) else False))
-#                     logger.info('Late registration extension date: ' + latereg_date.in_timezone(tz).format(date_logging_format))
-#                     logger.info('Creating automatic late registration extension.')
-#                     if override is not None:
-#                         logger.info("Need to remove old override " + str(override['id']))
-#                         to_remove = override
-#                     to_create = {'student_ids': [student['id']],
-#                                  'due_at': latereg_date,
-#                                  'lock_at': assignment['lock_at'],
-#                                  'unlock_at': assignment['unlock_at'],
-#                                  'title': student['name'] + '-' + assignment['name'] + '-latereg'}
-#                 else:
-#                     continue
-#             else:
-#                 continue
-#             overrides.append((assignment, to_create, to_remove))
-#     return overrides
