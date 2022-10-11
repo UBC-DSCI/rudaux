@@ -12,6 +12,7 @@ from prefect import task
 from prefect.engine import signals
 from .snapshot import _get_snap_name
 from .utilities import get_logger, recursive_chown
+from bs4 import BeautifulSoup
 
 class GradingStatus(IntEnum):
     ASSIGNED = 0
@@ -206,7 +207,7 @@ def build_submission_set(config, subm_set):
                 all_returned = all_returned and (os.path.exists(subm['fdbk_path']) or (subm['score'] == 0 and not os.path.exists(subm['snapped_assignment_path'])))
     if all_posted and all_returned:
         raise signals.SKIP(f"All grades are posted, all solutions returned, and all feedback returned for assignment {subm_set['__name__']}. Workflow done. Skipping.")
-    
+
     logger.info(f"Done building submission set for assignment {subm_set['__name__']}")
 
     return subm_set
@@ -411,10 +412,10 @@ def clean_submissions(subm_set):
 
                 #need to check for duplicate cell ids, see
                 #https://github.com/jupyter/nbgrader/issues/1083
-                
+
                 #need to make sure the cell_type agrees with nbgrader cell_type
                 #(students accidentally sometimes change it)
-                
+
                 #open the student's notebook
                 try:
                     f = open(subm['collected_assignment_path'], 'r')
@@ -429,7 +430,7 @@ def clean_submissions(subm_set):
                     sig = signals.FAIL(msg)
                     sig.msg = msg
                     raise sig
-                #go through and 
+                #go through and
                 # 1) make sure cell type agrees with nbgrader cell type
                 # 2) delete the nbgrader metadata from any duplicated cells
                 cell_ids = set()
@@ -446,7 +447,7 @@ def clean_submissions(subm_set):
                         cell['cell_type'] = nbgrader_cell_type
                   except:
                     pass
-                  
+
                   # delete nbgrader metadata from duplicated cells
                   try:
                     cell_id = cell['metadata']['nbgrader']['grade_id']
@@ -512,7 +513,7 @@ def autograde(config, subm_set):
                     msg = f"Docker error autograding submission {subm['name']}: did not generate expected file at {subm['autograded_assignment_path']}"
                     sig = signals.FAIL(msg)
                     sig.msg = msg
-                    raise sig 
+                    raise sig
                 subm['status'] = GradingStatus.AUTOGRADED
 
     return subm_set
@@ -621,22 +622,123 @@ def generate_feedback(config, subm_set):
             if subm['status'] == GradingStatus.NOT_DUE or subm['status'] == GradingStatus.MISSING or os.path.exists(subm['generated_feedback_path']):
                 continue
             logger.info(f"Generating feedback for submission {subm['name']}")
-            res = run_container(config, 'nbgrader generate_feedback --force '+
-                                        '--assignment=' + assignment['name'] +
-                                        ' --student=' + config.grading_student_folder_prefix+subm['student']['id'],
-                                subm['grader']['folder'])
 
-            # validate the results
-            #if 'ERROR' in res['log']:
-            #    msg = f"Docker error generating feedback for submission {subm['name']}: exited with status {res['exit_status']},  {res['log']}"
-            #    sig = signals.FAIL(msg)
-            #    raise sig
-            # limit errors to just missing output
-            if not os.path.exists(subm['generated_feedback_path']):
-                msg = f"Docker error generating feedback for submission {subm['name']}: did not generate expected file at {subm['generated_feedback_path']}"
-                sig = signals.FAIL(msg)
-                raise sig
+            attempts = 3
+            for attempt in range(attempts):
+                res = run_container(config, 'nbgrader generate_feedback --force '+
+                                            '--assignment=' + assignment['name'] +
+                                            ' --student=' + config.grading_student_folder_prefix+subm['student']['id'],
+                                    subm['grader']['folder'])
+
+                # validate the results
+                #if 'ERROR' in res['log']:
+                #    msg = f"Docker error generating feedback for submission {subm['name']}: exited with status {res['exit_status']},  {res['log']}"
+                #    sig = signals.FAIL(msg)
+                #    raise sig
+                # limit errors to just missing output
+                if not os.path.exists(subm['generated_feedback_path']):
+                    logger.info(f"Docker error generating feedback for submission {subm['name']}: did not generate expected file at {subm['generated_feedback_path']}")
+                    if attempt < attempts-1:
+                        logger.info("Trying again...")
+                        continue
+                    else:
+                        msg = f"Docker error generating feedback for submission {subm['name']}: did not generate expected file at {subm['generated_feedback_path']}"
+                        sig = signals.FAIL(msg)
+                        raise sig
+
+                # open the feedback form that was just generated and make sure the final grade lines up with the DB grade
+
+                # STEP 1: load grades from feedback form (and check internal consistency with totals and individual grade cells)
+                # the final grade and TOC on the form looks like
+                # <div class="panel-heading">
+                # <h4>tutorial_wrangling (Score: 35.0 / 44.0)</h4>
+                # <div id="toc">
+                # <ol>
+                # <li><a href="#cell-b2ed899f3e35cfcb">Test cell</a> (Score: 1.0 / 1.0)</li>
+                # ...
+                # </ol>
+                fdbk_html = None
+                with open(subm['generated_feedback_path'], 'r') as f:
+                    fdbk_html = f.read()
+                fdbk_parsed = BeautifulSoup(fdbk_html, features="lxml")
+                cell_tokens_bk = []
+                cell_score_bk = []
+                total_tokens = [s.strip(")(") for s in fdbk_parsed.body.find('div', {"id":"toc"}).find_previous_sibling('h4').text.split()]
+                total = [float(total_tokens[i]) for i in [-3, -1]]
+                running_totals = [0.0, 0.0]
+                for item in fdbk_parsed.body.find('div', {"id":"toc"}).find('ol').findAll('li'):
+                    if "Comment" in item.text:
+                        continue
+                    cell_tokens = [s.strip(")(") for s in item.text.split()]
+                    cell_tokens_bk.append(cell_tokens)
+                    cell_score = [float(cell_tokens[i]) for i in [-3, -1]]
+                    cell_score_bk.append(cell_score)
+                    running_totals[0] += cell_score[0]
+                    running_totals[1] += cell_score[1]
+
+                # if sum of grades doesn't equal total grade, error
+                if abs(running_totals[0] - total[0]) > 1e-5:
+                    logger.info(f"Docker error generating feedback for submission {subm['name']}: grade does not line up within feedback file!")
+                    logger.info(f"running_totals[0]: {running_totals[0]} total[0]: {total[0]}  running_totals[1]: {running_totals[1]} total[1]: {total[1]}")
+                    logger.info(f"Docker container log: \n {res['log']}")
+                    logger.info(f"Total tokens: \n {total_tokens} \n Total: \n {total} \n Cell Tokens: \n {cell_tokens_bk} \n Cell Scores: \n {cell_score_bk}")
+                    logger.info(f"HTML for total:\n {fdbk_parsed.body.find('div', {'id':'toc'}).find_previous_sibling('h4').text}")
+                    logger.info(f"HTML for individual:\n {fdbk_parsed.body.find('div', {'id':'toc'}).find('ol').findAll('li')}")
+                    if attempt < attempts-1:
+                        logger.info("Trying again...")
+                        continue
+                    else:
+                        msg = f"Docker error generating feedback for submission {subm['name']}: grade does not line up within feedback file!"
+                        sig = signals.FAIL(msg)
+                        os.remove(subm['generated_feedback_path'])
+                        raise(sig)
+
+                # if assignment max doesn't equal sum of question maxes, warning; this can occur if student deleted test cell
+                if abs(running_totals[1] - total[1]) > 1e-5:
+                    logger.info(f"Docker warning generating feedback for submission {subm['name']}: total grade does not line up within feedback file (likely due to deleted grade cell)!")
+                    logger.info(f"running_totals[0]: {running_totals[0]} total[0]: {total[0]}  running_totals[1]: {running_totals[1]} total[1]: {total[1]}")
+                    logger.info(f"Docker container log: \n {res['log']}")
+                    logger.info(f"Total tokens: \n {total_tokens} \n Total: \n {total} \n Cell Tokens: \n {cell_tokens_bk} \n Cell Scores: \n {cell_score_bk}")
+                    logger.info(f"HTML for total:\n {fdbk_parsed.body.find('div', {'id':'toc'}).find_previous_sibling('h4').text}")
+                    logger.info(f"HTML for individual:\n {fdbk_parsed.body.find('div', {'id':'toc'}).find('ol').findAll('li')}")
+
+                # STEP 2: load grades from gradebook and compare
+                student = subm['student']
+                try:
+                    gb = Gradebook('sqlite:///'+os.path.join(subm['grader']['folder'] , 'gradebook.db'))
+                    gb_subm = gb.find_submission(assignment['name'], config.grading_student_folder_prefix+student['id'])
+                    score = gb_subm.score
+                except Exception as e:
+                    msg = f"Error when accessing the gradebook score for submission {subm['name']}; error {str(e)}"
+                    sig = signals.FAIL(msg)
+                    sig.msg = msg
+                    os.remove(subm['generated_feedback_path'])
+                    raise sig
+                finally:
+                    gb.close()
+
+                # if feedback grade != canvas grade, error
+                if abs(total[0] - score) > 1e-5:
+                    logger.info(f"Docker error generating feedback for submission {subm['name']}: grade does not line up with DB!")
+                    logger.info(f"running_totals[0]: {running_totals[0]} total[0]: {total[0]}  running_totals[1]: {running_totals[1]} total[1]: {total[1]} score: {score}")
+                    logger.info(f"Docker container log: \n {res['log']}")
+                    logger.info(f"Total tokens: \n {total_tokens} \n Total: \n {total} \n Cell Tokens: \n {cell_tokens_bk} \n Cell Scores: \n {cell_score_bk}")
+                    logger.info(f"HTML for total:\n {fdbk_parsed.body.find('div', {'id':'toc'}).find_previous_sibling('h4').text}")
+                    logger.info(f"HTML for individual:\n {fdbk_parsed.body.find('div', {'id':'toc'}).find('ol').findAll('li')}")
+                    logger.info(f"DB score: {score}")
+                    if attempt < attempts-1:
+                        logger.info("Trying again...")
+                        continue
+                    else:
+                        msg = f"Docker error generating feedback for submission {subm['name']}: grade does not line up with DB!; docker container log: \n {res['log']}"
+                        sig = signals.FAIL(msg)
+                        os.remove(subm['generated_feedback_path'])
+                        raise sig
+                break
+
     return subm_set
+
+
 
 
 def generate_retfeedback_name(subm_set, **kwargs):
