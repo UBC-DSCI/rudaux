@@ -215,29 +215,45 @@ class Canvas(LearningManagementSystem):
             'name': assignment.name
         }
         outputs = []
-        for override in overrides:
-            override_dict = {
-                'student_ids': [student_id for student_id in override.students],
-                'unlock_at': override.unlock_at,
-                'due_at': override.due_at,
-                'lock_at': override.lock_at,
-                'title': override.name
-            }
-            output = _create_override(api_info={canvas_id: api_info}, assignment=assignment_dict,
-                                      override=override_dict)
-            outputs.append(output)
+        if overrides is not None:
+            for override in overrides:
+                override_dict = {
+                    'student_ids': [student_id for student_id in override.students],
+                    'unlock_at': override.unlock_at,
+                    'due_at': override.due_at,
+                    'lock_at': override.lock_at,
+                    'title': override.name
+                }
+                output = _create_override(api_info=api_info, assignment=assignment_dict,
+                                          override=override_dict)
+                outputs.append(output)
 
-        return outputs
+        return overrides
 
     # ---------------------------------------------------------------------------------------------------
-    def delete_overrides(self, course_section_name: str, assignment: Assignment, override: Override):
+    def delete_overrides(self, course_section_name: str, assignment: Assignment, overrides: List[Override]):
         canvas_id = self.canvas_course_lms_ids[course_section_name]
         api_info = {
             'domain': self.canvas_base_domain,
             'id': canvas_id,
             'token': self.canvas_api_tokens[course_section_name]
         }
-        return _remove_override(api_info={canvas_id: api_info}, assignment=assignment, override=override)
+        assignment_dict = {
+            'id': assignment.lms_id,
+            'name': assignment.name
+        }
+        if overrides is not None:
+            for override in overrides:
+                override_dict = {
+                    'id': override.lms_id,
+                    'student_ids': [student_id for student_id in override.students],
+                    'unlock_at': override.unlock_at,
+                    'due_at': override.due_at,
+                    'lock_at': override.lock_at,
+                    'title': override.name
+                }
+                _remove_override(api_info=api_info, assignment=assignment_dict, override=override_dict)
+        return overrides
 
     # ---------------------------------------------------------------------------------------------------
 
@@ -270,10 +286,10 @@ if __name__ == "__main__":
     settings = Settings.parse_obj(settings)
     lms = get_learning_management_system(settings, group_name=_group_name)
     print()
-    print('course_info: ', lms.get_course_info(course_section_name=_course_name), '\n')
+    # print('course_info: ', lms.get_course_info(course_section_name=_course_name), '\n')
     print('students: ', lms.get_students(course_section_name=_course_name), '\n')
-    print('instructors: ', lms.get_instructors(course_section_name=_course_name), '\n')
-    # print(lms.get_groups(course_section_name=_course_name))
-    print('assignments: ', lms.get_assignments(course_group_name=_group_name, course_section_name=_course_name), '\n')
-    print('submissions: ', lms.get_submissions(course_group_name=_group_name, course_section_name=_course_name,
-                                               assignment={'id': '1292206', 'name': 'test_assignment'}), '\n')
+    # print('instructors: ', lms.get_instructors(course_section_name=_course_name), '\n')
+    # # print(lms.get_groups(course_section_name=_course_name))
+    # print('assignments: ', lms.get_assignments(course_group_name=_group_name, course_section_name=_course_name), '\n')
+    # print('submissions: ', lms.get_submissions(course_group_name=_group_name, course_section_name=_course_name,
+    #                                            assignment={'id': '1292206', 'name': 'test_assignment'}), '\n')

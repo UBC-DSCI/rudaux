@@ -36,3 +36,12 @@ class Settings(BaseModel):
     latereg_extension_days: Dict[str, int]
     notify_timezone: Dict[str, str]
 
+    # zfs settings
+    remote_zfs_hostname: str
+    remote_zfs_port: str
+    remote_zfs_username: str
+    remote_zfs_tz: str = "America/Vancouver"
+    remote_zfs_volume_pattern: str
+    remote_zfs_collection_pattern: str
+    remote_zfs_distribution_pattern: str
+    remote_zfs_file_system_root: str

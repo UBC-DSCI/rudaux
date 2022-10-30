@@ -12,8 +12,7 @@ from rudaux.model.instructor import Instructor
 from rudaux.model.submission import Submission
 from rudaux.model.override import Override
 from rudaux.model.settings import Settings
-
-logger = get_logger()
+from prefect import get_run_logger
 
 
 # ----------------------------------------------------------------------------------------------------------
@@ -30,7 +29,7 @@ def _get_due_date(assignment: Assignment, student: Student) -> Tuple[plm.DateTim
     -------
     due_date, override: Tuple[plm.DateTime, Override or None]
     """
-
+    logger = get_run_logger()
     original_assignment_due_date = assignment.due_at
 
     # raise an exception if student appears in more than one override
@@ -52,8 +51,8 @@ def _get_due_date(assignment: Assignment, student: Student) -> Tuple[plm.DateTim
     #     if student_override.due_at > latest_override.due_at:
     #         latest_override = student_override
     if len(student_overrides) > 1:
-        print(f"Student with lms_id: {student.lms_id} and name: {student.name} has multiple overrides. "
-              f"Please make sure each student has at most 1 override per assignment")
+        logger.info(f"Student with lms_id: {student.lms_id} and name: {student.name} has multiple overrides. "
+                    f"Please make sure each student has at most 1 override per assignment")
         raise ValueError
 
     # return the latest date between the original and override dates
@@ -86,6 +85,7 @@ def compute_autoextension_override_updates(settings: Settings, course_name: str,
     overrides: List[Tuple[Assignment, List[Override], List[Override]]]
     """
 
+    logger = get_run_logger()
     date_logging_format = 'ddd YYYY-MM-DD HH:mm:ss'
     tz = course_info.time_zone
     notify_timezone = settings.notify_timezone[course_name]
@@ -118,6 +118,16 @@ def compute_autoextension_override_updates(settings: Settings, course_name: str,
             if student.reg_date > assignment.unlock_at and \
                     assignment.unlock_at <= registration_deadline and \
                     student_late_reg_date > student_due_date:
+
+                print('student.name: ', student.name)
+                print(student)
+                print('student.reg_date: ', student.reg_date)
+                print('assignment.unlock_at: ', assignment.unlock_at)
+                print('registration_deadline: ', registration_deadline)
+                print('student_late_reg_date: ', student_late_reg_date)
+
+                # if student meets the criteria for an extension override
+
                 # ----------------------------------------------------------------------------------------
                 # logging related information
                 logger.info(f"Student {student.name} needs an extension on assignment {assignment.name}")
@@ -130,27 +140,35 @@ def compute_autoextension_override_updates(settings: Settings, course_name: str,
                 logger.info('Late registration extension date: ' + student_late_reg_date.in_timezone(
                     tz=tz).format(date_logging_format))
                 logger.info('Creating automatic late registration extension.')
+                logger.info('\n')
                 # ----------------------------------------------------------------------------------------
 
                 if student_override is not None:
+                    # if student has an override already, the old override needs to be removed
                     logger.info("Need to remove old override " + str(student_override.lms_id))
                     # append the student override to list of overrides to remove
                     overrides_to_remove.append(student_override)
+                    # print('override added to be removed', student_override)
                     # append the student-override pair to the student_override_pairs_to_remove
                     student_override_pairs_to_remove.append((student, student_override))
-            else:
-                continue
 
-            override_to_create_for_student = Override(
-                lms_id=-1, name=f"{student.name}-{assignment.name}-latereg",
-                due_at=student_late_reg_date, lock_at=assignment.lock_at,
-                unlock_at=assignment.unlock_at, students=[student]
-            )
-            overrides_to_create.append(override_to_create_for_student)
+                # create an override for the student and add it to the list override_to_create_for_student
+                override_to_create_for_student = Override(
+                    lms_id=-1, name=f"{student.name}-{assignment.name}-latereg",
+                    due_at=student_late_reg_date, lock_at=assignment.lock_at,
+                    unlock_at=assignment.unlock_at, students={student.lms_id: student}
+                )
+                # print('added override to be created: ', override_to_create_for_student)
+                overrides_to_create.append(override_to_create_for_student)
+            else:
+                # continue to the next student if the criteria is not met
+                continue
 
             # create a dict of students whose overrides need to be removed
             students_with_overrides_to_remove = {student.lms_id: student for student, override in
                                                  student_override_pairs_to_remove}
+
+            # print('students_with_overrides_to_remove: ', students_with_overrides_to_remove)
 
             for student_with_override_to_remove, override_including_student in student_override_pairs_to_remove:
                 # create a dict of students whose overrides should remain (so need to be re-created)
@@ -161,6 +179,8 @@ def compute_autoextension_override_updates(settings: Settings, course_name: str,
                                                    override_including_student.students.items()
                                                    if student_id not in students_with_overrides_to_remove}
 
+                # print('students_with_overrides_to_keep: ', students_with_overrides_to_keep)
+
                 if len(students_with_overrides_to_keep) > 0:
                     override_to_create_for_remaining_students = Override(
                         lms_id=override_including_student.lms_id, name=override_including_student.name,
@@ -170,6 +190,7 @@ def compute_autoextension_override_updates(settings: Settings, course_name: str,
                     overrides_to_create.append(override_to_create_for_remaining_students)
 
         overrides.append((assignment, overrides_to_create, overrides_to_remove))
+        # print('overrides: ', overrides)
     return overrides
 
 # ----------------------------------------------------------------------------------------------------------

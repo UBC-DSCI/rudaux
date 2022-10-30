@@ -1,5 +1,6 @@
 from typing import List, Dict
 from prefect import task
+from prefect import get_run_logger
 from ..model import Student, Assignment, CourseInfo, Override, Submission, Instructor
 from rudaux.interface.base.learning_management_system import LearningManagementSystem as LMS
 
@@ -100,6 +101,7 @@ def delete_overrides(lms: LMS, course_section_name: str, assignment: Assignment,
 
     overrides = lms.delete_overrides(course_section_name=course_section_name,
                                      assignment=assignment, overrides=overrides)
+
     for override in overrides:
         if not isinstance(override, Override):
             raise ValueError

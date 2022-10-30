@@ -147,12 +147,14 @@ def autoext_flow(settings: dict, course_name: str, section_name: str) -> None:
         settings, course_name, section_name, course_info, students, assignments)
 
     # for each assignment remove the old overrides and create new ones
-    for assignment, overrides_to_delete, overrides_to_create in overrides:
+    for assignment, overrides_to_create, overrides_to_delete in overrides:
+        # if overrides_to_delete is not None:
         delete_response = delete_overrides(lms=lms, course_section_name=section_name,
-                                           assignment=assignment, override=overrides_to_delete)
+                                           assignment=assignment, overrides=overrides_to_delete)
 
+        # if overrides_to_create is not None:
         create_response = create_overrides(lms=lms, course_section_name=section_name,
-                                           assignment=assignment, override=overrides_to_create,
+                                           assignment=assignment, overrides=overrides_to_create,
                                            wait_for=[delete_response])
 
 

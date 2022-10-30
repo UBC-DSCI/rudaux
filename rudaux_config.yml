@@ -19,7 +19,7 @@ gs_classes:
 
 # =========================================================================
 ss_classes:
-  course_dsci_100_test: rudaux.interface.RemoteZFS
+  course_dsci_100_test: rudaux.interface.remote_zfs.RemoteZFSSubmissions
 
 # =========================================================================
 #                       CANVAS CONFIG
@@ -36,11 +36,25 @@ canvas_course_lms_ids:
 
 # =========================================================================
 canvas_registration_deadlines:
-  section_dsci_100_test_01: '2022-05-01'
+  # YYYY-MM-DD
+  section_dsci_100_test_01: '2022-10-30'
 
 # =========================================================================
 canvas_api_tokens:
   section_dsci_100_test_01: 11224~DBxLb0Bnhavc4UHQb1FxAIBGaEpXLyW1Ul1gbL0RU430rkSxUd5Rc7MOyjRlCeLQ
+
+# =========================================================================
+#                       ZFS CONFIG
+# =========================================================================
+
+remote_zfs_hostname: "dsci-100-student-test.stat.ubc.ca"
+remote_zfs_port: "22"
+remote_zfs_username: "stty2u"
+remote_zfs_tz: "America/Vancouver"
+remote_zfs_volume_pattern: "str"
+remote_zfs_collection_pattern: "str"
+remote_zfs_distribution_pattern: "str"
+remote_zfs_file_system_root: "tank/home/dsci100"
 
 # =========================================================================
 assignments:

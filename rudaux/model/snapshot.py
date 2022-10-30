@@ -1,23 +1,50 @@
 import pendulum as plm
-from typing import Optional, List
+from typing import Optional, List, Dict
 from pydantic import BaseModel
 from .override import Override
 from .student import Student
 from .assignment import Assignment
 
 
-def parse_snapshot_name(snap_name, assignments, students):
-    tokens = snap_name.split("-")
-    info = {}
-    info["course_name"] = tokens[0]
-    info["assignment"] = assignments[tokens[1]]
-    if len(tokens) > 3:
-        info["override"] = assignments[tokens[1]].overrides[tokens[3]]
-        info["student"] = assignments[tokens[1]].overrides[tokens[3]].students[tokens[5]]
-    else:
+def parse_snapshot_name(snap_name: str, assignments: Dict[str, Assignment]):
+    # snap_name format = '{course_name}-{section_number}-{assignment_name}-{student_lms_is}-{override_lms_id}'
+    # example: tank/home/stat301/868424@stat301-101-worksheet_01-1338692-242114
+
+    # if there is override:
+    #     f"{self.course_name}-{self.assignment.name}-{self.assignment.lms_id}-{self.override.name}-
+    #     {self.override.lms_id} - {self.student.name} - {self.student.lms_id}
+    #     "
+    # if there is no override:
+    #     f"{self.course_name}-{self.assignment.name}-{self.assignment.lms_id}"
+
+    try:
+        tokens = snap_name.split("-")
+
+        course_name = tokens[0]
+        assignment_name = tokens[1]
+        assignment_lms_id = tokens[2]
+
+        info = dict()
+        info["course_name"] = course_name
+        info["assignment"] = assignments[assignment_lms_id]
         info["override"] = None
         info["student"] = None
-    return Snapshot.parse_obj(info)
+
+        if len(tokens) >= 7:
+            override_name = tokens[3]
+            override_lms_id = tokens[4]
+            student_name = tokens[5]
+            student_lms_id = tokens[6]
+
+            info["override"] = assignments[assignment_lms_id].overrides[override_lms_id]
+            info["student"] = assignments[assignment_lms_id].overrides[override_lms_id].students[student_lms_id]
+
+        snapshot = Snapshot.parse_obj(info)
+        return snapshot
+
+    except Exception as e:
+        print(e)
+        return None
 
 
 class Snapshot(BaseModel):
@@ -26,7 +53,19 @@ class Snapshot(BaseModel):
     override: Optional[Override]
     student: Optional[Student]
 
-    def get_name(self):
+    def get_name(self) -> str:
+        """
+        if there is override:
+            f"{self.course_name}-{self.assignment.name}-{self.assignment.lms_id}-{self.override.name}-
+                {self.override.lms_id}-{self.student.name}-{self.student.lms_id}"
+        if there is no override:
+            f"{self.course_name}-{self.assignment.name}-{self.assignment.lms_id}"
+
+        Returns
+        -------
+        snapshot_name: str
+        """
+
         return f"{self.course_name}-{self.assignment.name}-{self.assignment.lms_id}" + \
-               (
-                   "" if override is None else f"-{self.override.name}-{self.override.lms_id}-{self.student.name}-{self.student.lms_id}")
+               ("" if self.override is None else f"-{self.override.name}-{self.override.lms_id}-"
+                                                 f"{self.student.name}-{self.student.lms_id}")
