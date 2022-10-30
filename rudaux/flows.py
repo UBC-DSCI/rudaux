@@ -180,24 +180,26 @@ def snap_flow(settings: dict, course_name: str, section_name: str) -> None:
 
     # Get course info, list of students, and list of assignments from lms
     course_info = get_course_info(lms=lms, course_section_name=section_name)
+    students = get_students(lms=lms, course_section_name=section_name)
     assignments = get_assignments(lms=lms, course_group_name=course_name, course_section_name=section_name)
-    submissions = get_submissions(lms=lms, ourse_group_name=course_name, course_section_name=section_name,
-                                  assignment=settings.assignments[course_name])
+    # submissions = get_submissions(lms=lms, course_group_name=course_name, course_section_name=section_name,
+    #                               assignment=settings.assignments[course_name])
 
     # get list of snapshots past their due date from assignments
-    pastdue_snaps = get_pastdue_snapshots(course_name, course_info, assignments)
+    pastdue_snaps = get_pastdue_snapshots(
+        course_name=course_name, course_info=course_info, assignments=assignments)
 
     # get list of existing snapshots from submission system
-    existing_snaps = get_existing_snapshots(course_name, course_info, assignments, subs)
+    existing_snaps = get_existing_snapshots(assignments=assignments, students=students, subs=subs)
 
     # compute snapshots to take
-    snaps_to_take = get_snapshots_to_take(pastdue_snaps, existing_snaps)
+    snaps_to_take = get_snapshots_to_take(pastdue_snaps=pastdue_snaps, existing_snaps=existing_snaps)
 
     # take snapshots
-    take_snapshots(snaps_to_take, subs)
+    # take_snapshots(snaps_to_take=snaps_to_take, subs=subs)
 
     # get list of newly existing snapshots from submission system
-    new_existing_snaps = get_existing_snapshots(course_name, course_info, assignments, subs)
+    new_existing_snaps = get_existing_snapshots(assignments=assignments, students=students, subs=subs)
 
     # verify snapshots
     verify_snapshots(snaps_to_take, new_existing_snaps)

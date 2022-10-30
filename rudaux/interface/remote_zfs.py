@@ -207,8 +207,7 @@ if __name__ == "__main__":
         return pastdue_snaps
 
 
-    def get_existing_snapshots(course_name: str, course_info: CourseInfo,
-                               assignments: Dict[str, Assignment], students: Dict[str, Student],
+    def get_existing_snapshots(assignments: Dict[str, Assignment], students: Dict[str, Student],
                                subs: SubmissionSystem) -> Dict[str, Snapshot]:
 
         existing_snaps_list = subs.list_snapshots(assignments=assignments, students=students)
