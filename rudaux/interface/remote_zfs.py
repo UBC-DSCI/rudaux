@@ -3,7 +3,7 @@ from rudaux.interface.base.submission_system import SubmissionSystem
 from rudaux.model import Assignment, Student
 from rudaux.model.document import Document
 from rudaux.util.zfs import RemoteZFS
-from rudaux.model.snapshot import parse_snapshot_name, Snapshot
+from rudaux.model.snapshot import parse_snapshot_from_name, Snapshot
 
 
 class RemoteZFSSubmissions(SubmissionSystem):
@@ -38,7 +38,11 @@ class RemoteZFSSubmissions(SubmissionSystem):
         volume = self.remote_zfs_file_system_root
         'zfs_list to get folder structures'
         snap_dicts = self.zfs.get_snapshots(volume=volume)
-        snapshots = [parse_snapshot_name(snap_dict["name"], assignments) for snap_dict in snap_dicts]
+        snapshots = []
+        for snap_dict in snap_dicts:
+            snapshot = parse_snapshot_from_name(snap_dict["name"], assignments)
+            if snapshot is not None:
+                snapshots.append(snapshot)
         return snapshots
 
     # ---------------------------------------------------------------------------------------------------
@@ -134,7 +138,7 @@ if __name__ == "__main__":
 
 
     def get_pastdue_snapshots(course_name: str, course_info: CourseInfo,
-                              assignments: Dict[str, Assignment]) -> List[Snapshot]:
+                              assignments: Dict[str, Assignment]) -> Dict[str, Snapshot]:
         """
         returns a list of snapshots which are past their due date
 
@@ -149,7 +153,7 @@ if __name__ == "__main__":
         pastdue_snaps: List[Snapshot]
 
         """
-        pastdue_snaps = []
+        pastdue_snaps = dict()
 
         for assignment_id, assignment in assignments.items():
 
@@ -167,9 +171,12 @@ if __name__ == "__main__":
             # we identify that as a pastdue snapshot
             else:
                 print(f"Assignment {assignment.name} deadline {assignment.due_at} "
-                            f"past due; adding snapshot to pastdue list")
-                pastdue_snaps.append(Snapshot(course_name=course_name, assignment=assignment,
-                                              override=None, student=None))
+                      f"past due; adding snapshot to pastdue list")
+                snapshot = Snapshot(course_name=course_name, assignment=assignment,
+                                    override=None, student=None)
+                pastdue_snaps[snapshot.get_name()] = snapshot
+                # pastdue_snaps.append(Snapshot(course_name=course_name, assignment=assignment,
+                #                               override=None, student=None))
 
             for override_id, override in assignment.overrides.items():
 
@@ -193,29 +200,77 @@ if __name__ == "__main__":
                         f"Assignment {assignment.name} override {override.name} deadline {override.due_at} past due; "
                         f"adding snapshot to pastdue list")
                     for student_id, student in override.students.items():
-                        pastdue_snaps.append(Snapshot(course_name=course_name, assignment=assignment,
-                                                      override=override, student=student))
+                        snapshot = Snapshot(course_name=course_name, assignment=assignment,
+                                            override=override, student=student)
+                        pastdue_snaps[snapshot.get_name()] = snapshot
 
         return pastdue_snaps
 
 
-    pastdue_snaps = get_pastdue_snapshots(course_name=_group_name, course_info=_course_info, assignments=_assignments)
-    print(pastdue_snaps)
-
-
     def get_existing_snapshots(course_name: str, course_info: CourseInfo,
                                assignments: Dict[str, Assignment], students: Dict[str, Student],
-                               subs: SubmissionSystem) -> List[Snapshot]:
+                               subs: SubmissionSystem) -> Dict[str, Snapshot]:
 
-        existing_snaps = subs.list_snapshots(assignments=assignments, students=students)
-        print(f"Found {len(existing_snaps)} existing snapshots.")
-        print(f"Snapshots: {[snap.get_name() for snap in existing_snaps]}")
-        return existing_snaps
+        existing_snaps_list = subs.list_snapshots(assignments=assignments, students=students)
+        existing_snaps_dict = {snap.get_name(): snap for snap in existing_snaps_list}
+        print(f"Found {len(existing_snaps_dict)} existing snapshots.")
+        print(f"Snapshots: {list(existing_snaps_dict.keys())}")
+        return existing_snaps_dict
 
 
+    def get_snapshots_to_take(pastdue_snaps: Dict[str, Snapshot],
+                              existing_snaps: Dict[str, Snapshot]) -> Dict[str, Snapshot]:
+        # pastdue_dict = {snap.get_name(): snap for snap in pastdue_snaps}
+        # existing_dict = {snap.get_name(): snap for snap in existing_snaps}
+
+        snaps_to_take = {pd_snap_name: pd_snap for pd_snap_name, pd_snap in pastdue_snaps.items()
+                         if pd_snap_name not in existing_snaps}
+        
+        print(f"Found {len(snaps_to_take)} snapshots to take.")
+        print(f"Snapshots: {list(snaps_to_take.keys())}")
+        return snaps_to_take
+
+
+    def verify_snapshots(snaps_to_take: Dict[str, Snapshot], new_existing_snaps: Dict[str, Snapshot]):
+        missing_snaps = []
+        for snap_name, snap in snaps_to_take.items():
+            if snap_name not in new_existing_snaps:
+                missing_snaps.append(snap_name)
+        if len(missing_snaps) > 0:
+            print(f"Error taking snapshots {missing_snaps}; "
+                        f"do not exist in submission system after snapshot")
+            # sig.FAIL( f"Error taking snapshots {[snap.name for snap in remaining_snaps]}; "
+            #           f"do not exist in submission system after snapshot") raise sig
+            pass
+        return
+
+
+    def take_snapshots(snaps_to_take: Dict[str, Snapshot], subs: SubmissionSystem):
+        for snap_name, snap in snaps_to_take.items():
+            print(f"Taking snapshot {snap_name}")
+            subs.take_snapshot(snap)
+        return
+
+
+    # get list of snapshots past their due date from assignments
+    pastdue_snaps = get_pastdue_snapshots(course_name=_group_name, course_info=_course_info, assignments=_assignments)
+    print('pastdue_snaps: ', pastdue_snaps)
+
+    # get list of existing snapshots from submission system
     existing_snaps = get_existing_snapshots(course_name=_group_name, course_info=_course_info,
                                             assignments=_assignments, students=_students, subs=subs)
+    print('existing_snaps: ', existing_snaps)
 
-    print(existing_snaps)
+    # compute snapshots to take
+    snaps_to_take = get_snapshots_to_take(pastdue_snaps, existing_snaps)
+    print('snaps_to_take: ', snaps_to_take)
 
-
+    # # take snapshots
+    # take_snapshots(snaps_to_take, subs)
+    #
+    # # get list of newly existing snapshots from submission system
+    # new_existing_snaps = get_existing_snapshots(course_name=_group_name, course_info=_course_info,
+    #                                             assignments=_assignments, students=_students, subs=subs)
+    #
+    # # verify snapshots
+    # verify_snapshots(snaps_to_take, new_existing_snaps)
