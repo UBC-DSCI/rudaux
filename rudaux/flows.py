@@ -61,8 +61,8 @@ async def register(args):
         deployment_ids = []
 
         per_section_flows = [
-            (autoext_flow, settings.autoext_prefix, settings.autoext_cron_string),
-            # (snap_flow, settings.snap_prefix, settings.snap_cron_string)
+            # (autoext_flow, settings.autoext_prefix, settings.autoext_cron_string),
+            (snap_flow, settings.snap_prefix, settings.snap_cron_string)
         ]
 
         per_course_flows = [
@@ -178,6 +178,9 @@ def snap_flow(settings: dict, course_name: str, section_name: str) -> None:
     lms = get_learning_management_system(settings, course_name)
     subs = get_submission_system(settings, course_name)
 
+    # initiate the submission system (open ssh connection)
+    subs.open()
+
     # Get course info, list of students, and list of assignments from lms
     course_info = get_course_info(lms=lms, course_section_name=section_name)
     students = get_students(lms=lms, course_section_name=section_name)
@@ -196,13 +199,15 @@ def snap_flow(settings: dict, course_name: str, section_name: str) -> None:
     snaps_to_take = get_snapshots_to_take(pastdue_snaps=pastdue_snaps, existing_snaps=existing_snaps)
 
     # take snapshots
-    # take_snapshots(snaps_to_take=snaps_to_take, subs=subs)
+    take_snapshots(snaps_to_take=snaps_to_take, subs=subs)
 
     # get list of newly existing snapshots from submission system
     new_existing_snaps = get_existing_snapshots(assignments=assignments, students=students, subs=subs)
 
     # verify snapshots
     verify_snapshots(snaps_to_take, new_existing_snaps)
+
+    subs.close()
 
 
 # -------------------------------------------------------------------------------------------------------------

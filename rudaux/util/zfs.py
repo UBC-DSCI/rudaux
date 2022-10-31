@@ -5,7 +5,7 @@ from pendulum import DateTime
 from scp import SCPClient
 import pendulum as plm
 import re
-from rudaux.util.util import get_logger
+from prefect import get_run_logger
 import os
 import tempfile
 import subprocess
@@ -93,7 +93,7 @@ class ZFS:
         """
         volume = volume.strip("/")
         # execute the snapshot
-        cmd = f"sudo {self.zfs_path} snapshot -r {volume}@{snapshot}"
+        cmd = f"""sudo {self.zfs_path} snapshot -r "{volume}@{snapshot}" """
         std_out, std_err = self._command(cmd)
 
         # verify the snapshot

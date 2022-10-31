@@ -4,7 +4,6 @@ from prefect import task, unmapped
 # from prefect.engine import signals
 import pendulum as plm
 import prefect
-from rudaux.util.util import get_logger
 from rudaux.model.course_info import CourseInfo
 from rudaux.model.assignment import Assignment
 from rudaux.model.student import Student

@@ -153,7 +153,7 @@ def verify_snapshots(snaps_to_take: Dict[str, Snapshot], new_existing_snaps: Dic
             missing_snaps.append(snap_name)
     if len(missing_snaps) > 0:
         logger = get_run_logger()
-        logger.info(f"Error taking snapshots {missing_snaps}; do not exist in submission system after snapshot")
+        logger.info(f"Error taking snapshots; {missing_snaps} do not exist in submission system after snapshot")
         raise PrefectSignal
         # sig.FAIL(f"Error taking snapshots {missing_snaps}; do not exist in submission system after snapshot")
 

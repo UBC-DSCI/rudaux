@@ -256,20 +256,18 @@ if __name__ == "__main__":
     print('pastdue_snaps: ', pastdue_snaps)
 
     # get list of existing snapshots from submission system
-    existing_snaps = get_existing_snapshots(course_name=_group_name, course_info=_course_info,
-                                            assignments=_assignments, students=_students, subs=subs)
+    existing_snaps = get_existing_snapshots(assignments=_assignments, students=_students, subs=subs)
     print('existing_snaps: ', existing_snaps)
 
     # compute snapshots to take
     snaps_to_take = get_snapshots_to_take(pastdue_snaps, existing_snaps)
     print('snaps_to_take: ', snaps_to_take)
 
-    # # take snapshots
-    # take_snapshots(snaps_to_take, subs)
+    # take snapshots
+    take_snapshots(snaps_to_take, subs)
     #
     # # get list of newly existing snapshots from submission system
-    # new_existing_snaps = get_existing_snapshots(course_name=_group_name, course_info=_course_info,
-    #                                             assignments=_assignments, students=_students, subs=subs)
+    # new_existing_snaps = get_existing_snapshots(assignments=_assignments, students=_students, subs=subs)
     #
     # # verify snapshots
     # verify_snapshots(snaps_to_take, new_existing_snaps)
