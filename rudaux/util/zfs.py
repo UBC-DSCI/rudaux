@@ -6,6 +6,7 @@ from scp import SCPClient
 import pendulum as plm
 import re
 from prefect import get_run_logger
+from logging import getLogger as get_run_logger
 import os
 import tempfile
 import subprocess
@@ -28,18 +29,23 @@ def _parse_zfs_snaps(std_out: stdout) -> List[Dict]:
         'ddd MMM  D  H:mm YYYY'
     ]
     snaps = []
+    creation_date_location = None
     for line in std_out.splitlines():
+        if 'CREATION' in line:
+            creation_date_location = line.find('CREATION')
         if '@' in line:
-            volume, remaining = line.split('@', 1)
-            name, remaining = remaining.split(' ', 1)
+            name = line[:creation_date_location].strip()
+            creation = line[creation_date_location:].strip()
+
+            volume, snap_name = name.split('@', 1)
             datetime = None
             for datetime_format in datetime_formats:
                 try:
-                    datetime = plm.from_format(remaining.strip(), datetime_format)
+                    datetime = plm.from_format(creation, datetime_format)
                     break
                 except ValueError:
                     continue
-            snaps.append({'volume': volume, 'name': name, 'datetime': datetime})
+            snaps.append({'volume': volume, 'name': snap_name, 'datetime': datetime})
     return snaps
 
 
@@ -77,7 +83,7 @@ class ZFS:
         std_out, std_err = self._command(f"sudo {self.zfs_path} list -r -t snapshot -o name,creation {volume}")
         # parse the unique snapshot names
         snaps = _parse_zfs_snaps(std_out)
-        logger = get_logger()
+        logger = get_run_logger()
         return snaps
 
     # ----------------------------------------------------------------------------------------------------------------
@@ -239,7 +245,7 @@ class LocalZFS(ZFS):
         (std_out, std_err): Tuple[stdout, stderr]
         """
 
-        logger = get_logger()
+        logger = get_run_logger()
         logger.info(f"Running command {cmd}")
 
         pipes = subprocess.Popen(cmd.split(' '), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -266,7 +272,7 @@ class LocalZFS(ZFS):
         preserve_times: bool, defaults to False
         """
 
-        logger = get_logger()
+        logger = get_run_logger()
         logger.info(f"Copying file from {source_path} to {dest_path}")
         if preserve_times:
             self._command(f"cp -p {source_path} {dest_path}")
@@ -295,7 +301,7 @@ class RemoteZFS(ZFS):
 
     # ----------------------------------------------------------------------------------------------------------------
     def open(self):
-        logger = get_logger()
+        logger = get_run_logger()
         logger.info(f"Opening ssh connection to {self.info}")
         # open an ssh connection to the student machine
         self.ssh = pmk.client.SSHClient()
@@ -326,7 +332,7 @@ class RemoteZFS(ZFS):
         (std_out, std_err): Tuple[stdout, stderr]
         """
 
-        logger = get_logger()
+        logger = get_run_logger()
         logger.info(f"Running ssh command {cmd}")
         # execute the snapshot command
         std_in, std_out, std_err = self.ssh.exec_command(cmd)
