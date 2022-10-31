@@ -62,6 +62,9 @@ class Snapshot(BaseModel):
         snapshot_name: str
         """
 
-        return f"rudaux--{self.course_name}--{self.assignment.name}--{self.assignment.lms_id}" + \
-               ("" if self.override is None else f"--{self.override.name}--{self.override.lms_id}"
-                                                 f"--{self.student.name}--{self.student.lms_id}")
+        snapshot_name = f"rudaux--{self.course_name}--{self.assignment.name}--{self.assignment.lms_id}" + \
+        ("" if self.override is None else f"--{self.override.name}--{self.override.lms_id}"
+                                          f"--{self.student.name}--{self.student.lms_id}")
+
+        snapshot_name = snapshot_name.replace(' ', '_')
+        return snapshot_name
