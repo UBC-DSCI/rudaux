@@ -162,7 +162,10 @@ def autoext_flow(settings: dict, course_name: str, section_name: str) -> None:
 @flow
 def snap_flow(settings: dict, course_name: str, section_name: str) -> None:
     """
-    takes snapshots
+    does the following;
+    - computes the snapshots to be taken
+    - gets all existing snapshots and identifies the ones which are not already taken and need to be taken
+    - validates whether the snapshots to be taken were in fact taken
 
     Parameters
     ----------
