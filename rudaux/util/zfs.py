@@ -6,7 +6,7 @@ from scp import SCPClient
 import pendulum as plm
 import re
 from prefect import get_run_logger
-from logging import getLogger as get_run_logger
+# from logging import getLogger as get_run_logger
 import os
 import tempfile
 import subprocess
