@@ -449,11 +449,14 @@ def clean_submissions(subm_set):
                     pass
  
                   try:
-                    # ensure execution count exists for code cells
-                    ect = cell["execution_count"]
-                  except:
-                    if cell["cell_type"] == "code":
+                    # ensure execution count exists for code cells, and does not exist for markdown cells
+                    cell_type = cell['cell_type']
+                    if cell_type == 'markdown':
+                        cell.pop("execution_count", None)
+                    if cell_type == 'code' and "execution_count" not in cell:
                         cell["execution_count"] = None
+                  except:
+                    pass
 
                   # delete nbgrader metadata from duplicated cells
                   try:
