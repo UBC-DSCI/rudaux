@@ -450,9 +450,11 @@ def clean_submissions(subm_set):
  
                   try:
                     # ensure execution count exists for code cells, and does not exist for markdown cells
+                    # ensure no outputs for markdown cells
                     cell_type = cell['cell_type']
                     if cell_type == 'markdown':
                         cell.pop("execution_count", None)
+                        cell.pop("outputs", None)
                     if cell_type == 'code' and "execution_count" not in cell:
                         cell["execution_count"] = None
                   except:
