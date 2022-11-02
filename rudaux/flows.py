@@ -224,12 +224,22 @@ def grade_flow(settings: dict, course_name: str):
     subs = get_submission_system(settings=settings, group_name=course_name)
     grds = get_grading_system(settings=settings, group_name=course_name)
 
-    # Get course info, list of students, and list of assignments from lms
-    # course_info = get_course_info(lms=lms, course_section_name=section_name)
-    # students = get_students(lms=lms, course_section_name=section_name)
-    # assignments = get_assignments(lms=lms, course_group_name=course_name, course_section_name=section_name)
-    # submissions = get_submissions(lms=lms, course_group_name=course_name, course_section_name=section_name,
-    #                               assignment=settings.assignments[course_name])
+    course_section_names = settings.course_groups[course_name]
+    selected_assignments = settings.assignments[course_name]
+
+    for section_name in course_section_names:
+
+        # Get course info, list of students, and list of assignments from lms
+        course_info = get_course_info(lms=lms, course_section_name=section_name)
+        students = get_students(lms=lms, course_section_name=section_name)
+        assignments = get_assignments(lms=lms, course_group_name=course_name, course_section_name=section_name)
+
+        for assignment_id, assignment in assignments.items():
+            if assignment.name in selected_assignments:
+                submissions = get_submissions(
+                    lms=lms, course_group_name=course_name,
+                    course_section_name=section_name, assignment=assignment
+                )
 
 
 # -------------------------------------------------------------------------------------------------------------
