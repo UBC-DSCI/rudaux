@@ -1,12 +1,15 @@
 import docker
 import time
-from .util import get_logger
+from prefect import get_run_logger
+# from logging import getLogger as get_run_logger
 
 
 # --------------------------------------------------------------------------------------------------
-def run_container(command, docker_image, docker_memory='2g', work_dir=None, ctr_bind_dir=None, n_tries=5):
+def run_container(command: str, docker_image: str, docker_memory='2g',
+                  work_dir=None, ctr_bind_dir=None, n_tries=5):
+
     client = docker.from_env()
-    logger = get_logger()
+    logger = get_run_logger()
     ctr = None
     result = {}
     # try to start the container a few times
@@ -19,7 +22,7 @@ def run_container(command, docker_image, docker_memory='2g', work_dir=None, ctr_
                                         remove=False,
                                         stderr=True,
                                         stdout=True,
-                                        mem_limit=config.docker_memory,
+                                        mem_limit=docker_memory,
                                         volumes={work_dir: {'bind': ctr_bind_dir, 'mode': 'rw'}} if (
                                                 work_dir and ctr_bind_dir) else {}
                                         )
@@ -39,7 +42,7 @@ def run_container(command, docker_image, docker_memory='2g', work_dir=None, ctr_
             ctr = None
             raise Exception(
                 f"Docker ImageNotFound exception encountered when starting docker container. "
-                f"image {image_name} command {command} work_dir {work_dir}. error message {str(e)}")
+                f"image {docker_image} command {command} work_dir {work_dir}. error message {str(e)}")
         except Exception as e:
             if n_tries == 0:
                 raise Exception(
