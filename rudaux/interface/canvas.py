@@ -142,7 +142,7 @@ class Canvas(LearningManagementSystem):
 
     # ---------------------------------------------------------------------------------------------------
     def get_submissions(self, course_group_name: str, course_section_name: str,
-                        assignment: dict) -> List[Submission]:
+                        assignment: Assignment) -> List[Submission]:
 
         canvas_id = self.canvas_course_lms_ids[course_section_name]
         api_info = {
@@ -150,8 +150,13 @@ class Canvas(LearningManagementSystem):
             'id': canvas_id,
             'token': self.canvas_api_tokens[course_section_name]
         }
-        submissions_dict = get_submissions(api_info={canvas_id: api_info},
-                                           course_id=canvas_id, assignment=assignment)
+        submissions_dict = get_submissions(
+            api_info={canvas_id: api_info}, course_id=canvas_id,
+            assignment={
+                'id': assignment.lms_id,
+                'name': assignment.name
+            }
+        )
 
         # print(submissions_dict)
 
@@ -286,10 +291,23 @@ if __name__ == "__main__":
     settings = Settings.parse_obj(settings)
     lms = get_learning_management_system(settings, group_name=_group_name)
     print()
-    # print('course_info: ', lms.get_course_info(course_section_name=_course_name), '\n')
-    print('students: ', lms.get_students(course_section_name=_course_name), '\n')
-    # print('instructors: ', lms.get_instructors(course_section_name=_course_name), '\n')
-    # # print(lms.get_groups(course_section_name=_course_name))
-    # print('assignments: ', lms.get_assignments(course_group_name=_group_name, course_section_name=_course_name), '\n')
-    # print('submissions: ', lms.get_submissions(course_group_name=_group_name, course_section_name=_course_name,
-    #                                            assignment={'id': '1292206', 'name': 'test_assignment'}), '\n')
+
+    course_info = lms.get_course_info(course_section_name=_course_name)
+    print('course_info: ', course_info, '\n')
+
+    students = lms.get_students(course_section_name=_course_name)
+    print('students: ', students, '\n')
+
+    instructors = lms.get_instructors(course_section_name=_course_name)
+    print('instructors: ', instructors, '\n')
+
+    groups = lms.get_groups(course_section_name=_course_name)
+    print('groups: ', groups, '\n')
+
+    assignments = lms.get_assignments(course_group_name=_group_name, course_section_name=_course_name)
+    print('assignments: ', assignments, '\n')
+
+    submissions = lms.get_submissions(course_group_name=_group_name, course_section_name=_course_name,
+                                      assignment=assignments['1292206'])
+    print('submissions: ', submissions, '\n')
+

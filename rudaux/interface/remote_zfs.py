@@ -251,20 +251,20 @@ if __name__ == "__main__":
         return
 
 
-    # get list of snapshots past their due date from assignments
-    pastdue_snaps = get_pastdue_snapshots(course_name=_group_name, course_info=_course_info, assignments=_assignments)
-    print('pastdue_snaps: ', pastdue_snaps)
-
-    # get list of existing snapshots from submission system
-    existing_snaps = get_existing_snapshots(assignments=_assignments, students=_students, subs=subs)
-    print('existing_snaps: ', existing_snaps)
-
-    # compute snapshots to take
-    snaps_to_take = get_snapshots_to_take(pastdue_snaps, existing_snaps)
-    print('snaps_to_take: ', snaps_to_take)
-
-    # take snapshots
-    take_snapshots(snaps_to_take, subs)
+    # # get list of snapshots past their due date from assignments
+    # pastdue_snaps = get_pastdue_snapshots(course_name=_group_name, course_info=_course_info, assignments=_assignments)
+    # print('pastdue_snaps: ', pastdue_snaps)
+    #
+    # # get list of existing snapshots from submission system
+    # existing_snaps = get_existing_snapshots(assignments=_assignments, students=_students, subs=subs)
+    # print('existing_snaps: ', existing_snaps)
+    #
+    # # compute snapshots to take
+    # snaps_to_take = get_snapshots_to_take(pastdue_snaps, existing_snaps)
+    # print('snaps_to_take: ', snaps_to_take)
+    #
+    # # take snapshots
+    # take_snapshots(snaps_to_take, subs)
     #
     # # get list of newly existing snapshots from submission system
     # new_existing_snaps = get_existing_snapshots(assignments=_assignments, students=_students, subs=subs)

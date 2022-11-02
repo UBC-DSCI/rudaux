@@ -66,5 +66,6 @@ class Snapshot(BaseModel):
         ("" if self.override is None else f"--{self.override.name}--{self.override.lms_id}"
                                           f"--{self.student.name}--{self.student.lms_id}")
 
+        # replacing all spaces with underscore in the name
         snapshot_name = snapshot_name.replace(' ', '_')
         return snapshot_name

@@ -130,7 +130,7 @@ def autoext_flow(settings: dict, course_name: str, section_name: str) -> None:
     settings = Settings.parse_obj(settings)
 
     # Create an LMS object
-    lms = get_learning_management_system(settings, course_name)
+    lms = get_learning_management_system(settings=settings, group_name=course_name)
 
     # Get course info, list of students, and list of assignments from lms
     course_info = get_course_info(lms=lms, course_section_name=section_name)
@@ -144,7 +144,8 @@ def autoext_flow(settings: dict, course_name: str, section_name: str) -> None:
 
     # compute the set of overrides to delete and new ones to create for all assignments
     overrides = compute_autoextension_override_updates(
-        settings, course_name, section_name, course_info, students, assignments)
+        settings=settings, course_name=course_name, section_name=section_name,
+        course_info=course_info, students=students, assignments=assignments)
 
     # for each assignment remove the old overrides and create new ones
     for assignment, overrides_to_create, overrides_to_delete in overrides:
@@ -178,8 +179,8 @@ def snap_flow(settings: dict, course_name: str, section_name: str) -> None:
     settings = Settings.parse_obj(settings)
 
     # Create an LMS and SubS object
-    lms = get_learning_management_system(settings, course_name)
-    subs = get_submission_system(settings, course_name)
+    lms = get_learning_management_system(settings=settings, group_name=course_name)
+    subs = get_submission_system(settings=settings, group_name=course_name)
 
     # initiate the submission system (open ssh connection)
     subs.open()
@@ -208,7 +209,7 @@ def snap_flow(settings: dict, course_name: str, section_name: str) -> None:
     new_existing_snaps = get_existing_snapshots(assignments=assignments, students=students, subs=subs)
 
     # verify snapshots
-    verify_snapshots(snaps_to_take, new_existing_snaps)
+    verify_snapshots(snaps_to_take=snaps_to_take, new_existing_snaps=new_existing_snaps)
 
     subs.close()
 
@@ -217,10 +218,18 @@ def snap_flow(settings: dict, course_name: str, section_name: str) -> None:
 @flow
 def grade_flow(settings: dict, course_name: str):
     settings = Settings.parse_obj(settings)
-    # create LMS and Submission system objects
-    # lms = get_learning_management_system(settings, config_path, course_name)
-    # subs = get_submission_system(settings, config_path, course_name)
-    # grds = get_grading_system(settings, config_path, course_name)
+
+    # Create an LMS, SubS, and GradS objects
+    lms = get_learning_management_system(settings=settings, group_name=course_name)
+    subs = get_submission_system(settings=settings, group_name=course_name)
+    grds = get_grading_system(settings=settings, group_name=course_name)
+
+    # Get course info, list of students, and list of assignments from lms
+    # course_info = get_course_info(lms=lms, course_section_name=section_name)
+    # students = get_students(lms=lms, course_section_name=section_name)
+    # assignments = get_assignments(lms=lms, course_group_name=course_name, course_section_name=section_name)
+    # submissions = get_submissions(lms=lms, course_group_name=course_name, course_section_name=section_name,
+    #                               assignment=settings.assignments[course_name])
 
 
 # -------------------------------------------------------------------------------------------------------------
