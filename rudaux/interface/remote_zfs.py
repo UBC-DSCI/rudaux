@@ -7,35 +7,35 @@ from rudaux.model.snapshot import parse_snapshot_from_name, Snapshot
 
 
 class RemoteZFSSubmissions(SubmissionSystem):
-    remote_zfs_hostname: str
-    remote_zfs_port: str
-    remote_zfs_username: str
-    remote_zfs_tz: str
-    remote_zfs_volume_pattern: str
-    remote_zfs_collection_pattern: str
-    remote_zfs_distribution_pattern: str
-    remote_zfs_file_system_root: str
-    zfs: Optional[RemoteZFS] = None
+    remote_zfs_hostname: Dict[str, str]
+    remote_zfs_port: Dict[str, str]
+    remote_zfs_username: Dict[str, str]
+    remote_zfs_tz: Dict[str, str]
+    # remote_zfs_volume_pattern: str
+    # remote_zfs_collection_pattern: str
+    # remote_zfs_distribution_pattern: str
+    remote_zfs_file_system_root: Dict[str, str]
+    # zfs: Optional[RemoteZFS] = None
 
-    class Config:
-        arbitrary_types_allowed = True
+    # class Config:
+    #     arbitrary_types_allowed = True
 
     # ---------------------------------------------------------------------------------------------------
-    def open(self):
-        info = {"host": self.remote_zfs_hostname,
-                "port": self.remote_zfs_port,
-                "user": self.remote_zfs_username}
-        self.zfs = RemoteZFS(info=info, tz=self.remote_zfs_tz)
+    def open(self, course_name: str):
+        info = {"host": self.remote_zfs_hostname[course_name],
+                "port": self.remote_zfs_port[course_name],
+                "user": self.remote_zfs_username[course_name]}
+        self.zfs = RemoteZFS(info=info, tz=self.remote_zfs_tz[course_name])
 
     # ---------------------------------------------------------------------------------------------------
     def close(self):
         self.zfs.close()
 
     # ---------------------------------------------------------------------------------------------------
-    def list_snapshots(self, assignments: Dict[str, Assignment],
+    def list_snapshots(self, course_name: str, assignments: Dict[str, Assignment],
                        students: Dict[str, Student]) -> List[Snapshot]:
-        # TODO use remote_zfs_volume_pattern to get a volume string
-        volume = self.remote_zfs_file_system_root
+
+        volume = self.remote_zfs_file_system_root[course_name]
         'zfs_list to get folder structures'
         snap_dicts = self.zfs.get_snapshots(volume=volume)
         snapshots = []
@@ -46,9 +46,9 @@ class RemoteZFSSubmissions(SubmissionSystem):
         return snapshots
 
     # ---------------------------------------------------------------------------------------------------
-    def take_snapshot(self, snapshot: Snapshot):
-        # TODO use remote_zfs_volume_pattern to get a volume string
-        volume = self.remote_zfs_file_system_root
+    def take_snapshot(self, course_name: str, snapshot: Snapshot):
+
+        volume = self.remote_zfs_file_system_root[course_name]
         self.zfs.take_snapshot(volume, snapshot.get_name())
         return
 
@@ -121,7 +121,7 @@ if __name__ == "__main__":
     lms = get_learning_management_system(settings, group_name=_group_name)
     subs = get_submission_system(settings, group_name=_group_name)
 
-    _course_info = lms.get_course_info(course_section_name=_course_name)
+    _course_info = lms.get_course_section_info(course_section_name=_course_name)
     _students = lms.get_students(course_section_name=_course_name)
     _assignments = lms.get_assignments(course_group_name=_group_name, course_section_name=_course_name)
 
@@ -129,15 +129,15 @@ if __name__ == "__main__":
     print('students: ', _students, '\n')
     print('assignments: ', _assignments, '\n')
 
-    subs.open()
-    snapshots = subs.list_snapshots(assignments=_assignments, students=_students)
+    subs.open(course_name=_group_name)
+    snapshots = subs.list_snapshots(course_name=_group_name, assignments=_assignments, students=_students)
     print('snapshots: ', snapshots, '\n')
 
     import pendulum as plm
-    from rudaux.model.course_info import CourseInfo
+    from rudaux.model.course_info import CourseSectionInfo
 
 
-    def get_pastdue_snapshots(course_name: str, course_info: CourseInfo,
+    def get_pastdue_snapshots(course_name: str, course_info: CourseSectionInfo,
                               assignments: Dict[str, Assignment]) -> Dict[str, Snapshot]:
         """
         returns a list of snapshots which are past their due date
@@ -145,7 +145,7 @@ if __name__ == "__main__":
         Parameters
         ----------
         course_name: str
-        course_info: CourseInfo
+        course_info: CourseSectionInfo
         assignments: Dict[str, Assignment]
 
         Returns
@@ -207,10 +207,10 @@ if __name__ == "__main__":
         return pastdue_snaps
 
 
-    def get_existing_snapshots(assignments: Dict[str, Assignment], students: Dict[str, Student],
+    def get_existing_snapshots(course_name: str, assignments: Dict[str, Assignment], students: Dict[str, Student],
                                subs: SubmissionSystem) -> Dict[str, Snapshot]:
 
-        existing_snaps_list = subs.list_snapshots(assignments=assignments, students=students)
+        existing_snaps_list = subs.list_snapshots(course_name=course_name, assignments=assignments, students=students)
         existing_snaps_dict = {snap.get_name(): snap for snap in existing_snaps_list}
         print(f"Found {len(existing_snaps_dict)} existing snapshots.")
         print(f"Snapshots: {list(existing_snaps_dict.keys())}")
@@ -244,16 +244,16 @@ if __name__ == "__main__":
         return
 
 
-    def take_snapshots(snaps_to_take: Dict[str, Snapshot], subs: SubmissionSystem):
+    def take_snapshots(course_name: str, snaps_to_take: Dict[str, Snapshot], subs: SubmissionSystem):
         for snap_name, snap in snaps_to_take.items():
             print(f"Taking snapshot {snap_name}")
-            subs.take_snapshot(snap)
+            subs.take_snapshot(course_name, snap)
         return
 
 
-    # # get list of snapshots past their due date from assignments
-    # pastdue_snaps = get_pastdue_snapshots(course_name=_group_name, course_info=_course_info, assignments=_assignments)
-    # print('pastdue_snaps: ', pastdue_snaps)
+    # get list of snapshots past their due date from assignments
+    pastdue_snaps = get_pastdue_snapshots(course_name=_group_name, course_info=_course_info, assignments=_assignments)
+    print('pastdue_snaps: ', pastdue_snaps)
     #
     # # get list of existing snapshots from submission system
     # existing_snaps = get_existing_snapshots(assignments=_assignments, students=_students, subs=subs)

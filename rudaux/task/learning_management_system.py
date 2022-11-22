@@ -1,7 +1,7 @@
 from typing import List, Dict
 from prefect import task
 from prefect import get_run_logger
-from ..model import Student, Assignment, CourseInfo, Override, Submission, Instructor
+from ..model import Student, Assignment, CourseSectionInfo, Override, Submission, Instructor
 from rudaux.interface.base.learning_management_system import LearningManagementSystem as LMS
 
 
@@ -44,9 +44,9 @@ def get_assignments(lms: LMS, course_group_name: str, course_section_name: str) 
 
 # wraps the lms.get_course_info function in a task and enforces validation
 @task
-def get_course_info(lms: LMS, course_section_name: str) -> CourseInfo:
-    course_info = lms.get_course_info(course_section_name=course_section_name)
-    if not isinstance(course_info, CourseInfo):
+def get_course_info(lms: LMS, course_section_name: str) -> CourseSectionInfo:
+    course_info = lms.get_course_section_info(course_section_name=course_section_name)
+    if not isinstance(course_info, CourseSectionInfo):
         raise ValueError
     return course_info
 

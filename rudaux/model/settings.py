@@ -37,11 +37,11 @@ class Settings(BaseModel):
     notify_timezone: Dict[str, str]
 
     # zfs settings
-    remote_zfs_hostname: str
-    remote_zfs_port: str
-    remote_zfs_username: str
-    remote_zfs_tz: str = "America/Vancouver"
-    remote_zfs_volume_pattern: str
-    remote_zfs_collection_pattern: str
-    remote_zfs_distribution_pattern: str
-    remote_zfs_file_system_root: str
+    remote_zfs_hostname: Dict[str, str]
+    remote_zfs_port: Dict[str, str]
+    remote_zfs_username: Dict[str, str]
+    remote_zfs_tz: Dict[str, str]
+    # remote_zfs_volume_pattern: str
+    # remote_zfs_collection_pattern: str
+    # remote_zfs_distribution_pattern: str
+    remote_zfs_file_system_root: Dict[str, str]

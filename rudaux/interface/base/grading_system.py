@@ -1,6 +1,8 @@
 from pydantic import BaseModel
 from abc import ABC, abstractmethod
 
+from rudaux.model import Submission
+
 
 class GradingSystem(ABC, BaseModel):
     # -----------------------------------------------------------------------------------------
@@ -20,22 +22,22 @@ class GradingSystem(ABC, BaseModel):
 
     # -----------------------------------------------------------------------------------------
     @abstractmethod
-    def generate_solution(self):
+    def generate_solution(self, local_source_path: str, solution_name: str, work_dir: str):
         pass
 
     # -----------------------------------------------------------------------------------------
     @abstractmethod
-    def generate_feedback(self):
+    def generate_feedback(self, submission: Submission, work_dir: str):
         pass
 
     # -----------------------------------------------------------------------------------------
     @abstractmethod
-    def get_needs_manual_grading(self):
+    def get_needs_manual_grading(self, work_dir: str):
         pass
 
     # -----------------------------------------------------------------------------------------
     @abstractmethod
-    def autograde(self):
+    def autograde(self, submission: Submission, work_dir: str):
         pass
 
     # -----------------------------------------------------------------------------------------

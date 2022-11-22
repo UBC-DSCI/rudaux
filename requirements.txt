@@ -14,4 +14,9 @@ paramiko>=2.7.2
 gitpython>=3.1.18
 PyYAML>=5.4.1
 scp==0.14.4
+nbgrader==0.8.1
+tabulate
+jupyterhub
+git+https://github.com/ubc-dsci/dictauth
+
 

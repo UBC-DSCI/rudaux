@@ -119,7 +119,7 @@ class Course(object):
             print('Synchronizing with Canvas...')
 
             print('Obtaining course information...')
-            self.course_info = self.canvas.get_course_info()
+            self.course_info = self.canvas.get_course_section_info()
             print('Done.')
             
             print('Obtaining/processing student enrollment information from Canvas...')

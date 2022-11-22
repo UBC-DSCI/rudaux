@@ -4,7 +4,7 @@ from prefect import task, unmapped
 # from prefect.engine import signals
 import pendulum as plm
 import prefect
-from rudaux.model.course_info import CourseInfo
+from rudaux.model.course_section_info import CourseSectionInfo
 from rudaux.model.assignment import Assignment
 from rudaux.model.student import Student
 from rudaux.model.instructor import Instructor
@@ -64,7 +64,7 @@ def _get_due_date(assignment: Assignment, student: Student) -> Tuple[plm.DateTim
 # ----------------------------------------------------------------------------------------------------------
 @task(name="compute_autoextension_override_updates")
 def compute_autoextension_override_updates(settings: Settings, course_name: str, section_name: str,
-                                           course_info: CourseInfo, students: Dict[str, Student],
+                                           course_info: CourseSectionInfo, students: Dict[str, Student],
                                            assignments: Dict[str, Assignment]
                                            ) -> List[Tuple[Assignment, List[Override], List[Override]]]:
     """
@@ -75,7 +75,7 @@ def compute_autoextension_override_updates(settings: Settings, course_name: str,
     settings: Settings
     course_name: str
     section_name: str
-    course_info: CourseInfo
+    course_info: CourseSectionInfo
     students: List[Assignment]
     assignments: List[Assignment]
 
@@ -97,8 +97,8 @@ def compute_autoextension_override_updates(settings: Settings, course_name: str,
 
         # skip the assignment if it isn't unlocked yet
         if assignment.unlock_at > plm.now():
-            print(f"Assignment {assignment.name} ({assignment.lms_id}) "
-                  f"unlock date {assignment.unlock_at} is in the future. Skipping.")
+            logger.info(f"Assignment {assignment.name} ({assignment.lms_id}) "
+                        f"unlock date {assignment.unlock_at} is in the future. Skipping.")
             continue
 
         overrides_to_remove = []
@@ -118,12 +118,12 @@ def compute_autoextension_override_updates(settings: Settings, course_name: str,
                     assignment.unlock_at <= registration_deadline and \
                     student_late_reg_date > student_due_date:
 
-                print('student.name: ', student.name)
-                print(student)
-                print('student.reg_date: ', student.reg_date)
-                print('assignment.unlock_at: ', assignment.unlock_at)
-                print('registration_deadline: ', registration_deadline)
-                print('student_late_reg_date: ', student_late_reg_date)
+                # print('student.name: ', student.name)
+                # print(student)
+                # print('student.reg_date: ', student.reg_date)
+                # print('assignment.unlock_at: ', assignment.unlock_at)
+                # print('registration_deadline: ', registration_deadline)
+                # print('student_late_reg_date: ', student_late_reg_date)
 
                 # if student meets the criteria for an extension override
 

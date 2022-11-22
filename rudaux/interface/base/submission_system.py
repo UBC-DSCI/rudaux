@@ -8,7 +8,7 @@ from rudaux.model.snapshot import Snapshot
 class SubmissionSystem(ABC, BaseModel):
     # -----------------------------------------------------------------------------------------
     @abstractmethod
-    def open(self):
+    def open(self, course_name: str):
         pass
 
     # -----------------------------------------------------------------------------------------
@@ -18,13 +18,13 @@ class SubmissionSystem(ABC, BaseModel):
 
     # -----------------------------------------------------------------------------------------
     @abstractmethod
-    def list_snapshots(self, assignments: Dict[str, Assignment],
+    def list_snapshots(self, course_name: str, assignments: Dict[str, Assignment],
                        students: Dict[str, Student]) -> List[Snapshot]:
         pass
 
     # -----------------------------------------------------------------------------------------
     @abstractmethod
-    def take_snapshot(self, snapshot: Snapshot):
+    def take_snapshot(self, course_name: str, snapshot: Snapshot):
         pass
 
     # -----------------------------------------------------------------------------------------

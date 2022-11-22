@@ -3,7 +3,7 @@ from typing import Optional, List
 from pydantic import BaseModel
 
 
-class CourseInfo(BaseModel):
+class CourseSectionInfo(BaseModel):
     lms_id: str
     name: str
     code: str

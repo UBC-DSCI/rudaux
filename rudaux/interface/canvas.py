@@ -6,7 +6,7 @@ from pendulum.tz.timezone import Timezone
 from rudaux.interface.base.learning_management_system import LearningManagementSystem
 from rudaux.util.canvasapi import get_course_info, get_people, get_groups, get_submissions, get_assignments
 from rudaux.util.canvasapi import update_grade, _create_override, _remove_override
-from rudaux.model.course_info import CourseInfo
+from rudaux.model.course_section_info import CourseSectionInfo
 from rudaux.model.assignment import Assignment
 from rudaux.model.student import Student
 from rudaux.model.instructor import Instructor
@@ -30,7 +30,7 @@ class Canvas(LearningManagementSystem):
         pass
 
     # ---------------------------------------------------------------------------------------------------
-    def get_course_info(self, course_section_name: str) -> CourseInfo:
+    def get_course_section_info(self, course_section_name: str) -> CourseSectionInfo:
         canvas_id = self.canvas_course_lms_ids[course_section_name]
         api_info = {
             'domain': self.canvas_base_domain,
@@ -38,9 +38,11 @@ class Canvas(LearningManagementSystem):
             'token': self.canvas_api_tokens[course_section_name]
         }
         ci = get_course_info(api_info={canvas_id: api_info}, course_id=canvas_id)
-        course_info = CourseInfo(lms_id=ci['lms_id'], name=ci['name'], code=ci['code'],
-                                 start_at=ci['start_at'], end_at=ci['end_at'], time_zone=ci['time_zone'])
-        return course_info
+        course_section_info = CourseSectionInfo(
+            lms_id=ci['lms_id'], name=ci['name'], code=ci['code'],
+            start_at=ci['start_at'], end_at=ci['end_at'], time_zone=ci['time_zone']
+        )
+        return course_section_info
 
     # ---------------------------------------------------------------------------------------------------
     def get_students(self, course_section_name) -> Dict[str, Student]:
@@ -112,6 +114,7 @@ class Canvas(LearningManagementSystem):
 
         # print(assignments_dict)
         all_students = self.get_students(course_section_name=course_section_name)
+        course_section_info = self.get_course_section_info(course_section_name=course_section_name)
 
         assignments = dict()
         for a in assignments_dict:
@@ -134,7 +137,7 @@ class Canvas(LearningManagementSystem):
             assignment = Assignment(
                 lms_id=a['id'], name=a['name'], due_at=a['due_at'],
                 lock_at=a['lock_at'], unlock_at=a['unlock_at'], overrides=overrides,
-                published=a['published']
+                published=a['published'], course_section_info=course_section_info
             )
             assignments[assignment.lms_id] = assignment
 
@@ -163,6 +166,7 @@ class Canvas(LearningManagementSystem):
         all_students = self.get_students(course_section_name=course_section_name)
         all_assignments = self.get_assignments(course_group_name=course_group_name,
                                                course_section_name=course_section_name)
+        course_section_info = self.get_course_section_info(course_section_name=course_section_name)
 
         submissions = []
         for assignment_id in submissions_dict:
@@ -292,7 +296,7 @@ if __name__ == "__main__":
     lms = get_learning_management_system(settings, group_name=_group_name)
     print()
 
-    course_info = lms.get_course_info(course_section_name=_course_name)
+    course_info = lms.get_course_section_info(course_section_name=_course_name)
     print('course_info: ', course_info, '\n')
 
     students = lms.get_students(course_section_name=_course_name)
@@ -310,4 +314,3 @@ if __name__ == "__main__":
     submissions = lms.get_submissions(course_group_name=_group_name, course_section_name=_course_name,
                                       assignment=assignments['1292206'])
     print('submissions: ', submissions, '\n')
-

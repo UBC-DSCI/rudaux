@@ -1,7 +1,7 @@
 from typing import List, Dict
 from pydantic import BaseModel
 from abc import ABC, abstractmethod
-from rudaux.model import CourseInfo, Instructor, Student, Assignment, Override, Submission
+from rudaux.model import CourseSectionInfo, Instructor, Student, Assignment, Override, Submission
 
 
 class LearningManagementSystem(ABC, BaseModel):
@@ -17,7 +17,7 @@ class LearningManagementSystem(ABC, BaseModel):
 
     # -----------------------------------------------------------------------------------------
     @abstractmethod
-    def get_course_info(self, course_section_name: str) -> CourseInfo:
+    def get_course_section_info(self, course_section_name: str) -> CourseSectionInfo:
         pass
 
     # -----------------------------------------------------------------------------------------

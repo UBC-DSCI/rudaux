@@ -10,11 +10,11 @@ import pendulum as plm
 from rudaux.model.student import Student
 from rudaux.model.override import Override
 from rudaux.model.assignment import Assignment
-from rudaux.model.course_info import CourseInfo
+from rudaux.model.course_section_info import CourseSectionInfo
 
 
 @task
-def get_pastdue_snapshots(course_name: str, course_info: CourseInfo,
+def get_pastdue_snapshots(course_name: str, course_info: CourseSectionInfo,
                           assignments: Dict[str, Assignment]) -> Dict[str, Snapshot]:
     """
     returns a dictionary of snapshots which are past their due date
@@ -22,7 +22,7 @@ def get_pastdue_snapshots(course_name: str, course_info: CourseInfo,
     Parameters
     ----------
     course_name: str
-    course_info: CourseInfo
+    course_info: CourseSectionInfo
     assignments: Dict[str, Assignment]
 
     Returns
@@ -85,13 +85,14 @@ def get_pastdue_snapshots(course_name: str, course_info: CourseInfo,
 
 # -----------------------------------------------------------------------------------------------
 @task
-def get_existing_snapshots(assignments: Dict[str, Assignment], students: Dict[str, Student],
+def get_existing_snapshots(course_name: str, assignments: Dict[str, Assignment], students: Dict[str, Student],
                            subs: SubmissionSystem) -> Dict[str, Snapshot]:
     """
     returns a dictionary of existing snapshots
 
     Parameters
     ----------
+    course_name: str
     assignments: Dict[str, Assignment]
     students: Dict[str, Student]
     subs: SubmissionSystem
@@ -101,7 +102,7 @@ def get_existing_snapshots(assignments: Dict[str, Assignment], students: Dict[st
     existing_snaps_dict: Dict[str, Snapshot]
 
     """
-    existing_snaps_list = subs.list_snapshots(assignments=assignments, students=students)
+    existing_snaps_list = subs.list_snapshots(course_name=course_name, assignments=assignments, students=students)
     existing_snaps_dict = {snap.get_name(): snap for snap in existing_snaps_list}
     logger = get_run_logger()
     logger.info(f"Found {len(existing_snaps_dict)} existing snapshots.")
@@ -136,11 +137,11 @@ def get_snapshots_to_take(pastdue_snaps: Dict[str, Snapshot],
 
 # -----------------------------------------------------------------------------------------------
 @task
-def take_snapshots(snaps_to_take: Dict[str, Snapshot], subs: SubmissionSystem):
+def take_snapshots(course_name: str, snaps_to_take: Dict[str, Snapshot], subs: SubmissionSystem):
     logger = get_run_logger()
     for snap_name, snap in snaps_to_take.items():
         logger.info(f"Taking snapshot {snap_name}")
-        subs.take_snapshot(snap)
+        subs.take_snapshot(course_name=course_name, snapshot=snap)
 
 
 # -----------------------------------------------------------------------------------------------
@@ -153,7 +154,7 @@ def verify_snapshots(snaps_to_take: Dict[str, Snapshot], new_existing_snaps: Dic
             missing_snaps.append(snap_name)
     if len(missing_snaps) > 0:
         logger = get_run_logger()
-        logger.info(f"Error taking snapshots; {missing_snaps} do not exist in submission system after snapshot")
+        logger.error(f"Error taking snapshots; {missing_snaps} do not exist in submission system after snapshot")
         raise PrefectSignal
         # sig.FAIL(f"Error taking snapshots {missing_snaps}; do not exist in submission system after snapshot")
 
