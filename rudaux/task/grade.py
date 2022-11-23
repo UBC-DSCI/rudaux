@@ -166,14 +166,12 @@ def generate_solutions(grading_system: GradingSystem, grader: Grader):
 @task
 def initialize_volumes(settings: Settings, grading_system: GradingSystem, graders: List[Grader]):
     logger = get_run_logger()
-
     for grader in graders:
         create_grading_volume(grader=grader)
         clone_git_repository(settings=settings, grader=grader)
         create_submission_folder(grader=grader)
         generate_assignments(grading_system=grading_system, grader=grader)
         generate_solutions(grading_system=grading_system, grader=grader)
-
     return graders
 
 
