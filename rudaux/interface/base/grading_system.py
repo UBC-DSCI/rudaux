@@ -1,7 +1,10 @@
+from typing import List
+
 from pydantic import BaseModel
 from abc import ABC, abstractmethod
 
 from rudaux.model import Submission
+from rudaux.model.grader import Grader
 
 
 class GradingSystem(ABC, BaseModel):
@@ -18,6 +21,14 @@ class GradingSystem(ABC, BaseModel):
     # -----------------------------------------------------------------------------------------
     @abstractmethod
     def initialize(self):
+        pass
+
+    # -----------------------------------------------------------------------------------------
+    def get_generated_assignments(self, work_dir: str) -> dict:
+        pass
+
+    # -----------------------------------------------------------------------------------------
+    def generate_assignment(self, assignment_name: str, work_dir: str):
         pass
 
     # -----------------------------------------------------------------------------------------
@@ -38,6 +49,19 @@ class GradingSystem(ABC, BaseModel):
     # -----------------------------------------------------------------------------------------
     @abstractmethod
     def autograde(self, submission: Submission, work_dir: str):
+        pass
+
+    # -----------------------------------------------------------------------------------------
+    @abstractmethod
+    def build_grader(self, course_name: str, assignment_name: str, username: str) -> Grader:
+        pass
+
+    # -----------------------------------------------------------------------------------------
+    def get_users(self) -> List[str]:
+        pass
+
+    # -----------------------------------------------------------------------------------------
+    def add_grader_account(self, grader: Grader):
         pass
 
     # -----------------------------------------------------------------------------------------

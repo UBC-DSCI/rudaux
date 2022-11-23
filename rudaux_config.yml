@@ -85,6 +85,13 @@ nbgrader_user_root: '/path/to/jhub/user/folder/dir'
 nbgrader_submissions_folder: 'submitted'
 nbgrader_feedback_folder: 'feedback'
 nbgrader_autograded_folder: 'autograded'
+# the amount of memory to give each autograding container
+nbgrader_docker_memory: '2g'
+# the image to use for nbgrader operations
+# the example below is for the 0.17.0 version of the DSCI100 image
+nbgrader_docker_image: 'ubcdsci/r-dsci-grading:v0.17.0'
+# the name of the directory in the container to bind to the grader's jhub folder
+nbgrader_docker_bind_folder: '/home/jupyter'
 
 
 # the ssh-access git repository URL (the root of this directory should be an 'nbgrader' dir)
@@ -101,16 +108,6 @@ grading_student_folder_prefix: 'student-'
 return_solution_threshold: 0.93
 # the earliest date to return solutions to anything regardless of the return thresholds
 earliest_solution_return_date: '2021-09-26'
-
-# the amount of memory to give each autograding container
-docker_memory: '2g'
-
-# the image to use for nbgrader operations
-# the example below is for the 0.17.0 version of the DSCI100 image
-docker_image: 'ubcdsci/r-dsci-grading:v0.17.0'
-
-# the name of the directory in the container to bind to the grader's jhub folder
-docker_bind_folder: '/home/jupyter'
 
 # =========================================================================
 assignments:

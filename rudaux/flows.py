@@ -260,12 +260,12 @@ def grade_flow(settings: dict, course_name: str):
                 assignment_submissions_pairs.append((section_assignment, section_submissions))
 
             # Create grader teams
-            graders = build_grading_team(config=settings, course_group=course_name,
+            graders = build_grading_team(settings=settings, grading_system=grds, course_group=course_name,
                                          assignment_name=assignment_name,
                                          assignment_submissions_pairs=assignment_submissions_pairs)
 
             # create grader volumes, add git repos, create folder structures, initialize nbgrader
-            initialize_volumes(config=settings, graders=graders)
+            initialize_volumes(settings=settings, grading_system=grds, graders=graders)
 
             # create grader jhub accounts
             initialize_accounts(config=settings, graders=graders)

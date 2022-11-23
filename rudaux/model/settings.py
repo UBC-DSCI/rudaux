@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict, List, Optional
 from pydantic import BaseModel, validator
 import importlib
 
@@ -45,3 +45,22 @@ class Settings(BaseModel):
     # remote_zfs_collection_pattern: str
     # remote_zfs_distribution_pattern: str
     remote_zfs_file_system_root: Dict[str, str]
+
+    # nbgrader settings
+    nbgrader_docker_image: str
+    nbgrader_docker_memory: str
+    nbgrader_docker_bind_folder: str
+    nbgrader_student_folder_prefix: str
+    nbgrader_instructor_user: str
+    nbgrader_jupyterhub_config_dir: str
+    nbgrader_jupyterhub_user: str
+    nbgrader_user_quota: str
+    nbgrader_user_root: str
+    nbgrader_submissions_folder: Optional[str] = 'submitted'
+    nbgrader_feedback_folder: Optional[str] = 'feedback'
+    nbgrader_autograded_folder: Optional[str] = 'autograded'
+
+    instructor_repo_url: str
+    student_local_assignment_folder: str
+    return_solution_threshold: float
+    earliest_solution_return_date: str
