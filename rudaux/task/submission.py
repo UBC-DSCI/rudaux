@@ -2,12 +2,16 @@ import json
 import shutil
 from enum import IntEnum
 from json import JSONDecodeError
-from typing import List
+from typing import List, Tuple
 
 from prefect.exceptions import PrefectSignal
 import os
 from prefect import task, get_run_logger
 import pendulum as plm
+
+from rudaux.interface import LearningManagementSystem
+from rudaux.model import Settings
+from rudaux.model.grader import Grader
 from rudaux.util.util import recursive_chown
 from rudaux.model.submission import Submission
 from rudaux.model.assignment import Assignment
@@ -22,6 +26,99 @@ class GradingStatus(IntEnum):
     AUTOGRADED = 6
     NEEDS_MANUAL_GRADE = 9
     DONE_GRADING = 10
+
+
+# ----------------------------------------------------------------------------------------------------------
+@task
+def assign_graders(settings: Settings, graders: List[Grader],
+                   assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]]):
+    for section_assignment, section_submissions in assignment_submissions_pairs:
+        for submission in section_submissions:
+
+            student = submission.student
+            # search for this student in the grader folders
+            found = False
+            for grader in graders:
+                collected_assignment_folder = os.path.join(
+                    grader.info['submissions_folder'], settings.nbgrader_student_folder_prefix + student.lms_id)
+                if os.path.exists(collected_assignment_folder):
+                    found = True
+                    submission.grader = grader
+                    break
+            # if not assigned to anyone, choose the worker with the minimum current workload
+            if not found:
+                # sort graders in place and assign
+                graders.sort(key=lambda g: g['workload'])
+                min_grader = graders[0]
+                min_grader.info['workload'] += 1
+                submission.grader = min_grader
+
+            # fill in the submission details that depend on a grader
+            submission.grader.info['collected_assignment_folder'] = os.path.join(
+                submission.grader.info['submissions_folder'],
+                settings.nbgrader_student_folder_prefix + student.lms_id)
+
+            submission.grader.info['collected_assignment_path'] = os.path.join(
+                submission.grader.info['submissions_folder'],
+                settings.nbgrader_student_folder_prefix + student.lms_id,
+                section_assignment.name, section_assignment.name + '.ipynb')
+
+            submission.grader.info['autograded_assignment_path'] = os.path.join(
+                submission.grader.info['autograded_folder'],
+                settings.nbgrader_student_folder_prefix + student.lms_id,
+                section_assignment.name, section_assignment.name + '.ipynb')
+
+            submission.grader.info['generated_feedback_path'] = os.path.join(
+                submission.grader.info['feedback_folder'],
+                settings.nbgrader_student_folder_prefix + student.lms_id,
+                section_assignment.name, section_assignment.name + '.html')
+
+            submission.grader.info['status'] = GradingStatus.ASSIGNED
+
+    return assignment_submissions_pairs
+
+
+# ----------------------------------------------------------------------------------------------------------
+@task
+def collect_submissions(assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]],
+                        lms: LearningManagementSystem):
+    logger = get_run_logger()
+    for section_assignment, section_submissions in assignment_submissions_pairs:
+        for submission in section_submissions:
+            student = submission.student
+
+            # if the submission is due in the future, skip
+            if submission.posted_at > plm.now():
+                submission.grader.info['status'] = GradingStatus.NOT_DUE
+                continue
+
+            if not os.path.exists(submission.grader.info['collected_assignment_path']):
+                if not os.path.exists(submission.grader.info['snapped_assignment_path']):
+                    submission.grader.info['status'] = GradingStatus.MISSING
+                    if submission.score is None:
+                        logger.info(f"Submission {submission.lms_id} is missing. Uploading score of 0.")
+                        submission.score = 0.
+                        lms.update_grade(course_section_name=submission.course_section_info.name,
+                                         submission=submission)
+                else:
+                    logger.info(f"Submission {submission.lms_id} not yet collected. Collecting...")
+                    os.makedirs(os.path.dirname(submission.grader.info['collected_assignment_path']), exist_ok=True)
+
+                    shutil.copy(submission.grader.info['snapped_assignment_path'],
+                                submission.grader.info['collected_assignment_path'])
+
+                    recursive_chown(submission.grader.info['collected_assignment_folder'],
+                                    submission.grader.info['unix_user'],
+                                    submission.grader.info['unix_group'])
+
+                    submission.grader.info['status'] = GradingStatus.COLLECTED
+            else:
+                submission.grader.info['status'] = GradingStatus.COLLECTED
+
+    return assignment_submissions_pairs
+
+
+# ----------------------------------------------------------------------------------------------------------
 
 
 # ----------------------------------------------------------------------------------------------------------
@@ -211,21 +308,23 @@ def autograde(config, subm_set):
                 logger.info(f"Autograding submission {subm['name']}")
                 logger.info('Removing old autograding result from DB if it exists')
                 try:
-                    gb = Gradebook('sqlite:///'+os.path.join(subm['grader']['folder'], 'gradebook.db'))
-                    gb.remove_submission(assignment['name'], config.grading_student_folder_prefix+subm['student']['id'])
+                    gb = Gradebook('sqlite:///' + os.path.join(subm['grader']['folder'], 'gradebook.db'))
+                    gb.remove_submission(assignment['name'],
+                                         config.grading_student_folder_prefix + subm['student']['id'])
                 except MissingEntry as e:
                     pass
                 finally:
                     gb.close()
                 logger.info('Autograding...')
-                res = run_container(config, 'nbgrader autograde --force '+
-                                            '--assignment=' + assignment['name'] +
-                                            ' --student='+config.grading_student_folder_prefix+subm['student']['id'],
+                res = run_container(config, 'nbgrader autograde --force ' +
+                                    '--assignment=' + assignment['name'] +
+                                    ' --student=' + config.grading_student_folder_prefix + subm['student']['id'],
                                     subm['grader']['folder'])
 
                 # validate the results
                 if 'ERROR' in res['log']:
-                    logger.warning(f"Docker error autograding submission {subm['name']}: exited with status {res['exit_status']},  {res['log']}")
+                    logger.warning(
+                        f"Docker error autograding submission {subm['name']}: exited with status {res['exit_status']},  {res['log']}")
                     logger.warning(f"May still continue if rudaux determines this error is nonfatal")
                 #    msg = f"Docker error autograding submission {subm['name']}: exited with status {res['exit_status']},  {res['log']}"
                 #    sig = signals.FAIL(msg)
@@ -241,6 +340,7 @@ def autograde(config, subm_set):
 
     return subm_set
 
+
 # ----------------------------------------------------------------------------------------------------------
 @task
 def check_manual_grading(config, subm_set):
@@ -253,9 +353,9 @@ def check_manual_grading(config, subm_set):
             if subm['status'] == GradingStatus.AUTOGRADED:
                 # check if the submission needs manual grading
                 try:
-                    gb = Gradebook('sqlite:///'+os.path.join(subm['grader']['folder'], 'gradebook.db'))
+                    gb = Gradebook('sqlite:///' + os.path.join(subm['grader']['folder'], 'gradebook.db'))
                     gb_subm = gb.find_submission(assignment['name'],
-                                                 config.grading_student_folder_prefix+subm['student']['id'])
+                                                 config.grading_student_folder_prefix + subm['student']['id'])
                     flag = gb_subm.needs_manual_grade
                 except Exception as e:
                     msg = f"Error when checking whether submission {subm['name']} needs manual grading; error {str(e)}"
@@ -286,26 +386,28 @@ def generate_feedback(config, subm_set):
             continue
         assignment = subm_set[course_name]['assignment']
         for subm in subm_set[course_name]['submissions']:
-            if subm['status'] == GradingStatus.NOT_DUE or subm['status'] == GradingStatus.MISSING or os.path.exists(subm['generated_feedback_path']):
+            if subm['status'] == GradingStatus.NOT_DUE or subm['status'] == GradingStatus.MISSING or os.path.exists(
+                    subm['generated_feedback_path']):
                 continue
             logger.info(f"Generating feedback for submission {subm['name']}")
 
             attempts = 3
             for attempt in range(attempts):
-                res = run_container(config, 'nbgrader generate_feedback --force '+
-                                            '--assignment=' + assignment['name'] +
-                                            ' --student=' + config.grading_student_folder_prefix+subm['student']['id'],
+                res = run_container(config, 'nbgrader generate_feedback --force ' +
+                                    '--assignment=' + assignment['name'] +
+                                    ' --student=' + config.grading_student_folder_prefix + subm['student']['id'],
                                     subm['grader']['folder'])
 
                 # validate the results
-                #if 'ERROR' in res['log']:
+                # if 'ERROR' in res['log']:
                 #    msg = f"Docker error generating feedback for submission {subm['name']}: exited with status {res['exit_status']},  {res['log']}"
                 #    sig = signals.FAIL(msg)
                 #    raise sig
                 # limit errors to just missing output
                 if not os.path.exists(subm['generated_feedback_path']):
-                    logger.info(f"Docker error generating feedback for submission {subm['name']}: did not generate expected file at {subm['generated_feedback_path']}")
-                    if attempt < attempts-1:
+                    logger.info(
+                        f"Docker error generating feedback for submission {subm['name']}: did not generate expected file at {subm['generated_feedback_path']}")
+                    if attempt < attempts - 1:
                         logger.info("Trying again...")
                         continue
                     else:
@@ -330,10 +432,11 @@ def generate_feedback(config, subm_set):
                 fdbk_parsed = BeautifulSoup(fdbk_html, features="lxml")
                 cell_tokens_bk = []
                 cell_score_bk = []
-                total_tokens = [s.strip(")(") for s in fdbk_parsed.body.find('div', {"id":"toc"}).find_previous_sibling('h4').text.split()]
+                total_tokens = [s.strip(")(") for s in
+                                fdbk_parsed.body.find('div', {"id": "toc"}).find_previous_sibling('h4').text.split()]
                 total = [float(total_tokens[i]) for i in [-3, -1]]
                 running_totals = [0.0, 0.0]
-                for item in fdbk_parsed.body.find('div', {"id":"toc"}).find('ol').findAll('li'):
+                for item in fdbk_parsed.body.find('div', {"id": "toc"}).find('ol').findAll('li'):
                     if "Comment" in item.text:
                         continue
                     cell_tokens = [s.strip(")(") for s in item.text.split()]
@@ -345,35 +448,46 @@ def generate_feedback(config, subm_set):
 
                 # if sum of grades doesn't equal total grade, error
                 if abs(running_totals[0] - total[0]) > 1e-5:
-                    logger.info(f"Docker error generating feedback for submission {subm['name']}: grade does not line up within feedback file!")
-                    logger.info(f"running_totals[0]: {running_totals[0]} total[0]: {total[0]}  running_totals[1]: {running_totals[1]} total[1]: {total[1]}")
+                    logger.info(
+                        f"Docker error generating feedback for submission {subm['name']}: grade does not line up within feedback file!")
+                    logger.info(
+                        f"running_totals[0]: {running_totals[0]} total[0]: {total[0]}  running_totals[1]: {running_totals[1]} total[1]: {total[1]}")
                     logger.info(f"Docker container log: \n {res['log']}")
-                    logger.info(f"Total tokens: \n {total_tokens} \n Total: \n {total} \n Cell Tokens: \n {cell_tokens_bk} \n Cell Scores: \n {cell_score_bk}")
-                    logger.info(f"HTML for total:\n {fdbk_parsed.body.find('div', {'id':'toc'}).find_previous_sibling('h4').text}")
-                    logger.info(f"HTML for individual:\n {fdbk_parsed.body.find('div', {'id':'toc'}).find('ol').findAll('li')}")
-                    if attempt < attempts-1:
+                    logger.info(
+                        f"Total tokens: \n {total_tokens} \n Total: \n {total} \n Cell Tokens: \n {cell_tokens_bk} \n Cell Scores: \n {cell_score_bk}")
+                    logger.info(
+                        f"HTML for total:\n {fdbk_parsed.body.find('div', {'id': 'toc'}).find_previous_sibling('h4').text}")
+                    logger.info(
+                        f"HTML for individual:\n {fdbk_parsed.body.find('div', {'id': 'toc'}).find('ol').findAll('li')}")
+                    if attempt < attempts - 1:
                         logger.info("Trying again...")
                         continue
                     else:
                         msg = f"Docker error generating feedback for submission {subm['name']}: grade does not line up within feedback file!"
                         sig = signals.FAIL(msg)
                         os.remove(subm['generated_feedback_path'])
-                        raise(sig)
+                        raise (sig)
 
                 # if assignment max doesn't equal sum of question maxes, warning; this can occur if student deleted test cell
                 if abs(running_totals[1] - total[1]) > 1e-5:
-                    logger.info(f"Docker warning generating feedback for submission {subm['name']}: total grade does not line up within feedback file (likely due to deleted grade cell)!")
-                    logger.info(f"running_totals[0]: {running_totals[0]} total[0]: {total[0]}  running_totals[1]: {running_totals[1]} total[1]: {total[1]}")
+                    logger.info(
+                        f"Docker warning generating feedback for submission {subm['name']}: total grade does not line up within feedback file (likely due to deleted grade cell)!")
+                    logger.info(
+                        f"running_totals[0]: {running_totals[0]} total[0]: {total[0]}  running_totals[1]: {running_totals[1]} total[1]: {total[1]}")
                     logger.info(f"Docker container log: \n {res['log']}")
-                    logger.info(f"Total tokens: \n {total_tokens} \n Total: \n {total} \n Cell Tokens: \n {cell_tokens_bk} \n Cell Scores: \n {cell_score_bk}")
-                    logger.info(f"HTML for total:\n {fdbk_parsed.body.find('div', {'id':'toc'}).find_previous_sibling('h4').text}")
-                    logger.info(f"HTML for individual:\n {fdbk_parsed.body.find('div', {'id':'toc'}).find('ol').findAll('li')}")
+                    logger.info(
+                        f"Total tokens: \n {total_tokens} \n Total: \n {total} \n Cell Tokens: \n {cell_tokens_bk} \n Cell Scores: \n {cell_score_bk}")
+                    logger.info(
+                        f"HTML for total:\n {fdbk_parsed.body.find('div', {'id': 'toc'}).find_previous_sibling('h4').text}")
+                    logger.info(
+                        f"HTML for individual:\n {fdbk_parsed.body.find('div', {'id': 'toc'}).find('ol').findAll('li')}")
 
                 # STEP 2: load grades from gradebook and compare
                 student = subm['student']
                 try:
-                    gb = Gradebook('sqlite:///'+os.path.join(subm['grader']['folder'] , 'gradebook.db'))
-                    gb_subm = gb.find_submission(assignment['name'], config.grading_student_folder_prefix+student['id'])
+                    gb = Gradebook('sqlite:///' + os.path.join(subm['grader']['folder'], 'gradebook.db'))
+                    gb_subm = gb.find_submission(assignment['name'],
+                                                 config.grading_student_folder_prefix + student['id'])
                     score = gb_subm.score
                 except Exception as e:
                     msg = f"Error when accessing the gradebook score for submission {subm['name']}; error {str(e)}"
@@ -386,14 +500,19 @@ def generate_feedback(config, subm_set):
 
                 # if feedback grade != canvas grade, error
                 if abs(total[0] - score) > 1e-5:
-                    logger.info(f"Docker error generating feedback for submission {subm['name']}: grade does not line up with DB!")
-                    logger.info(f"running_totals[0]: {running_totals[0]} total[0]: {total[0]}  running_totals[1]: {running_totals[1]} total[1]: {total[1]} score: {score}")
+                    logger.info(
+                        f"Docker error generating feedback for submission {subm['name']}: grade does not line up with DB!")
+                    logger.info(
+                        f"running_totals[0]: {running_totals[0]} total[0]: {total[0]}  running_totals[1]: {running_totals[1]} total[1]: {total[1]} score: {score}")
                     logger.info(f"Docker container log: \n {res['log']}")
-                    logger.info(f"Total tokens: \n {total_tokens} \n Total: \n {total} \n Cell Tokens: \n {cell_tokens_bk} \n Cell Scores: \n {cell_score_bk}")
-                    logger.info(f"HTML for total:\n {fdbk_parsed.body.find('div', {'id':'toc'}).find_previous_sibling('h4').text}")
-                    logger.info(f"HTML for individual:\n {fdbk_parsed.body.find('div', {'id':'toc'}).find('ol').findAll('li')}")
+                    logger.info(
+                        f"Total tokens: \n {total_tokens} \n Total: \n {total} \n Cell Tokens: \n {cell_tokens_bk} \n Cell Scores: \n {cell_score_bk}")
+                    logger.info(
+                        f"HTML for total:\n {fdbk_parsed.body.find('div', {'id': 'toc'}).find_previous_sibling('h4').text}")
+                    logger.info(
+                        f"HTML for individual:\n {fdbk_parsed.body.find('div', {'id': 'toc'}).find('ol').findAll('li')}")
                     logger.info(f"DB score: {score}")
-                    if attempt < attempts-1:
+                    if attempt < attempts - 1:
                         logger.info("Trying again...")
                         continue
                     else:
@@ -412,11 +531,11 @@ def return_feedback(config, pastdue_frac, subm_set):
     logger = get_run_logger()
     # skip if pastdue frac not high enough or we haven't reached the earlist return date
     if pastdue_frac < config.return_solution_threshold:
-        raise signals.SKIP(f"Assignment {subm_set['__name__']} has {pastdue_frac} submissions "+
-                           f"past their due date, which is less than the return soln "+
+        raise signals.SKIP(f"Assignment {subm_set['__name__']} has {pastdue_frac} submissions " +
+                           f"past their due date, which is less than the return soln " +
                            f"threshold {config.return_solution_threshold} . Skipping feedback return.")
     if plm.now() < plm.parse(config.earliest_solution_return_date):
-        raise signals.SKIP(f"We have not yet reached the earliest solution return date "+
+        raise signals.SKIP(f"We have not yet reached the earliest solution return date " +
                            f"{config.earliest_solution_return_date}. Skipping feedback return.")
 
     for course_name in subm_set:
@@ -438,6 +557,6 @@ def return_feedback(config, pastdue_frac, subm_set):
                     else:
                         logger.warning(f"Warning: student folder {subm['student_folder']} "
                                        f"doesnt exist. Skipping feedback return.")
-            #else:
+            # else:
             #    logger.info(f"Not returnable yet; the student-specific due date ({subm['due_at']}) has not passed.")
     return

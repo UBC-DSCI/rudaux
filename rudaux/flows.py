@@ -271,7 +271,8 @@ def grade_flow(settings: dict, course_name: str):
             initialize_accounts(config=settings, graders=graders)
 
             # assign graders
-            submission_sets = assign_graders(graders=graders)
+            submission_sets = assign_graders(graders=graders,
+                                             assignment_submissions_pairs=assignment_submissions_pairs)
 
             # compute the fraction of submissions past due for each assignment,
             # and then return solutions for all assignments past the threshold

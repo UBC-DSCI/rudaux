@@ -11,7 +11,7 @@ from rudaux.util.container import run_container
 from nbgrader.api import Gradebook, MissingEntry
 from prefect import get_run_logger
 
-from rudaux.util.jupyterhub import grader_account_name
+from rudaux.util.util import grader_account_name
 
 
 class NBGrader(GradingSystem):
