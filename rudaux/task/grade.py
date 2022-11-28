@@ -47,22 +47,17 @@ def build_grading_team(settings: Settings, grading_system: GradingSystem,
             skip = True
             break
 
-    # get list of users from dictauth
-    users = grading_system.get_users()
     config_users = settings.assignments[course_group][assignment_name]
     graders = []
 
     for user in config_users:
-        # ensure user exists
-        if user not in users:
-            msg = f"User account {user} listed in rudaux_config does not exist in dictauth: {users} . " \
-                  f"Make sure to use dictauth to create a grader account for each of the " \
-                  f"TA/instructors listed in config.assignments"
-            logger.error(msg)
-            raise PrefectSignal
 
         grader = grading_system.build_grader(
-            course_name=course_group, assignment_name=assignment_name, username=user, skip=skip)
+            course_name=course_group,
+            assignment_name=assignment_name,
+            username=user,
+            skip=skip)
+
         graders.append(grader)
 
     return graders

@@ -49,7 +49,8 @@ class NBGrader(GradingSystem):
 
     # -----------------------------------------------------------------------------------------
     def initialize(self):
-        self.users = self.get_users()
+        # get list of users from dictauth
+        self.users = self._get_users()
 
     # -----------------------------------------------------------------------------------------
     def _get_generated_assignments(self, work_dir: str) -> dict:
@@ -179,6 +180,33 @@ class NBGrader(GradingSystem):
 
     # -----------------------------------------------------------------------------------------
     def build_grader(self, course_name: str, assignment_name: str, username: str, skip: bool) -> Grader:
+        """
+        builds the grader object by adding required info
+
+        Parameters
+        ----------
+        course_name: str
+        assignment_name: str
+        username: str
+        skip: bool
+
+        Returns
+        -------
+        grader: Grader
+
+        """
+
+        logger = get_run_logger()
+
+        # users = self.get_users()
+        # ensure user exists
+        if username not in self.users:
+            msg = f"User account {username} listed in rudaux_config does not exist in dictauth: {self.users} . " \
+                  f"Make sure to use dictauth to create a grader account for each of the " \
+                  f"TA/instructors listed in config.assignments"
+            logger.error(msg)
+            raise PrefectSignal
+
         grader_name = grader_account_name(course_name, assignment_name, username)
         info = dict()
         info['user'] = username
@@ -201,8 +229,15 @@ class NBGrader(GradingSystem):
         return grader
 
     # -----------------------------------------------------------------------------------------
-    def get_users(self) -> List[str]:
-        # get list of users from dictauth
+    def _get_users(self) -> List[str]:
+        """
+        get list of users from dictauth
+
+        Returns
+        -------
+        dictauth_users: List[str]
+        """
+
         Args = namedtuple('Args', 'directory')
         args = Args(directory=self.nbgrader_jupyterhub_config_dir)
         user_tuples = get_users(args)
@@ -211,7 +246,17 @@ class NBGrader(GradingSystem):
 
     # -----------------------------------------------------------------------------------------
     def _add_grader_account(self, grader: Grader):
-        # create the jupyterhub user
+        """
+        create the jupyterhub user
+
+        Parameters
+        ----------
+        grader: Grader
+
+        Returns
+        -------
+        """
+
         Args = namedtuple('Args', 'username directory copy_creds salt digest')
         args = Args(username=grader.name,
                     directory=self.nbgrader_jupyterhub_config_dir,
@@ -224,6 +269,17 @@ class NBGrader(GradingSystem):
 
     # -----------------------------------------------------------------------------------------
     def _create_grading_volume(self, grader: Grader):
+        """
+        creates the zfs volume and sets the refquota for grader if the volume does not already exist
+
+        Parameters
+        ----------
+        grader: Grader
+
+        Returns
+        -------
+        """
+
         logger = get_run_logger()
         # create the zfs volume
         if not os.path.exists(grader.info['folder']):
@@ -241,6 +297,17 @@ class NBGrader(GradingSystem):
 
     # ----------------------------------------------------------------------------------------------------------
     def _clone_git_repository(self, grader: Grader):
+        """
+        clones the instructor repo into the grader's volume
+
+        Parameters
+        ----------
+        grader: Grader
+
+        Returns
+        -------
+        """
+
         logger = get_run_logger()
         # clone the git repository
         # TODO if there's an error cloning the repo or an unknown error when doing the initial test repo create
@@ -276,14 +343,14 @@ class NBGrader(GradingSystem):
         """
 
         logger = get_run_logger()
-        # users = self.get_users()
+        # users = self._get_users()
         if grader.name not in self.users:
             logger.info(f"User {grader.name} does not exist; creating")
             self._add_grader_account(grader=grader)
         return grader
     # ----------------------------------------------------------------------------------------------------------
 
-    def initialize_grader(self, grader: Grader):
+    def initialize_grader(self, grader: Grader) -> Grader:
         """
         create grader volumes, add git repos, create folder structures, initialize nbgrader
 
@@ -304,4 +371,5 @@ class NBGrader(GradingSystem):
         self._initialize_account(grader=grader)
 
         return grader
+    # ----------------------------------------------------------------------------------------------------------
 
