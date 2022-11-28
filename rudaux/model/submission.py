@@ -18,5 +18,6 @@ class Submission(BaseModel):
     excused: bool
     course_section_info: CourseSectionInfo
     grader: Optional[Grader]
+    skip: bool
 
 

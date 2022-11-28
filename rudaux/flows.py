@@ -10,9 +10,14 @@ from prefect.orion.schemas.schedules import CronSchedule
 
 from rudaux.model import Settings
 from rudaux.task.autoext import compute_autoextension_override_updates
-from rudaux.task.grade import build_grading_team, initialize_graders
-from rudaux.task.submission import assign_graders, collect_submissions, clean_submissions, autograde, \
-    check_manual_grading
+
+from rudaux.task.grade import build_grading_team, initialize_graders, \
+    generate_assignments, generate_solutions, assign_graders, \
+    collect_submissions, clean_submissions, autograde, check_manual_grading, \
+    generate_feedback, return_feedback, get_pastdue_fraction, \
+    collect_grading_notifications, await_completion, upload_grades, \
+    collect_posting_notifications
+
 from rudaux.tasks import get_learning_management_system, get_grading_system, get_submission_system
 from rudaux.task.learning_management_system import get_students, get_assignments, get_submissions, \
     get_course_section_info, update_override, create_overrides, delete_overrides
@@ -259,39 +264,80 @@ def grade_flow(settings: dict, course_name: str):
                 )
                 assignment_submissions_pairs.append((section_assignment, section_submissions))
 
+            # initialize the grading system
+            grds.initialize()
+
             # Create grader teams
-            graders = build_grading_team(settings=settings, grading_system=grds, course_group=course_name,
-                                         assignment_name=assignment_name,
-                                         assignment_submissions_pairs=assignment_submissions_pairs)
+            graders = build_grading_team(
+                settings=settings,
+                grading_system=grds,
+                course_group=course_name,
+                assignment_name=assignment_name,
+                assignment_submissions_pairs=assignment_submissions_pairs)
 
             # create grader volumes, add git repos, create folder structures, initialize nbgrader
             initialize_graders(grading_system=grds, graders=graders)
 
             # assign graders
-            submission_sets = assign_graders(graders=graders,
-                                             assignment_submissions_pairs=assignment_submissions_pairs)
+            submission_sets = assign_graders(
+                grading_system=grds,
+                graders=graders,
+                assignment_submissions_pairs=assignment_submissions_pairs)
 
             # compute the fraction of submissions past due for each assignment,
             # and then return solutions for all assignments past the threshold
-            # pastdue_fractions = get_pastdue_fraction(submission_sets)
+            pastdue_fractions = get_pastdue_fraction(submission_sets)
 
             # collect submissions
-            collect_submissions()
+            collect_submissions(
+                grading_system=grds,
+                assignment_submissions_pairs=assignment_submissions_pairs,
+                lms=lms)
 
             # clean submissions
-            clean_submissions()
+            clean_submissions(
+                grading_system=grds,
+                assignment_submissions_pairs=assignment_submissions_pairs)
 
             # Autograde submissions
-            autograde()
+            autograde(
+                grading_system=grds,
+                assignment_submissions_pairs=assignment_submissions_pairs)
 
             # Wait for manual grading
-            check_manual_grading()
+            check_manual_grading(
+                grading_system=grds,
+                assignment_submissions_pairs=assignment_submissions_pairs)
 
             # Collect grading notifications
+            collect_grading_notifications(
+                assignment_submissions_pairs=assignment_submissions_pairs)
+
             # Skip assignments with incomplete manual grading
+            await_completion(
+                assignment_submissions_pairs=assignment_submissions_pairs)
+
             # generate & return feedback
+            generate_feedback(
+                grading_system=grds,
+                assignment_submissions_pairs=assignment_submissions_pairs)
+
+            return_feedback(
+                grading_system=grds,
+                pastdue_fractions=pastdue_fractions,
+                assignment_submissions_pairs=assignment_submissions_pairs)
+
             # Upload grades
+            upload_grades(
+                grading_system=grds,
+                lms=lms,
+                assignment_submissions_pairs=assignment_submissions_pairs)
+
             # collect posting notifications
+            collect_posting_notifications(
+                assignment_submissions_pairs=assignment_submissions_pairs)
+
+            # send notifications
 
 
 # -------------------------------------------------------------------------------------------------------------

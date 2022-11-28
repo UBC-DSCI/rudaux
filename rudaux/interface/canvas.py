@@ -186,6 +186,7 @@ class Canvas(LearningManagementSystem):
 
                 if assignment_id in all_assignments:
                     if student_id in all_students:
+                        skip = submission['posted_at'] > plm.now()
                         submission = Submission(
                             lms_id=canvas_id,
                             student=all_students[student_id],
@@ -194,7 +195,8 @@ class Canvas(LearningManagementSystem):
                             posted_at=submission['posted_at'],
                             late=submission['late'],
                             missing=submission['missing'],
-                            excused=submission['excused']
+                            excused=submission['excused'],
+                            skip=skip
                         )
                         submissions.append(submission)
         return submissions
