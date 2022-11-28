@@ -87,8 +87,9 @@ def assign_graders(grading_system: GradingSystem, graders: List[Grader],
                    assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]]):
     for section_assignment, section_submissions in assignment_submissions_pairs:
         for submission in section_submissions:
-            grading_system.assign_submission_to_grader(graders=graders, submission=submission)
-            submission.grader.info['status'] = GradingStatus.ASSIGNED
+            if not submission.grader.skip:
+                grading_system.assign_submission_to_grader(graders=graders, submission=submission)
+                submission.grader.info['status'] = GradingStatus.ASSIGNED
 
     return assignment_submissions_pairs
 
@@ -102,20 +103,21 @@ def collect_submissions(grading_system: GradingSystem,
     for section_assignment, section_submissions in assignment_submissions_pairs:
         for submission in section_submissions:
 
-            grading_system.collect_grader_submissions(submission=submission)
+            if not submission.grader.skip:
+                grading_system.collect_grader_submissions(submission=submission)
 
-            # if the submission is due in the future, skip
-            # if submission.posted_at > plm.now():
-            if submission.skip:
-                submission.grader.status = GradingStatus.NOT_DUE
-                continue
+                # if the submission is due in the future, skip
+                # if submission.posted_at > plm.now():
+                if submission.skip:
+                    submission.grader.status = GradingStatus.NOT_DUE
+                    continue
 
-            if submission.grader.status == GradingStatus.MISSING:
-                if submission.score is None:
-                    logger.info(f"Submission {submission.lms_id} is missing. Uploading score of 0.")
-                    submission.score = 0.
-                    lms.update_grade(course_section_name=submission.course_section_info.name,
-                                     submission=submission)
+                if submission.grader.status == GradingStatus.MISSING:
+                    if submission.score is None:
+                        logger.info(f"Submission {submission.lms_id} is missing. Uploading score of 0.")
+                        submission.score = 0.
+                        lms.update_grade(course_section_name=submission.course_section_info.name,
+                                         submission=submission)
 
     return assignment_submissions_pairs
 
@@ -128,11 +130,12 @@ def clean_submissions(grading_system: GradingSystem,
     for section_assignment, section_submissions in assignment_submissions_pairs:
         for submission in section_submissions:
 
-            if submission.grader.status == GradingStatus.COLLECTED:
-                student = submission.student
-                grader = submission.grader
+            if not submission.grader.skip:
+                if submission.grader.status == GradingStatus.COLLECTED:
+                    student = submission.student
+                    grader = submission.grader
 
-                grading_system.clean_grader_submission(submission=submission)
+                    grading_system.clean_grader_submission(submission=submission)
 
     return assignment_submissions_pairs
 
@@ -144,7 +147,8 @@ def autograde(grading_system: GradingSystem,
     logger = get_run_logger()
     for section_assignment, section_submissions in assignment_submissions_pairs:
         for submission in section_submissions:
-            grading_system.autograde(submission=submission)
+            if not submission.grader.skip:
+                grading_system.autograde(submission=submission)
 
     return assignment_submissions_pairs
 
@@ -157,7 +161,8 @@ def check_manual_grading(grading_system: GradingSystem,
     logger = get_run_logger()
     for section_assignment, section_submissions in assignment_submissions_pairs:
         for submission in section_submissions:
-            grading_system.get_needs_manual_grading(submission=submission)
+            if not submission.grader.skip:
+                grading_system.get_needs_manual_grading(submission=submission)
 
     return assignment_submissions_pairs
 
@@ -172,7 +177,8 @@ def generate_feedback(grading_system: GradingSystem,
     logger = get_run_logger()
     for section_assignment, section_submissions in assignment_submissions_pairs:
         for submission in section_submissions:
-            grading_system.generate_feedback(submission=submission)
+            if not submission.grader.skip:
+                grading_system.generate_feedback(submission=submission)
 
     return assignment_submissions_pairs
 
@@ -198,7 +204,8 @@ def return_feedback(settings: Settings, grading_system: GradingSystem,
 
     for section_assignment, section_submissions in assignment_submissions_pairs:
         for submission in section_submissions:
-            grading_system.return_feedback(submission=submission)
+            if not submission.grader.skip:
+                grading_system.return_feedback(submission=submission)
 
     return assignment_submissions_pairs
 
@@ -222,17 +229,18 @@ def collect_grading_notifications(assignment_submissions_pairs: List[Tuple[Assig
     notifications = {}
     for section_assignment, section_submissions in assignment_submissions_pairs:
         for submission in section_submissions:
-            assignment = section_assignment
-            grader = submission.grader
-            if grader.status == GradingStatus.NEEDS_MANUAL_GRADE:
-                grader_user = grader.info['user']
-                grader_name = grader.name
-                assignment_name = assignment.name
-                if grader_user not in notifications:
-                    notifications[grader_user] = {}
-                if grader_name not in notifications[grader_user]:
-                    notifications[grader_user][grader_name] = {'assignment': assignment_name, 'count': 0}
-                notifications[grader_user][grader_name]['count'] += 1
+            if not submission.grader.skip:
+                assignment = section_assignment
+                grader = submission.grader
+                if grader.status == GradingStatus.NEEDS_MANUAL_GRADE:
+                    grader_user = grader.info['user']
+                    grader_name = grader.name
+                    assignment_name = assignment.name
+                    if grader_user not in notifications:
+                        notifications[grader_user] = {}
+                    if grader_name not in notifications[grader_user]:
+                        notifications[grader_user][grader_name] = {'assignment': assignment_name, 'count': 0}
+                    notifications[grader_user][grader_name]['count'] += 1
     return notifications
 
 
@@ -244,7 +252,8 @@ def await_completion(assignment_submissions_pairs: List[Tuple[Assignment, List[S
     assignment_name = assignment_submissions_pairs[0][0].name
     for section_assignment, section_submissions in assignment_submissions_pairs:
         all_done = all_done and all(
-            [submission.grader.status != GradingStatus.NEEDS_MANUAL_GRADE for submission in section_submissions])
+            [submission.grader.status != GradingStatus.NEEDS_MANUAL_GRADE
+                for submission in section_submissions if not submission.grader.skip])
     if not all_done:
         msg = f"Assignment {assignment_name} not done grading yet. " \
               f"Skipping uploading grades / returning feedback"
@@ -260,18 +269,18 @@ def upload_grades(grading_system: GradingSystem, lms: LearningManagementSystem,
     logger = get_run_logger()
     for section_assignment, section_submissions in assignment_submissions_pairs:
         for submission in section_submissions:
+            if not submission.grader.skip:
+                # student = submission.student
+                # assignment = submission.assignment
+                # course_section_info = submission.course_section_info
+                grader = submission.grader
 
-            student = submission.student
-            assignment = submission.assignment
-            course_section_info = submission.course_section_info
-            grader = submission.grader
-
-            if grader.status == GradingStatus.DONE_GRADING and submission.score is None:
-                pct = grading_system.compute_submission_percent_grade(submission=submission)
-                logger.info(f"Uploading to Canvas...")
-                submission.score = pct
-                lms.update_grade(course_section_name=submission.course_section_info.name,
-                                 submission=submission)
+                if grader.status == GradingStatus.DONE_GRADING and submission.score is None:
+                    pct = grading_system.compute_submission_percent_grade(submission=submission)
+                    logger.info(f"Uploading to Canvas...")
+                    submission.score = pct
+                    lms.update_grade(course_section_name=submission.course_section_info.name,
+                                     submission=submission)
     return assignment_submissions_pairs
 
 
@@ -282,11 +291,12 @@ def collect_posting_notifications(assignment_submissions_pairs: List[Tuple[Assig
     notifications = []
     for section_assignment, section_submissions in assignment_submissions_pairs:
         for submission in section_submissions:
-            assignment = section_assignment
-            grader = submission.grader
-            course_name = submission.course_section_info.name
-            if grader.status == GradingStatus.DONE_GRADING and submission.posted_at is None:
-                notifications.append((course_name, assignment.name))
+            if not submission.grader.skip:
+                assignment = section_assignment
+                grader = submission.grader
+                course_name = submission.course_section_info.name
+                if grader.status == GradingStatus.DONE_GRADING and submission.posted_at is None:
+                    notifications.append((course_name, assignment.name))
     return notifications
 
 # ----------------------------------------------------------------------------------------------------------
