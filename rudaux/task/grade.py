@@ -80,7 +80,7 @@ def generate_solutions(state: State, grading_system: GradingSystem, grader: Grad
 @task
 @signal
 def initialize_graders(state: State, grading_system: GradingSystem, graders: List[Grader]):
-    logger = get_run_logger()
+    # logger = get_run_logger()
     for grader in graders:
         if not grader.skip:
             grading_system.initialize_grader(grader=grader)
@@ -137,15 +137,14 @@ def collect_submissions(state: State, grading_system: GradingSystem,
 @signal
 def clean_submissions(state: State, grading_system: GradingSystem,
                       assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]]):
-    logger = get_run_logger()
+    # logger = get_run_logger()
     for section_assignment, section_submissions in assignment_submissions_pairs:
         for submission in section_submissions:
 
             if not submission.grader.skip:
                 if submission.grader.status == GradingStatus.COLLECTED:
-                    student = submission.student
-                    grader = submission.grader
-
+                    # student = submission.student
+                    # grader = submission.grader
                     grading_system.clean_grader_submission(submission=submission)
 
     return assignment_submissions_pairs
@@ -156,7 +155,7 @@ def clean_submissions(state: State, grading_system: GradingSystem,
 @signal
 def autograde(state: State, grading_system: GradingSystem,
               assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]]):
-    logger = get_run_logger()
+    # logger = get_run_logger()
     for section_assignment, section_submissions in assignment_submissions_pairs:
         for submission in section_submissions:
             if not submission.grader.skip:
@@ -171,7 +170,7 @@ def autograde(state: State, grading_system: GradingSystem,
 @signal
 def check_manual_grading(state: State, grading_system: GradingSystem,
                          assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]]):
-    logger = get_run_logger()
+    # logger = get_run_logger()
     for section_assignment, section_submissions in assignment_submissions_pairs:
         for submission in section_submissions:
             if not submission.grader.skip:
@@ -188,7 +187,7 @@ def check_manual_grading(state: State, grading_system: GradingSystem,
 @signal
 def generate_feedback(state: State, grading_system: GradingSystem,
                       assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]]):
-    logger = get_run_logger()
+    # logger = get_run_logger()
     for section_assignment, section_submissions in assignment_submissions_pairs:
         for submission in section_submissions:
             if not submission.grader.skip:
@@ -211,11 +210,13 @@ def return_feedback(state: State, settings: Settings, grading_system: GradingSys
               f"past their due date, which is less than the return solution " \
               f"threshold {settings.return_solution_threshold}. " \
               f"Skipping feedback return."
+        logger.info(msg)
         state.skip = True
         # raise signals.SKIP(msg)
     if plm.now() < plm.parse(settings.earliest_solution_return_date):
         msg = f"We have not yet reached the earliest solution return date " \
               f"{settings.earliest_solution_return_date}. Skipping feedback return."
+        logger.info(msg)
         state.skip = True
         # raise signals.SKIP(msg)
 
@@ -245,7 +246,7 @@ def get_pastdue_fraction(state: State, assignment_submissions_pairs: List[Tuple[
 @signal
 def collect_grading_notifications(
         state: State, assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]]):
-    logger = get_run_logger()
+    # logger = get_run_logger()
     notifications = {}
     for section_assignment, section_submissions in assignment_submissions_pairs:
         for submission in section_submissions:
@@ -313,7 +314,7 @@ def upload_grades(state: State, grading_system: GradingSystem, lms: LearningMana
 @signal
 def collect_posting_notifications(
         state: State, assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]]):
-    logger = get_run_logger()
+    # logger = get_run_logger()
     notifications = []
     for section_assignment, section_submissions in assignment_submissions_pairs:
         for submission in section_submissions:
