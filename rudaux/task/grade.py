@@ -267,7 +267,7 @@ def upload_grades(grading_system: GradingSystem, lms: LearningManagementSystem,
             grader = submission.grader
 
             if grader.status == GradingStatus.DONE_GRADING and submission.score is None:
-                pct = grading_system.compute_grades(submission=submission)
+                pct = grading_system.compute_submission_percent_grade(submission=submission)
                 logger.info(f"Uploading to Canvas...")
                 submission.score = pct
                 lms.update_grade(course_section_name=submission.course_section_info.name,

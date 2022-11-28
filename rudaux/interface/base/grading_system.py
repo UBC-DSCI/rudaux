@@ -94,7 +94,7 @@ class GradingSystem(ABC, BaseModel):
         pass
 
     # -----------------------------------------------------------------------------------------
-    def compute_grades(self, submission: Submission) -> str:
+    def compute_submission_percent_grade(self, submission: Submission) -> str:
         pass
 
     # -----------------------------------------------------------------------------------------

@@ -788,7 +788,7 @@ class NBGrader(GradingSystem):
                                    f"doesnt exist. Skipping feedback return.")
 
     # ----------------------------------------------------------------------------------------------------------
-    def compute_grades(self, submission: Submission) -> str:
+    def compute_submission_percent_grade(self, submission: Submission) -> str:
 
         logger = get_run_logger()
 

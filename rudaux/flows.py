@@ -279,14 +279,15 @@ def grade_flow(settings: dict, course_name: str):
             initialize_graders(grading_system=grds, graders=graders)
 
             # assign graders
-            submission_sets = assign_graders(
+            assignment_submissions_pairs = assign_graders(
                 grading_system=grds,
                 graders=graders,
                 assignment_submissions_pairs=assignment_submissions_pairs)
 
             # compute the fraction of submissions past due for each assignment,
             # and then return solutions for all assignments past the threshold
-            pastdue_fractions = get_pastdue_fraction(submission_sets)
+            pastdue_fractions = get_pastdue_fraction(
+                assignment_submissions_pairs=assignment_submissions_pairs)
 
             # collect submissions
             collect_submissions(
