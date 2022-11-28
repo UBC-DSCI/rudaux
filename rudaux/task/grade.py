@@ -9,15 +9,18 @@ from rudaux.model import Settings
 from rudaux.model.submission import Submission
 from rudaux.model.assignment import Assignment
 from rudaux.model.grader import Grader
+from rudaux.util.util import make, State
 
 
 @task
-def build_grading_team(settings: Settings, grading_system: GradingSystem,
+@make
+def build_grading_team(state: State, settings: Settings, grading_system: GradingSystem,
                        course_group: str, assignment_name: str,
-                       assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]]) -> List[Grader]:
+                       assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]]
+                       ) -> List[Grader]:
     logger = get_run_logger()
 
-    skip = False
+    state.skip = False
     for section_assignment, section_submissions in assignment_submissions_pairs:
 
         # start by checking whether any of the assignment deadlines are in the future. If so, skip.
@@ -26,7 +29,7 @@ def build_grading_team(settings: Settings, grading_system: GradingSystem,
         if section_assignment.skip:
             logger.info(f"Assignment {section_assignment.name} ({section_assignment.lms_id}) "
                         f"due date {section_assignment.due_at} is in the future. Skipping.")
-            skip = True
+            state.skip = True
             break
             # check the skip and create grader still but set the skip of that to true as well
 
@@ -36,7 +39,7 @@ def build_grading_team(settings: Settings, grading_system: GradingSystem,
 
         if all_posted:
             logger.info(f"All grades are posted for assignment {section_assignment.name}. Workflow done. Skipping.")
-            skip = True
+            state.skip = True
             break
 
     config_users = settings.assignments[course_group][assignment_name]
@@ -47,7 +50,7 @@ def build_grading_team(settings: Settings, grading_system: GradingSystem,
             course_name=course_group,
             assignment_name=assignment_name,
             username=user,
-            skip=skip)
+            skip=state.skip)
 
         graders.append(grader)
 
@@ -56,22 +59,27 @@ def build_grading_team(settings: Settings, grading_system: GradingSystem,
 
 # ----------------------------------------------------------------------------------------------------------
 @task
-def generate_assignments(grading_system: GradingSystem, grader: Grader):
-    if not grader.skip:
-        grading_system.generate_assignment(grader=grader)
+@make
+def generate_assignments(state: State, grading_system: GradingSystem, grader: Grader):
+    # if not grader.skip:
+    grading_system.generate_assignment(grader=grader)
+    return grader
 
 
 # ----------------------------------------------------------------------------------------------------------
 @task
-def generate_solutions(grading_system: GradingSystem, grader: Grader):
-    logger = get_run_logger()
-    if not grader.skip:
-        grading_system.generate_solution(grader=grader)
+@make
+def generate_solutions(state: State, grading_system: GradingSystem, grader: Grader):
+    # logger = get_run_logger()
+    # if not grader.skip:
+    grading_system.generate_solution(grader=grader)
+    return grader
 
 
 # ----------------------------------------------------------------------------------------------------------
 @task
-def initialize_graders(grading_system: GradingSystem, graders: List[Grader]):
+@make
+def initialize_graders(state: State, grading_system: GradingSystem, graders: List[Grader]):
     logger = get_run_logger()
     for grader in graders:
         if not grader.skip:
@@ -83,7 +91,8 @@ def initialize_graders(grading_system: GradingSystem, graders: List[Grader]):
 # submission tasks
 # ----------------------------------------------------------------------------------------------------------
 @task
-def assign_graders(grading_system: GradingSystem, graders: List[Grader],
+@make
+def assign_graders(state: State, grading_system: GradingSystem, graders: List[Grader],
                    assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]]):
     for section_assignment, section_submissions in assignment_submissions_pairs:
         for submission in section_submissions:
@@ -96,7 +105,8 @@ def assign_graders(grading_system: GradingSystem, graders: List[Grader],
 
 # ----------------------------------------------------------------------------------------------------------
 @task
-def collect_submissions(grading_system: GradingSystem,
+@make
+def collect_submissions(state: State, grading_system: GradingSystem,
                         assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]],
                         lms: LearningManagementSystem):
     logger = get_run_logger()
@@ -124,7 +134,8 @@ def collect_submissions(grading_system: GradingSystem,
 
 # ----------------------------------------------------------------------------------------------------------
 @task
-def clean_submissions(grading_system: GradingSystem,
+@make
+def clean_submissions(state: State, grading_system: GradingSystem,
                       assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]]):
     logger = get_run_logger()
     for section_assignment, section_submissions in assignment_submissions_pairs:
@@ -142,7 +153,8 @@ def clean_submissions(grading_system: GradingSystem,
 
 # ----------------------------------------------------------------------------------------------------------
 @task
-def autograde(grading_system: GradingSystem,
+@make
+def autograde(state: State, grading_system: GradingSystem,
               assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]]):
     logger = get_run_logger()
     for section_assignment, section_submissions in assignment_submissions_pairs:
@@ -156,7 +168,8 @@ def autograde(grading_system: GradingSystem,
 # ----------------------------------------------------------------------------------------------------------
 
 @task
-def check_manual_grading(grading_system: GradingSystem,
+@make
+def check_manual_grading(state: State, grading_system: GradingSystem,
                          assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]]):
     logger = get_run_logger()
     for section_assignment, section_submissions in assignment_submissions_pairs:
@@ -172,7 +185,8 @@ def check_manual_grading(grading_system: GradingSystem,
 # ----------------------------------------------------------------------------------------------------------
 
 @task
-def generate_feedback(grading_system: GradingSystem,
+@make
+def generate_feedback(state: State, grading_system: GradingSystem,
                       assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]]):
     logger = get_run_logger()
     for section_assignment, section_submissions in assignment_submissions_pairs:
@@ -185,7 +199,8 @@ def generate_feedback(grading_system: GradingSystem,
 
 # ----------------------------------------------------------------------------------------------------------
 @task
-def return_feedback(settings: Settings, grading_system: GradingSystem,
+@make
+def return_feedback(state: State, settings: Settings, grading_system: GradingSystem,
                     pastdue_frac: float,
                     assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]]):
     logger = get_run_logger()
@@ -196,10 +211,12 @@ def return_feedback(settings: Settings, grading_system: GradingSystem,
               f"past their due date, which is less than the return solution " \
               f"threshold {settings.return_solution_threshold}. " \
               f"Skipping feedback return."
+        state.skip = True
         # raise signals.SKIP(msg)
     if plm.now() < plm.parse(settings.earliest_solution_return_date):
         msg = f"We have not yet reached the earliest solution return date " \
               f"{settings.earliest_solution_return_date}. Skipping feedback return."
+        state.skip = True
         # raise signals.SKIP(msg)
 
     for section_assignment, section_submissions in assignment_submissions_pairs:
@@ -212,7 +229,8 @@ def return_feedback(settings: Settings, grading_system: GradingSystem,
 
 # ----------------------------------------------------------------------------------------------------------
 @task
-def get_pastdue_fraction(assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]]):
+@make
+def get_pastdue_fraction(state: State, assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]]):
     num_total_assignments = 0.
     num_outstanding_assignments = 0.
     for section_assignment, section_submissions in assignment_submissions_pairs:
@@ -224,7 +242,9 @@ def get_pastdue_fraction(assignment_submissions_pairs: List[Tuple[Assignment, Li
 
 # ----------------------------------------------------------------------------------------------------------
 @task
-def collect_grading_notifications(assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]]):
+@make
+def collect_grading_notifications(
+        state: State, assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]]):
     logger = get_run_logger()
     notifications = {}
     for section_assignment, section_submissions in assignment_submissions_pairs:
@@ -246,7 +266,9 @@ def collect_grading_notifications(assignment_submissions_pairs: List[Tuple[Assig
 
 # ----------------------------------------------------------------------------------------------------------
 @task
-def await_completion(assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]]):
+@make
+def await_completion(
+        state: State, assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]]):
     all_done = True
     logger = get_run_logger()
     assignment_name = assignment_submissions_pairs[0][0].name
@@ -258,13 +280,15 @@ def await_completion(assignment_submissions_pairs: List[Tuple[Assignment, List[S
         msg = f"Assignment {assignment_name} not done grading yet. " \
               f"Skipping uploading grades / returning feedback"
         logger.info(msg)
+        state.skip = True
         # raise signals.SKIP(msg)
     return assignment_submissions_pairs
 
 
 # ----------------------------------------------------------------------------------------------------------
 @task
-def upload_grades(grading_system: GradingSystem, lms: LearningManagementSystem,
+@make
+def upload_grades(state: State, grading_system: GradingSystem, lms: LearningManagementSystem,
                   assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]]):
     logger = get_run_logger()
     for section_assignment, section_submissions in assignment_submissions_pairs:
@@ -286,7 +310,9 @@ def upload_grades(grading_system: GradingSystem, lms: LearningManagementSystem,
 
 # ----------------------------------------------------------------------------------------------------------
 @task
-def collect_posting_notifications(assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]]):
+@make
+def collect_posting_notifications(
+        state: State, assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]]):
     logger = get_run_logger()
     notifications = []
     for section_assignment, section_submissions in assignment_submissions_pairs:

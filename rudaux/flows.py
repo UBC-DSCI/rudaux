@@ -24,6 +24,7 @@ from rudaux.task.learning_management_system import get_students, get_assignments
 
 from rudaux.task.snap import get_pastdue_snapshots, get_existing_snapshots, \
     get_snapshots_to_take, take_snapshots, verify_snapshots
+from rudaux.util.util import State
 
 
 # -------------------------------------------------------------------------------------------------------------
@@ -264,11 +265,14 @@ def grade_flow(settings: dict, course_name: str):
                 )
                 assignment_submissions_pairs.append((section_assignment, section_submissions))
 
+            state = State
+
             # initialize the grading system
             grds.initialize()
 
             # Create grader teams
             graders = build_grading_team(
+                state=state,
                 settings=settings,
                 grading_system=grds,
                 course_group=course_name,
@@ -276,10 +280,11 @@ def grade_flow(settings: dict, course_name: str):
                 assignment_submissions_pairs=assignment_submissions_pairs)
 
             # create grader volumes, add git repos, create folder structures, initialize nbgrader
-            initialize_graders(grading_system=grds, graders=graders)
+            initialize_graders(state=state, grading_system=grds, graders=graders)
 
             # assign graders
             assignment_submissions_pairs = assign_graders(
+                state=state,
                 grading_system=grds,
                 graders=graders,
                 assignment_submissions_pairs=assignment_submissions_pairs)
@@ -287,55 +292,66 @@ def grade_flow(settings: dict, course_name: str):
             # compute the fraction of submissions past due for each assignment,
             # and then return solutions for all assignments past the threshold
             pastdue_fractions = get_pastdue_fraction(
+                state=state,
                 assignment_submissions_pairs=assignment_submissions_pairs)
 
             # collect submissions
             collect_submissions(
+                state=state,
                 grading_system=grds,
                 assignment_submissions_pairs=assignment_submissions_pairs,
                 lms=lms)
 
             # clean submissions
             clean_submissions(
+                state=state,
                 grading_system=grds,
                 assignment_submissions_pairs=assignment_submissions_pairs)
 
             # Autograde submissions
             autograde(
+                state=state,
                 grading_system=grds,
                 assignment_submissions_pairs=assignment_submissions_pairs)
 
             # Wait for manual grading
             check_manual_grading(
+                state=state,
                 grading_system=grds,
                 assignment_submissions_pairs=assignment_submissions_pairs)
 
             # Collect grading notifications
             collect_grading_notifications(
+                state=state,
                 assignment_submissions_pairs=assignment_submissions_pairs)
 
             # Skip assignments with incomplete manual grading
             await_completion(
+                state=state,
                 assignment_submissions_pairs=assignment_submissions_pairs)
 
             # generate & return feedback
             generate_feedback(
+                state=state,
                 grading_system=grds,
                 assignment_submissions_pairs=assignment_submissions_pairs)
 
             return_feedback(
+                state=state,
                 grading_system=grds,
                 pastdue_fractions=pastdue_fractions,
                 assignment_submissions_pairs=assignment_submissions_pairs)
 
             # Upload grades
             upload_grades(
+                state=state,
                 grading_system=grds,
                 lms=lms,
                 assignment_submissions_pairs=assignment_submissions_pairs)
 
             # collect posting notifications
             collect_posting_notifications(
+                state=state,
                 assignment_submissions_pairs=assignment_submissions_pairs)
 
             # send notifications

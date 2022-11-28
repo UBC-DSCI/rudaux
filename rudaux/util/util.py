@@ -34,4 +34,20 @@ def clean_jhub_uname(s):
 def grader_account_name(group_name: str, assignment_name: str, username: str):
     return clean_jhub_uname(group_name) + clean_jhub_uname(assignment_name) + clean_jhub_uname(username)
 
+
 # ----------------------------------------------------------------------------------------------------------
+class State:
+    skip: bool = False
+    re_run: bool = False
+
+
+def make(func):
+    def inner(state: State, *args, **kwargs):
+
+        if state.skip:
+            return
+        else:
+            output = func(state=state, *args, **kwargs)
+            return output
+
+    return inner
