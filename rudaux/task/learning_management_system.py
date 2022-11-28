@@ -44,7 +44,7 @@ def get_assignments(lms: LMS, course_group_name: str, course_section_name: str) 
 
 # wraps the lms.get_course_info function in a task and enforces validation
 @task
-def get_course_info(lms: LMS, course_section_name: str) -> CourseSectionInfo:
+def get_course_section_info(lms: LMS, course_section_name: str) -> CourseSectionInfo:
     course_info = lms.get_course_section_info(course_section_name=course_section_name)
     if not isinstance(course_info, CourseSectionInfo):
         raise ValueError

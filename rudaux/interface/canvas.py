@@ -1,6 +1,7 @@
 from typing import Dict, List
 
 from pendulum import DateTime
+import pendulum as plm
 from pendulum.tz.timezone import Timezone
 
 from rudaux.interface.base.learning_management_system import LearningManagementSystem
@@ -134,10 +135,13 @@ class Canvas(LearningManagementSystem):
 
                     overrides[override.lms_id] = override
 
+            skip = a['due_at'] > plm.now()
+
             assignment = Assignment(
                 lms_id=a['id'], name=a['name'], due_at=a['due_at'],
                 lock_at=a['lock_at'], unlock_at=a['unlock_at'], overrides=overrides,
-                published=a['published'], course_section_info=course_section_info
+                published=a['published'], course_section_info=course_section_info,
+                skip=skip
             )
             assignments[assignment.lms_id] = assignment
 

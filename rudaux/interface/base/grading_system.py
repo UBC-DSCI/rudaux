@@ -24,16 +24,12 @@ class GradingSystem(ABC, BaseModel):
         pass
 
     # -----------------------------------------------------------------------------------------
-    def get_generated_assignments(self, work_dir: str) -> dict:
-        pass
-
-    # -----------------------------------------------------------------------------------------
-    def generate_assignment(self, assignment_name: str, work_dir: str):
+    def generate_assignment(self, grader: Grader):
         pass
 
     # -----------------------------------------------------------------------------------------
     @abstractmethod
-    def generate_solution(self, local_source_path: str, solution_name: str, work_dir: str):
+    def generate_solution(self, grader: Grader):
         pass
 
     # -----------------------------------------------------------------------------------------
@@ -53,15 +49,17 @@ class GradingSystem(ABC, BaseModel):
 
     # -----------------------------------------------------------------------------------------
     @abstractmethod
-    def build_grader(self, course_name: str, assignment_name: str, username: str) -> Grader:
+    def build_grader(self, course_name: str, assignment_name: str, username: str, skip: bool) -> Grader:
         pass
 
     # -----------------------------------------------------------------------------------------
-    def get_users(self) -> List[str]:
-        pass
+    # def get_users(self) -> List[str]:
+    #     pass
 
     # -----------------------------------------------------------------------------------------
-    def add_grader_account(self, grader: Grader):
-        pass
+    # def add_grader_account(self, grader: Grader):
+    #     pass
 
     # -----------------------------------------------------------------------------------------
+    def initialize_grader(self, grader: Grader):
+        pass

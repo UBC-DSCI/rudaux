@@ -10,7 +10,7 @@ from prefect.orion.schemas.schedules import CronSchedule
 
 from rudaux.model import Settings
 from rudaux.task.autoext import compute_autoextension_override_updates
-from rudaux.task.grade import build_grading_team, initialize_volumes, initialize_accounts
+from rudaux.task.grade import build_grading_team, initialize_graders
 from rudaux.task.submission import assign_graders, collect_submissions, clean_submissions, autograde, \
     check_manual_grading
 from rudaux.tasks import get_learning_management_system, get_grading_system, get_submission_system
@@ -265,10 +265,7 @@ def grade_flow(settings: dict, course_name: str):
                                          assignment_submissions_pairs=assignment_submissions_pairs)
 
             # create grader volumes, add git repos, create folder structures, initialize nbgrader
-            initialize_volumes(settings=settings, grading_system=grds, graders=graders)
-
-            # create grader jhub accounts
-            initialize_accounts(config=settings, graders=graders)
+            initialize_graders(grading_system=grds, graders=graders)
 
             # assign graders
             submission_sets = assign_graders(graders=graders,

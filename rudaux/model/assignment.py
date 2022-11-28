@@ -14,3 +14,4 @@ class Assignment(BaseModel):
     overrides: Dict[str, Override]
     published: bool
     course_section_info: CourseSectionInfo
+    skip: bool
