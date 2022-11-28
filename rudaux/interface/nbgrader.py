@@ -49,7 +49,7 @@ class NBGrader(GradingSystem):
 
     # -----------------------------------------------------------------------------------------
     def initialize(self):
-        self.users = self._get_users()
+        self.users = self.get_users()
 
     # -----------------------------------------------------------------------------------------
     def _get_generated_assignments(self, work_dir: str) -> dict:
@@ -201,7 +201,7 @@ class NBGrader(GradingSystem):
         return grader
 
     # -----------------------------------------------------------------------------------------
-    def _get_users(self) -> List[str]:
+    def get_users(self) -> List[str]:
         # get list of users from dictauth
         Args = namedtuple('Args', 'directory')
         args = Args(directory=self.nbgrader_jupyterhub_config_dir)
@@ -276,7 +276,7 @@ class NBGrader(GradingSystem):
         """
 
         logger = get_run_logger()
-        # users = self._get_users()
+        # users = self.get_users()
         if grader.name not in self.users:
             logger.info(f"User {grader.name} does not exist; creating")
             self._add_grader_account(grader=grader)
