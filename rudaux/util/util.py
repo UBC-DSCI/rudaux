@@ -42,7 +42,7 @@ class State:
 
 
 # ----------------------------------------------------------------------------------------------------------
-def make(func):
+def signal(func):
     def inner(state: State, *args, **kwargs):
 
         if state.skip:
