@@ -71,11 +71,11 @@ async def register(args):
 
         per_section_flows = [
             # (autoext_flow, settings.autoext_prefix, settings.autoext_cron_string),
-            (snap_flow, settings.snap_prefix, settings.snap_cron_string)
+            # (snap_flow, settings.snap_prefix, settings.snap_cron_string)
         ]
 
         per_course_flows = [
-            # (grade_flow, settings.grade_prefix, settings.grade_cron_string),
+            (grade_flow, settings.grade_prefix, settings.grade_cron_string),
             # (soln_flow, settings.soln_prefix, settings.soln_cron_string),
             # (fdbk_flow, settings.fdbk_prefix, settings.fdbk_cron_string)
         ]
@@ -243,118 +243,121 @@ def grade_flow(settings: dict, course_name: str):
         # Get course info, list of students, and list of assignments from lms
         # course_section_info = get_course_section_info(lms=lms, course_section_name=section_name)
         # students = get_students(lms=lms, course_section_name=section_name)
+        meta_assignments[section_name] = dict()
         section_assignments = get_assignments(
             lms=lms, course_group_name=course_name, course_section_name=section_name)
 
         for section_assignment_id, section_assignment in section_assignments.items():
             if section_assignment.name not in meta_assignments:
-                meta_assignments[section_assignment.name] = []
-                meta_assignments[section_assignment.name].append(section_assignment)
+                meta_assignments[section_name][section_assignment.name] = []
+                meta_assignments[section_name][section_assignment.name].append(section_assignment)
             else:
-                meta_assignments[section_assignment.name].append(section_assignment)
+                meta_assignments[section_name][section_assignment.name].append(section_assignment)
 
-    for assignment_name, section_assignment_objects in meta_assignments.items():
-        if assignment_name in selected_assignments:
+    for section_name, section_meta_assignments in meta_assignments.items():
+        for assignment_name, section_assignment_objects in section_meta_assignments.items():
+            if assignment_name in selected_assignments:
 
-            assignment_submissions_pairs = []
-            for section_assignment in section_assignment_objects:
-                section_submissions = get_submissions(
-                    lms=lms, course_group_name=course_name,
-                    course_section_name=section_assignment.course_section_info.name,
-                    assignment=section_assignment
-                )
-                assignment_submissions_pairs.append((section_assignment, section_submissions))
+                assignment_submissions_pairs = []
+                for section_assignment in section_assignment_objects:
+                    # course_section_name = section_assignment.course_section_info.name
+                    section_submissions = get_submissions(
+                        lms=lms, course_group_name=course_name,
+                        course_section_name=section_name,
+                        assignment=section_assignment
+                    )
+                    assignment_submissions_pairs.append((section_assignment, section_submissions))
 
-            state = State
+                state = State
 
-            # initialize the grading system
-            grds.initialize()
+                # initialize the grading system
+                grds.initialize()
 
-            # Create grader teams
-            graders = build_grading_team(
-                state=state,
-                settings=settings,
-                grading_system=grds,
-                course_group=course_name,
-                assignment_name=assignment_name,
-                assignment_submissions_pairs=assignment_submissions_pairs)
+                # Create grader teams
+                graders = build_grading_team(
+                    state=state,
+                    settings=settings,
+                    grading_system=grds,
+                    course_group=course_name,
+                    assignment_name=assignment_name,
+                    assignment_submissions_pairs=assignment_submissions_pairs)
 
-            # create grader volumes, add git repos, create folder structures, initialize nbgrader
-            initialize_graders(state=state, grading_system=grds, graders=graders)
+                # create grader volumes, add git repos, create folder structures, initialize nbgrader
+                initialize_graders(state=state, grading_system=grds, graders=graders)
 
-            # assign graders
-            assignment_submissions_pairs = assign_graders(
-                state=state,
-                grading_system=grds,
-                graders=graders,
-                assignment_submissions_pairs=assignment_submissions_pairs)
+                # assign graders
+                assignment_submissions_pairs = assign_graders(
+                    state=state,
+                    grading_system=grds,
+                    graders=graders,
+                    assignment_submissions_pairs=assignment_submissions_pairs)
 
-            # compute the fraction of submissions past due for each assignment,
-            # and then return solutions for all assignments past the threshold
-            pastdue_fractions = get_pastdue_fraction(
-                state=state,
-                assignment_submissions_pairs=assignment_submissions_pairs)
+                # compute the fraction of submissions past due for each assignment,
+                # and then return solutions for all assignments past the threshold
+                pastdue_fractions = get_pastdue_fraction(
+                    state=state,
+                    assignment_submissions_pairs=assignment_submissions_pairs)
 
-            # collect submissions
-            collect_submissions(
-                state=state,
-                grading_system=grds,
-                assignment_submissions_pairs=assignment_submissions_pairs,
-                lms=lms)
+                # collect submissions
+                collect_submissions(
+                    state=state,
+                    grading_system=grds,
+                    assignment_submissions_pairs=assignment_submissions_pairs,
+                    lms=lms)
 
-            # clean submissions
-            clean_submissions(
-                state=state,
-                grading_system=grds,
-                assignment_submissions_pairs=assignment_submissions_pairs)
+                # clean submissions
+                clean_submissions(
+                    state=state,
+                    grading_system=grds,
+                    assignment_submissions_pairs=assignment_submissions_pairs)
 
-            # Autograde submissions
-            autograde(
-                state=state,
-                grading_system=grds,
-                assignment_submissions_pairs=assignment_submissions_pairs)
+                # Autograde submissions
+                autograde(
+                    state=state,
+                    grading_system=grds,
+                    assignment_submissions_pairs=assignment_submissions_pairs)
 
-            # Wait for manual grading
-            check_manual_grading(
-                state=state,
-                grading_system=grds,
-                assignment_submissions_pairs=assignment_submissions_pairs)
+                # Wait for manual grading
+                check_manual_grading(
+                    state=state,
+                    grading_system=grds,
+                    assignment_submissions_pairs=assignment_submissions_pairs)
 
-            # Collect grading notifications
-            collect_grading_notifications(
-                state=state,
-                assignment_submissions_pairs=assignment_submissions_pairs)
+                # Collect grading notifications
+                collect_grading_notifications(
+                    state=state,
+                    assignment_submissions_pairs=assignment_submissions_pairs)
 
-            # Skip assignments with incomplete manual grading
-            await_completion(
-                state=state,
-                assignment_submissions_pairs=assignment_submissions_pairs)
+                # Skip assignments with incomplete manual grading
+                await_completion(
+                    state=state,
+                    assignment_submissions_pairs=assignment_submissions_pairs)
 
-            # generate & return feedback
-            generate_feedback(
-                state=state,
-                grading_system=grds,
-                assignment_submissions_pairs=assignment_submissions_pairs)
+                # generate & return feedback
+                generate_feedback(
+                    state=state,
+                    grading_system=grds,
+                    assignment_submissions_pairs=assignment_submissions_pairs)
 
-            return_feedback(
-                state=state,
-                grading_system=grds,
-                pastdue_fractions=pastdue_fractions,
-                assignment_submissions_pairs=assignment_submissions_pairs)
+                return_feedback(
+                    state=state,
+                    grading_system=grds,
+                    pastdue_fractions=pastdue_fractions,
+                    assignment_submissions_pairs=assignment_submissions_pairs)
 
-            # Upload grades
-            upload_grades(
-                state=state,
-                grading_system=grds,
-                lms=lms,
-                assignment_submissions_pairs=assignment_submissions_pairs)
+                # Upload grades
+                upload_grades(
+                    state=state,
+                    grading_system=grds,
+                    lms=lms,
+                    assignment_submissions_pairs=assignment_submissions_pairs)
 
-            # collect posting notifications
-            collect_posting_notifications(
-                state=state,
-                assignment_submissions_pairs=assignment_submissions_pairs)
+                # collect posting notifications
+                collect_posting_notifications(
+                    state=state,
+                    assignment_submissions_pairs=assignment_submissions_pairs)
 
-            # send notifications
+                # send notifications
 
 
 # -------------------------------------------------------------------------------------------------------------

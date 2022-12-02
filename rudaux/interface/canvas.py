@@ -131,7 +131,8 @@ class Canvas(LearningManagementSystem):
                         students[student.lms_id] = student
                     override = Override(
                         lms_id=o['id'], name=o['title'], due_at=o['due_at'],
-                        lock_at=o['lock_at'], unlock_at=o['unlock_at'], students=students)
+                        lock_at=o['lock_at'], unlock_at=o['unlock_at'],
+                        students=students, course_section_info=course_section_info)
 
                     overrides[override.lms_id] = override
 
@@ -196,6 +197,7 @@ class Canvas(LearningManagementSystem):
                             late=submission['late'],
                             missing=submission['missing'],
                             excused=submission['excused'],
+                            course_section_info=course_section_info,
                             skip=skip
                         )
                         submissions.append(submission)

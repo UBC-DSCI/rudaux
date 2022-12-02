@@ -17,6 +17,6 @@ scp==0.14.4
 nbgrader==0.8.1
 tabulate
 jupyterhub
-git+https://github.com/ubc-dsci/dictauth
+# git+https://github.com/ubc-dsci/dictauth@main
 
 

@@ -103,7 +103,7 @@ instructor_repo_url: 'git@github.com/your-instructor-repo.git'
 student_local_assignment_folder: 'dsci-100-student/materials'
 # the prefix to add to user folders (nbgrader breaks with student folders that are just numbers, so append student-##### to make it work)
 # this can be essentially anything as long as it starts with a letter, so you probably don't need to change this
-grading_student_folder_prefix: 'student-'
+nbgrader_student_folder_prefix: 'student-'
 # the fraction of deadlines that must be passed before solutions are returned (useful for early weeks in a semester with lots of auto late extensions)
 return_solution_threshold: 0.93
 # the earliest date to return solutions to anything regardless of the return thresholds

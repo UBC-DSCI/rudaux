@@ -54,6 +54,7 @@ class Settings(BaseModel):
     nbgrader_instructor_user: str
     nbgrader_jupyterhub_config_dir: str
     nbgrader_jupyterhub_user: str
+    nbgrader_jupyterhub_group: str
     nbgrader_user_quota: str
     nbgrader_user_root: str
     nbgrader_submissions_folder: Optional[str] = 'submitted'
