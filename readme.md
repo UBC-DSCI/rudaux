@@ -1,3 +1,5 @@
+## Update December 2022: This branch is out of date. The new version of Rudaux, with significant improvements upon the original, is currently under construction. We hope to push the new version of Rudaux here when it's ready. Stay tuned!
+
 ## rudaux 
 
 ![](https://github.com/UBC-DSCI/rudaux/workflows/build/badge.svg) [![codecov](https://codecov.io/gh/UBC-DSCI/rudaux/branch/master/graph/badge.svg)](https://codecov.io/gh/UBC-DSCI/rudaux) ![Release](https://github.com/UBC-DSCI/rudaux/workflows/Release/badge.svg)
