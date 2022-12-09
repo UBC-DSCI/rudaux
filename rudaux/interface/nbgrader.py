@@ -11,7 +11,8 @@ from bs4 import BeautifulSoup
 from dictauth.users import add_user, remove_user, get_users
 from prefect.exceptions import PrefectSignal
 import git
-from rudaux.interface.base.grading_system import GradingSystem, GradingStatus
+from rudaux.interface.base.grading_system import GradingSystem
+from rudaux.interface.base.submission_system import SubmissionGradingStatus
 from rudaux.model import Submission
 from rudaux.model.grader import Grader
 from rudaux.util.container import run_container
@@ -178,8 +179,8 @@ class NBGrader(GradingSystem):
         assignment = submission.assignment
         work_dir = grader.info['folder']
 
-        if grader.status == GradingStatus.NOT_DUE or \
-                grader.status == GradingStatus.MISSING or \
+        if submission.status == SubmissionGradingStatus.NOT_DUE or \
+                submission.status == SubmissionGradingStatus.MISSING or \
                 os.path.exists(grader.info['generated_feedback_path']):
             return
         logger.info(f"Generating feedback for submission {submission.lms_id}")
@@ -351,9 +352,9 @@ class NBGrader(GradingSystem):
         # even when it doesn't, and there's nothing the TA can do to convince it otherwise.
         # when that happens, we just touch IGNORE_MANUAL_GRADING inside the folder
         if flag and not os.path.exists(os.path.join(work_dir, 'IGNORE_MANUAL_GRADING')):
-            grader.status = GradingStatus.NEEDS_MANUAL_GRADE
+            submission.status = SubmissionGradingStatus.NEEDS_MANUAL_GRADE
         else:
-            grader.status = GradingStatus.DONE_GRADING
+            submission.status = SubmissionGradingStatus.DONE_GRADING
 
     # -----------------------------------------------------------------------------------------
     def autograde(self, submission: Submission):
@@ -366,7 +367,7 @@ class NBGrader(GradingSystem):
         work_dir = grader.info['folder']
 
         if os.path.exists(grader.info['autograded_assignment_path']):
-            grader.status = GradingStatus.AUTOGRADED
+            submission.status = SubmissionGradingStatus.AUTOGRADED
             return
 
         logger.info(f"Autograding submission {submission.lms_id}")
@@ -404,7 +405,7 @@ class NBGrader(GradingSystem):
             logger.error(msg)
             raise PrefectSignal
 
-        grader.status = GradingStatus.AUTOGRADED
+        submission.status = SubmissionGradingStatus.AUTOGRADED
 
     # -----------------------------------------------------------------------------------------
     def build_grader(self, course_name: str, assignment_name: str, username: str, skip: bool) -> Grader:
@@ -453,8 +454,7 @@ class NBGrader(GradingSystem):
         info['solution_name'] = assignment_name + '_solution.html'
         info['solution_path'] = os.path.join(info['folder'], info['solution_name'])
 
-        status = GradingStatus.NOT_ASSIGNED
-        grader = Grader(name=grader_name, info=info, status=status, skip=skip)
+        grader = Grader(name=grader_name, info=info, skip=skip)
         return grader
 
     # -----------------------------------------------------------------------------------------
@@ -654,7 +654,7 @@ class NBGrader(GradingSystem):
         grader = submission.grader
         if not os.path.exists(grader.info['collected_assignment_path']):
             if not os.path.exists(grader.info['snapped_assignment_path']):
-                grader.status = GradingStatus.MISSING
+                submission.status = SubmissionGradingStatus.MISSING
             else:
                 logger.info(f"Submission {submission.lms_id} not yet collected. Collecting...")
                 os.makedirs(os.path.dirname(grader.info['collected_assignment_path']), exist_ok=True)
@@ -666,9 +666,9 @@ class NBGrader(GradingSystem):
                                 self.nbgrader_jupyterhub_user,
                                 self.nbgrader_jupyterhub_group)
 
-                grader.status = GradingStatus.COLLECTED
+                submission.status = SubmissionGradingStatus.COLLECTED
         else:
-            grader.status = GradingStatus.COLLECTED
+            submission.status = SubmissionGradingStatus.COLLECTED
 
     # ----------------------------------------------------------------------------------------------------------
     def clean_grader_submission(self, submission: Submission):
@@ -762,7 +762,7 @@ class NBGrader(GradingSystem):
         json.dump(nb, f)
         f.close()
 
-        grader.status = GradingStatus.PREPARED
+        submission.status = SubmissionGradingStatus.PREPARED
 
     # ----------------------------------------------------------------------------------------------------------
     def return_solution(self, submission: Submission):
@@ -795,7 +795,7 @@ class NBGrader(GradingSystem):
         grader = submission.grader
 
         # logger.info(f"Checking whether feedback for submission {submission.lms_id} can be returned")
-        if assignment.due_at < plm.now() and submission.status != GradingStatus.MISSING:
+        if assignment.due_at < plm.now() and submission.status != SubmissionGradingStatus.MISSING:
             if not os.path.exists(grader.info['generated_feedback_path']):
                 logger.warning(f"Warning: feedback file {grader.info['generated_feedback_path']} "
                                f"doesnt exist yet. Skipping feedback return.")

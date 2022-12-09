@@ -5,6 +5,7 @@ import pendulum as plm
 from pendulum.tz.timezone import Timezone
 
 from rudaux.interface.base.learning_management_system import LearningManagementSystem
+from rudaux.interface.base.submission_system import SubmissionGradingStatus
 from rudaux.util.canvasapi import get_course_info, get_people, get_groups, get_submissions, get_assignments
 from rudaux.util.canvasapi import update_grade, _create_override, _remove_override
 from rudaux.model.course_section_info import CourseSectionInfo
@@ -198,6 +199,8 @@ class Canvas(LearningManagementSystem):
                             missing=submission['missing'],
                             excused=submission['excused'],
                             course_section_info=course_section_info,
+                            grader=None,
+                            status=SubmissionGradingStatus.NOT_ASSIGNED,
                             skip=skip
                         )
                         submissions.append(submission)
