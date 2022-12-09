@@ -45,7 +45,7 @@ class Settings(BaseModel):
     # remote_zfs_collection_pattern: str
     # remote_zfs_distribution_pattern: str
     remote_zfs_file_system_root: Dict[str, str]
-    remote_zfs_path: str
+    remote_zfs_path: Dict[str, str]
 
     # nbgrader settings
     nbgrader_docker_image: str
