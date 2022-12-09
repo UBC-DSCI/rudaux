@@ -15,7 +15,7 @@ class RemoteZFSSubmissions(SubmissionSystem):
     # remote_zfs_collection_pattern: str
     # remote_zfs_distribution_pattern: str
     remote_zfs_file_system_root: Dict[str, str]
-    remote_zfs_path: str
+    remote_zfs_path: Dict[str, str]
     # zfs: Optional[RemoteZFS] = None
 
     # class Config:
@@ -27,7 +27,7 @@ class RemoteZFSSubmissions(SubmissionSystem):
                 "port": self.remote_zfs_port[course_name],
                 "user": self.remote_zfs_username[course_name]}
         self.zfs = RemoteZFS(
-            zfs_path=self.remote_zfs_path,
+            zfs_path=self.remote_zfs_path[course_name],
             info=info,
             tz=self.remote_zfs_tz[course_name]
         )
