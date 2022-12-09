@@ -62,6 +62,9 @@ remote_zfs_tz:
 remote_zfs_file_system_root:
   course_dsci_100_test: "tank/home/dsci100"
 
+remote_zfs_path:
+  course_dsci_100_test: "/usr/sbin/zfs" # remember to use this
+
 #remote_zfs_volume_pattern: "str"
 #remote_zfs_collection_pattern: "str"
 #remote_zfs_distribution_pattern: "str"
@@ -92,6 +95,7 @@ nbgrader_docker_memory: '2g'
 nbgrader_docker_image: 'ubcdsci/r-dsci-grading:v0.17.0'
 # the name of the directory in the container to bind to the grader's jhub folder
 nbgrader_docker_bind_folder: '/home/jupyter'
+nbgrader_zfs_path: "/usr/sbin/zfs"
 
 
 # the ssh-access git repository URL (the root of this directory should be an 'nbgrader' dir)

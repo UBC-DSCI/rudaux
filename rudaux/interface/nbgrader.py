@@ -64,7 +64,7 @@ class NBGrader(GradingSystem):
     nbgrader_feedback_folder: Optional[str] = 'feedback'
     nbgrader_autograded_folder: Optional[str] = 'autograded'
     instructor_repo_url: str
-    zfs_path: Optional[str] = "/usr/sbin/zfs"
+    nbgrader_zfs_path: Optional[str] = "/usr/sbin/zfs"
 
     # -----------------------------------------------------------------------------------------
     def open(self):
@@ -515,7 +515,7 @@ class NBGrader(GradingSystem):
             logger.info(f"Grader folder {grader.info['folder']} doesn't exist, creating...")
             try:
                 # zfs_path = "/usr/sbin/zfs"
-                check_output(['sudo', self.zfs_path, 'create', "-o", "refquota=" + grader.info['unix_quota'],
+                check_output(['sudo', self.nbgrader_zfs_path, 'create', "-o", "refquota=" + grader.info['unix_quota'],
                               grader.info['folder'].lstrip('/')], stderr=STDOUT)
             except CalledProcessError as e:
                 msg = f"Error running command {e.cmd}. return_code {e.returncode}. " \
@@ -544,7 +544,8 @@ class NBGrader(GradingSystem):
         repo_valid = False
         # allow no such path or invalid repo errors; everything else should raise
         try:
-            tmp_repo = git.Repo(grader.info['folder'])
+            # create git repository object
+            git.Repo(grader.info['folder'])
         except git.exc.InvalidGitRepositoryError as e:
             pass
         except git.exc.NoSuchPathError as e:
@@ -579,27 +580,30 @@ class NBGrader(GradingSystem):
         return grader
 
     # ----------------------------------------------------------------------------------------------------------
-    def initialize_grader(self, grader: Grader) -> Grader:
+    def initialize_graders(self, graders: List[Grader]) -> List[Grader]:
         """
         create grader volumes, add git repos, create folder structures, initialize nbgrader
 
         Parameters
         ----------
-        grader: Grader
+        graders: List[Grader]
 
         Returns
         -------
-        grader: Grader
+        grader: List[Grader]
         """
 
-        self._create_grading_volume(grader=grader)
-        self._clone_git_repository(grader=grader)
-        _create_submission_folder(grader=grader)
-        self.generate_assignment(grader=grader)
-        self.generate_solution(grader=grader)
-        self._initialize_account(grader=grader)
+        # take both single grader and list and loop here instead of inside the task that call it
 
-        return grader
+        for grader in graders:
+            self._create_grading_volume(grader=grader)
+            self._clone_git_repository(grader=grader)
+            _create_submission_folder(grader=grader)
+            self.generate_assignment(grader=grader)
+            self.generate_solution(grader=grader)
+            self._initialize_account(grader=grader)
+
+        return graders
 
     # ----------------------------------------------------------------------------------------------------------
     def assign_submission_to_grader(self, graders: List[Grader], submission: Submission):
@@ -761,6 +765,27 @@ class NBGrader(GradingSystem):
         grader.status = GradingStatus.PREPARED
 
     # ----------------------------------------------------------------------------------------------------------
+    def return_solution(self, submission: Submission):
+        logger = get_run_logger()
+        student = submission.student
+        assignment = submission.assignment
+        grader = submission.grader
+
+        # logger.info(f"Checking whether solution for submission {submission.lms_id} can be returned")
+        if assignment.due_at < plm.now():
+            if not os.path.exists(grader.info['solution_path']):
+                logger.info(f"Returning solution submission {submission.lms_id}")
+                if os.path.exists(grader.info['student_folder']):
+                    shutil.copy(grader.info['solution_path'], grader.info['solution_path'])
+                    recursive_chown(grader.info['solution_path'],
+                                    self.nbgrader_jupyterhub_user,
+                                    self.nbgrader_jupyterhub_group)
+                else:
+                    logger.warning(
+                        f"Warning: student folder {grader.info['student_folder']} "
+                        f"doesnt exist. Skipping solution return.")
+
+    # ----------------------------------------------------------------------------------------------------------
     def return_feedback(self, submission: Submission):
 
         logger = get_run_logger()
@@ -770,7 +795,7 @@ class NBGrader(GradingSystem):
         grader = submission.grader
 
         # logger.info(f"Checking whether feedback for submission {submission.lms_id} can be returned")
-        if assignment.due_at < plm.now() and grader.status != GradingStatus.MISSING:
+        if assignment.due_at < plm.now() and submission.status != GradingStatus.MISSING:
             if not os.path.exists(grader.info['generated_feedback_path']):
                 logger.warning(f"Warning: feedback file {grader.info['generated_feedback_path']} "
                                f"doesnt exist yet. Skipping feedback return.")

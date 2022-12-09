@@ -4,7 +4,7 @@ import getpass
 import prefect
 from prefect import task, get_run_logger
 from rudaux.interface import GradingSystem, LearningManagementSystem
-from rudaux.interface.base.grading_system import GradingStatus
+from rudaux.interface.base.submission_system import SubmissionGradingStatus
 from rudaux.model import Settings
 from rudaux.model.submission import Submission
 from rudaux.model.assignment import Assignment
@@ -81,9 +81,8 @@ def generate_solutions(state: State, grading_system: GradingSystem, grader: Grad
 @signal
 def initialize_graders(state: State, grading_system: GradingSystem, graders: List[Grader]):
     # logger = get_run_logger()
-    for grader in graders:
-        if not grader.skip:
-            grading_system.initialize_grader(grader=grader)
+    graders = [grader for grader in graders if not grader.skip]
+    graders = grading_system.initialize_graders(graders=graders)
     return graders
 
 
@@ -98,9 +97,42 @@ def assign_graders(state: State, grading_system: GradingSystem, graders: List[Gr
         for submission in section_submissions:
             if not submission.grader.skip:
                 grading_system.assign_submission_to_grader(graders=graders, submission=submission)
-                submission.grader.info['status'] = GradingStatus.ASSIGNED
+                submission.status = SubmissionGradingStatus.ASSIGNED
 
     return assignment_submissions_pairs
+
+
+# ----------------------------------------------------------------------------------------------------------
+@task(name='return_solutions')
+@signal
+def return_solutions(state: State,
+                     grading_system: GradingSystem,
+                     pastdue_fraction: float,
+                     return_solution_threshold: float,
+                     earliest_solution_return_date,
+                     assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]]):
+
+    logger = get_run_logger()
+
+    for section_assignment, section_submissions in assignment_submissions_pairs:
+        for submission in section_submissions:
+            if not submission.grader.skip:
+
+                assignment = submission.assignment
+                student = submission.student
+
+                # skip if pastdue frac not high enough, or we haven't reached the earliest return date
+                if pastdue_fraction < return_solution_threshold:
+                    logger.info(f"Assignment {assignment.name} has {pastdue_fraction} submissions " +
+                                f"past their due date, which is less than the return solution " +
+                                f"threshold {return_solution_threshold} . Skipping solution return.")
+                    state.skip = True
+                if plm.now() < plm.parse(earliest_solution_return_date):
+                    logger.info(f"We have not yet reached the earliest solution return date " +
+                                f"{earliest_solution_return_date}. Skipping solution return.")
+                    state.skip = True
+
+                grading_system.return_solution(submission=submission)
 
 
 # ----------------------------------------------------------------------------------------------------------
@@ -119,10 +151,10 @@ def collect_submissions(state: State, grading_system: GradingSystem,
                 # if the submission is due in the future, skip
                 # if submission.posted_at > plm.now():
                 if submission.skip:
-                    submission.grader.status = GradingStatus.NOT_DUE
+                    submission.status = SubmissionGradingStatus.NOT_DUE
                     continue
 
-                if submission.grader.status == GradingStatus.MISSING:
+                if submission.status == SubmissionGradingStatus.MISSING:
                     if submission.score is None:
                         logger.info(f"Submission {submission.lms_id} is missing. Uploading score of 0.")
                         submission.score = 0.
@@ -142,7 +174,7 @@ def clean_submissions(state: State, grading_system: GradingSystem,
         for submission in section_submissions:
 
             if not submission.grader.skip:
-                if submission.grader.status == GradingStatus.COLLECTED:
+                if submission.status == SubmissionGradingStatus.COLLECTED:
                     # student = submission.student
                     # grader = submission.grader
                     grading_system.clean_grader_submission(submission=submission)
@@ -200,13 +232,13 @@ def generate_feedback(state: State, grading_system: GradingSystem,
 @task(name='return_feedback')
 @signal
 def return_feedback(state: State, settings: Settings, grading_system: GradingSystem,
-                    pastdue_frac: float,
+                    pastdue_fraction: float,
                     assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]]):
     logger = get_run_logger()
     assignment_name = assignment_submissions_pairs[0][0].name
     # skip if pastdue frac not high enough, or we haven't reached the earliest return date
-    if pastdue_frac < settings.return_solution_threshold:
-        msg = f"Assignment {assignment_name} has {pastdue_frac} submissions " \
+    if pastdue_fraction < settings.return_solution_threshold:
+        msg = f"Assignment {assignment_name} has {pastdue_fraction} submissions " \
               f"past their due date, which is less than the return solution " \
               f"threshold {settings.return_solution_threshold}. " \
               f"Skipping feedback return."
@@ -231,7 +263,9 @@ def return_feedback(state: State, settings: Settings, grading_system: GradingSys
 # ----------------------------------------------------------------------------------------------------------
 @task(name='get_pastdue_fraction')
 @signal
-def get_pastdue_fraction(state: State, assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]]):
+def get_pastdue_fraction(
+        state: State,
+        assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]]) -> float:
     num_total_assignments = 0.
     num_outstanding_assignments = 0.
     for section_assignment, section_submissions in assignment_submissions_pairs:
@@ -253,7 +287,7 @@ def collect_grading_notifications(
             if not submission.grader.skip:
                 assignment = section_assignment
                 grader = submission.grader
-                if grader.status == GradingStatus.NEEDS_MANUAL_GRADE:
+                if submission.status == SubmissionGradingStatus.NEEDS_MANUAL_GRADE:
                     grader_user = grader.info['user']
                     grader_name = grader.name
                     assignment_name = assignment.name
@@ -275,8 +309,8 @@ def await_completion(
     assignment_name = assignment_submissions_pairs[0][0].name
     for section_assignment, section_submissions in assignment_submissions_pairs:
         all_done = all_done and all(
-            [submission.grader.status != GradingStatus.NEEDS_MANUAL_GRADE
-                for submission in section_submissions if not submission.grader.skip])
+            [submission.status != SubmissionGradingStatus.NEEDS_MANUAL_GRADE
+             for submission in section_submissions if not submission.grader.skip])
     if not all_done:
         msg = f"Assignment {assignment_name} not done grading yet. " \
               f"Skipping uploading grades / returning feedback"
@@ -300,7 +334,7 @@ def upload_grades(state: State, grading_system: GradingSystem, lms: LearningMana
                 # course_section_info = submission.course_section_info
                 grader = submission.grader
 
-                if grader.status == GradingStatus.DONE_GRADING and submission.score is None:
+                if submission.status == SubmissionGradingStatus.DONE_GRADING and submission.score is None:
                     pct = grading_system.compute_submission_percent_grade(submission=submission)
                     logger.info(f"Uploading to Canvas...")
                     submission.score = pct
@@ -322,7 +356,7 @@ def collect_posting_notifications(
                 assignment = section_assignment
                 grader = submission.grader
                 course_name = submission.course_section_info.name
-                if grader.status == GradingStatus.DONE_GRADING and submission.posted_at is None:
+                if submission.status == SubmissionGradingStatus.DONE_GRADING and submission.posted_at is None:
                     notifications.append((course_name, assignment.name))
     return notifications
 

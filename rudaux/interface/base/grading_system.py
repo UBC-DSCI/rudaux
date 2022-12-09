@@ -1,23 +1,8 @@
-from enum import IntEnum
 from typing import List
-
 from pydantic import BaseModel
 from abc import ABC, abstractmethod
-
 from rudaux.model import Submission
 from rudaux.model.grader import Grader
-
-
-class GradingStatus(IntEnum):
-    NOT_ASSIGNED = 11
-    ASSIGNED = 0
-    NOT_DUE = 1
-    MISSING = 2
-    COLLECTED = 3
-    PREPARED = 4
-    AUTOGRADED = 6
-    NEEDS_MANUAL_GRADE = 9
-    DONE_GRADING = 10
 
 
 class GradingSystem(ABC, BaseModel):
@@ -74,7 +59,7 @@ class GradingSystem(ABC, BaseModel):
     #     pass
 
     # -----------------------------------------------------------------------------------------
-    def initialize_grader(self, grader: Grader):
+    def initialize_graders(self, graders: List[Grader]) -> List[Grader]:
         pass
 
     # -----------------------------------------------------------------------------------------
@@ -87,6 +72,10 @@ class GradingSystem(ABC, BaseModel):
 
     # -----------------------------------------------------------------------------------------
     def clean_grader_submission(self, submission: Submission):
+        pass
+
+    # -----------------------------------------------------------------------------------------
+    def return_solution(self, submission: Submission):
         pass
 
     # -----------------------------------------------------------------------------------------

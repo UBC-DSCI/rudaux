@@ -45,6 +45,7 @@ class Settings(BaseModel):
     # remote_zfs_collection_pattern: str
     # remote_zfs_distribution_pattern: str
     remote_zfs_file_system_root: Dict[str, str]
+    remote_zfs_path: str
 
     # nbgrader settings
     nbgrader_docker_image: str
@@ -60,6 +61,7 @@ class Settings(BaseModel):
     nbgrader_submissions_folder: Optional[str] = 'submitted'
     nbgrader_feedback_folder: Optional[str] = 'feedback'
     nbgrader_autograded_folder: Optional[str] = 'autograded'
+    nbgrader_zfs_path: Optional[str] = "/usr/sbin/zfs"
 
     instructor_repo_url: str
     student_local_assignment_folder: str

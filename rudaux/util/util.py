@@ -31,8 +31,8 @@ def clean_jhub_uname(s):
 
 
 # ----------------------------------------------------------------------------------------------------------
-def grader_account_name(group_name: str, assignment_name: str, username: str):
-    return clean_jhub_uname(group_name) + clean_jhub_uname(assignment_name) + clean_jhub_uname(username)
+def grader_account_name(course_name: str, assignment_name: str, username: str):
+    return clean_jhub_uname(course_name) + clean_jhub_uname(assignment_name) + clean_jhub_uname(username)
 
 
 # ----------------------------------------------------------------------------------------------------------

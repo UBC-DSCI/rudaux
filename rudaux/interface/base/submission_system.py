@@ -1,8 +1,21 @@
+from enum import IntEnum
 from typing import Dict, List
 from pydantic import BaseModel
 from abc import ABC, abstractmethod
 from rudaux.model import Assignment, Student
 from rudaux.model.snapshot import Snapshot
+
+
+class SubmissionGradingStatus(IntEnum):
+    NOT_ASSIGNED = 11
+    ASSIGNED = 0
+    NOT_DUE = 1
+    MISSING = 2
+    COLLECTED = 3
+    PREPARED = 4
+    AUTOGRADED = 6
+    NEEDS_MANUAL_GRADE = 9
+    DONE_GRADING = 10
 
 
 class SubmissionSystem(ABC, BaseModel):

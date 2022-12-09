@@ -5,7 +5,7 @@ editdistance>=0.5.3
 pendulum>=2.1.2
 requests>=2.23.0
 urllib3>=1.25.9
-prefect>=0.15.5
+prefect==2.2.0
 pyfiglet>=0.8.post1
 termcolor>=1.1.0
 paramiko>=2.7.2

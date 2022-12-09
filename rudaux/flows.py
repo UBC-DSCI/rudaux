@@ -7,6 +7,7 @@ from prefect import flow
 from prefect.client import get_client
 from prefect.deployments import Deployment
 from prefect.orion.schemas.schedules import CronSchedule
+import pendulum as plm
 
 from rudaux.model import Settings
 from rudaux.task.autoext import compute_autoextension_override_updates
@@ -14,7 +15,7 @@ from rudaux.task.autoext import compute_autoextension_override_updates
 from rudaux.task.grade import build_grading_team, initialize_graders, \
     generate_assignments, generate_solutions, assign_graders, \
     collect_submissions, clean_submissions, autograde, check_manual_grading, \
-    generate_feedback, return_feedback, get_pastdue_fraction, \
+    generate_feedback, return_solutions, return_feedback, get_pastdue_fraction, \
     collect_grading_notifications, await_completion, upload_grades, \
     collect_posting_notifications
 
@@ -255,6 +256,7 @@ def grade_flow(settings: dict, course_name: str):
                 meta_assignments[section_name][section_assignment.name].append(section_assignment)
 
     for section_name, section_meta_assignments in meta_assignments.items():
+        course_section_info = get_course_section_info(lms=lms, course_section_name=section_name)
         for assignment_name, section_assignment_objects in section_meta_assignments.items():
             if assignment_name in selected_assignments:
 
@@ -268,7 +270,7 @@ def grade_flow(settings: dict, course_name: str):
                     )
                     assignment_submissions_pairs.append((section_assignment, section_submissions))
 
-                state = State
+                state = State()
 
                 # initialize the grading system
                 grds.initialize()
@@ -282,7 +284,8 @@ def grade_flow(settings: dict, course_name: str):
                     assignment_name=assignment_name,
                     assignment_submissions_pairs=assignment_submissions_pairs)
 
-                # create grader volumes, add git repos, create folder structures, initialize nbgrader
+                # create grader volumes, clone git repos, create folder structures,
+                # initialize nbgrader: generate_assignment, generate_solution
                 initialize_graders(state=state, grading_system=grds, graders=graders)
 
                 # assign graders
@@ -294,8 +297,22 @@ def grade_flow(settings: dict, course_name: str):
 
                 # compute the fraction of submissions past due for each assignment,
                 # and then return solutions for all assignments past the threshold
-                pastdue_fractions = get_pastdue_fraction(
+                pastdue_fraction = get_pastdue_fraction(
                     state=state,
+                    assignment_submissions_pairs=assignment_submissions_pairs)
+
+                # get earliest_solution_return_date
+                earliest_solution_return_date = plm.from_format(
+                    settings.earliest_solution_return_date, f'YYYY-MM-DD',
+                    tz=course_section_info.time_zone)
+
+                # return_solutions
+                return_solutions(
+                    state=state,
+                    grading_system=grds,
+                    pastdue_fraction=pastdue_fraction,
+                    return_solution_threshold=settings.return_solution_threshold,
+                    earliest_solution_return_date=earliest_solution_return_date,
                     assignment_submissions_pairs=assignment_submissions_pairs)
 
                 # collect submissions
@@ -342,7 +359,7 @@ def grade_flow(settings: dict, course_name: str):
                 return_feedback(
                     state=state,
                     grading_system=grds,
-                    pastdue_fractions=pastdue_fractions,
+                    pastdue_fraction=pastdue_fraction,
                     assignment_submissions_pairs=assignment_submissions_pairs)
 
                 # Upload grades
