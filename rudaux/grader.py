@@ -88,7 +88,7 @@ def build_grading_team(config, course_group, subm_set):
         grader['unix_group'] = config.jupyterhub_group
         grader['unix_quota'] = config.user_quota
         grader['folder'] = os.path.join(config.user_root, grader['name']).rstrip('/')
-        grader['local_source_path'] = os.path.join('source', asgn_name, asgn_name+'.ipynb')
+        grader['local_source_path'] = os.path.join(config.source_path, asgn_name, asgn_name+'.ipynb')
         grader['submissions_folder'] = os.path.join(grader['folder'], config.submissions_folder)
         grader['autograded_folder'] = os.path.join(grader['folder'], config.autograded_folder)
         grader['feedback_folder'] = os.path.join(grader['folder'], config.feedback_folder)

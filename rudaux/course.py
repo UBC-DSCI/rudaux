@@ -385,7 +385,7 @@ class Course(object):
                 print('Assignment already generated')
            
             # if solution not generated yet, generate it
-            local_path = os.path.join('source', a.name, a.name + '.ipynb')
+            local_path = os.path.join(config.source_path, a.name, a.name + '.ipynb')
             soln_name = a.name + '_solution.html' 
             print('Checking if solution generated...')
             if not os.path.exists(os.path.join(repo_path, soln_name)):
