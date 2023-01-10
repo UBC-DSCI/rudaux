@@ -83,7 +83,7 @@ class GradersListAsset(fwirl.ExternalAsset):
 
 
 # ------------------------------------------------------------------------------------------------
-class DeadlineAsset(fwirl.Asset):
+class DeadlineAsset(fwirl.ExternalAsset):
     def __init__(self, key, dependencies, resources=None, group=None, subgroup=None):
         self._built = False
         self._ts = None
@@ -96,6 +96,13 @@ class DeadlineAsset(fwirl.Asset):
 
     async def timestamp(self):
         return self._ts if self._built else fwirl.AssetStatus.Unavailable
+
+    async def get(self):
+        pass
+
+    def diff(self, val):
+        # compare to self._cached_val
+        pass
 
 
 # ------------------------------------------------------------------------------------------------
