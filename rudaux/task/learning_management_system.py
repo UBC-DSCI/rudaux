@@ -7,7 +7,7 @@ from rudaux.interface.base.learning_management_system import LearningManagementS
 
 # -----------------------------------------------------------------------------------------
 # wraps the lms.get_students function in a task and enforces validation
-@task
+# @task
 def get_students(lms: LMS, course_section_name: str) -> Dict[str, Student]:
     students = lms.get_students(course_section_name=course_section_name)
     for student_id, student in students.items():
@@ -18,7 +18,7 @@ def get_students(lms: LMS, course_section_name: str) -> Dict[str, Student]:
 
 # -----------------------------------------------------------------------------------------
 # wraps the lms.get_instructors function in a task and enforces validation
-@task
+# @task
 def get_instructors(lms: LMS, course_section_name: str) -> Dict[str, Instructor]:
     instructors = lms.get_instructors(course_section_name=course_section_name)
     for instructor_id, instructor in instructors:
@@ -30,7 +30,7 @@ def get_instructors(lms: LMS, course_section_name: str) -> Dict[str, Instructor]
 # -----------------------------------------------------------------------------------------
 
 # wraps the lms.get_assignments function in a task and enforces validation
-@task
+# @task
 def get_assignments(lms: LMS, course_group_name: str, course_section_name: str) -> Dict[str, Assignment]:
     assignments = lms.get_assignments(course_group_name=course_group_name,
                                       course_section_name=course_section_name)
@@ -43,7 +43,7 @@ def get_assignments(lms: LMS, course_group_name: str, course_section_name: str) 
 # -----------------------------------------------------------------------------------------
 
 # wraps the lms.get_course_info function in a task and enforces validation
-@task
+# @task
 def get_course_section_info(lms: LMS, course_section_name: str) -> CourseSectionInfo:
     course_info = lms.get_course_section_info(course_section_name=course_section_name)
     if not isinstance(course_info, CourseSectionInfo):
@@ -54,7 +54,7 @@ def get_course_section_info(lms: LMS, course_section_name: str) -> CourseSection
 # -----------------------------------------------------------------------------------------
 
 # wraps the lms.get_course_info function in a task and enforces validation
-@task
+# @task
 def get_submissions(lms: LMS, course_group_name: str,
                     course_section_name: str, assignment: dict) -> List[Submission]:
     submissions = lms.get_submissions(course_group_name=course_group_name,
@@ -69,7 +69,7 @@ def get_submissions(lms: LMS, course_group_name: str,
 # -----------------------------------------------------------------------------------------
 
 # wraps the lms.update_override function in a task and enforces validation
-@task
+# @task
 def update_override(lms: LMS, course_section_name: str, override: Override) -> Override:
     override = lms.update_override(course_section_name=course_section_name, override=override)
     if not isinstance(override, Override):
@@ -80,7 +80,7 @@ def update_override(lms: LMS, course_section_name: str, override: Override) -> O
 # -----------------------------------------------------------------------------------------
 
 # wraps the lms.create_overrides function in a task and enforces validation
-@task
+# @task
 def create_overrides(lms: LMS, course_section_name: str, assignment: Assignment,
                      overrides: List[Override]) -> List[Override]:
 
@@ -95,7 +95,7 @@ def create_overrides(lms: LMS, course_section_name: str, assignment: Assignment,
 # -----------------------------------------------------------------------------------------
 
 # wraps the lms.delete_overrides function in a task and enforces validation
-@task
+# @task
 def delete_overrides(lms: LMS, course_section_name: str, assignment: Assignment,
                      overrides: List[Override]) -> List[Override]:
 

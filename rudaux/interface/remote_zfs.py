@@ -16,10 +16,10 @@ class RemoteZFSSubmissions(SubmissionSystem):
     # remote_zfs_distribution_pattern: str
     remote_zfs_file_system_root: Dict[str, str]
     remote_zfs_path: Dict[str, str]
-    # zfs: Optional[RemoteZFS] = None
+    zfs: Optional[RemoteZFS] = None
 
-    # class Config:
-    #     arbitrary_types_allowed = True
+    class Config:
+        arbitrary_types_allowed = True
 
     # ---------------------------------------------------------------------------------------------------
     def open(self, course_name: str):

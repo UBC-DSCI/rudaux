@@ -4,6 +4,11 @@ import pendulum as plm
 from fwirl.resource import Resource
 from fwirl.worker import GraphWorker
 
+from rudaux.flows import load_settings
+from rudaux.model import Settings
+from rudaux.task.learning_management_system import get_assignments, get_students, get_course_section_info
+from rudaux.tasks import get_learning_management_system, get_submission_system, get_grading_system
+
 n_students = 10
 n_assignments = 5
 n_graders = 3
@@ -370,6 +375,32 @@ class GraderBuilder(GraphWorker):
 
 
 if __name__ == '__main__':
+
+    config_path = '../rudaux_config.yml'
+    course_name = 'course_dsci_100_test'
+    course_section_name = 'section_dsci_100_test_01'
+    settings = load_settings(config_path)
+
+    lms = get_learning_management_system(settings=settings, group_name=course_name)
+    submission_sys = get_submission_system(settings=settings, group_name=course_name)
+    submission_sys.open(course_name=course_name)
+    grading_sys = get_grading_system(settings=settings, group_name=course_name)
+
+    course_section_info = get_course_section_info(lms=lms, course_section_name=course_section_name)
+    students = get_students(lms=lms, course_section_name=course_section_name)
+    assignments = get_assignments(lms=lms, course_group_name=course_name,
+                                  course_section_name=course_section_name)
+
+    course_section_names = settings.course_groups[course_name]
+    selected_assignments = settings.assignments[course_name]
+
+    print('course_section_info: ', course_section_info)
+    print('students: ', students)
+    print('assignments: ', assignments)
+    print('course_section_names: ', course_section_names)
+    print('selected_assignments: ', selected_assignments)
+
+    # ----------------------------------------------
 
     g = fwirl.AssetGraph("rudaux_graph")
 

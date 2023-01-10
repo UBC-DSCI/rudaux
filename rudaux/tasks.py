@@ -8,7 +8,7 @@ def get_class_from_string(s):
     return getattr(importlib.import_module(module_name), class_name)
 
 
-@task
+# @task
 def get_learning_management_system(settings, group_name):
     LMS = get_class_from_string(settings.lms_classes[group_name])
     if not issubclass(LMS, LearningManagementSystem):
@@ -18,7 +18,7 @@ def get_learning_management_system(settings, group_name):
     return lms
 
 
-@task
+# @task
 def get_grading_system(settings, group_name):
     GrdS = get_class_from_string(settings.gs_classes[group_name])
     if not issubclass(GrdS, GradingSystem):
@@ -28,7 +28,7 @@ def get_grading_system(settings, group_name):
     return grds
 
 
-@task
+# @task
 def get_submission_system(settings, group_name):
     SubS = get_class_from_string(settings.ss_classes[group_name])
     if not issubclass(SubS, SubmissionSystem):
