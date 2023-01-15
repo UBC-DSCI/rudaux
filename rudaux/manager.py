@@ -89,21 +89,18 @@ class GradersListAsset(fwirl.ExternalAsset):
 
 # ------------------------------------------------------------------------------------------------
 class DeadlineAsset(fwirl.ExternalAsset):
-    def __init__(self, key, dependencies, resources=None, group=None, subgroup=None):
+    def __init__(self, key, dependencies, lms=None, student=None, assignment=None):
         self._built = False
         self._ts = None
+        resources = [lms]
+        group = 0   # assignment_id
+        subgroup = 0    # student_id
         super().__init__(key, dependencies, resources, group, subgroup)
-
-    async def build(self):
-        self._built = True
-        self._ts = plm.now()
-        return 3
-
-    async def timestamp(self):
-        return self._ts if self._built else fwirl.AssetStatus.Unavailable
 
     async def get(self):
         pass
+
+    # collects the value of the resource
 
     def diff(self, val):
         # compare to self._cached_val
@@ -373,9 +370,7 @@ class GraderBuilder(GraphWorker):
 
 # ------------------------------------------------------------------------------------------------
 
-
-if __name__ == '__main__':
-
+def run():
     config_path = '../rudaux_config.yml'
     course_name = 'course_dsci_100_test'
     course_section_name = 'section_dsci_100_test_01'
@@ -481,9 +476,9 @@ if __name__ == '__main__':
             deadline_asset = DeadlineAsset(
                 key=f"Deadline_A{assignment_id}_S{student_id}",
                 dependencies=[],
-                resources=[lms_resource],
-                group=assignment_id,
-                subgroup=student_id)
+                lm=ms_resource,
+                student=None,
+                )
 
             deadline_assets[f"A{assignment_id}_S{student_id}"] = deadline_asset
 
@@ -593,3 +588,7 @@ if __name__ == '__main__':
     g.summarize()
     print("refresh")
     input()
+
+
+if __name__ == '__main__':
+    run()

@@ -24,6 +24,6 @@ networkx
 notifiers
 kombu
 crontab
-
+click
 
 
