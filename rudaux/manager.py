@@ -11,18 +11,18 @@ from rudaux.model import Settings
 from rudaux.task.learning_management_system import get_assignments, get_students, get_course_section_info
 from rudaux.tasks import get_learning_management_system, get_submission_system, get_grading_system
 
-n_students = 10
-n_assignments = 5
-n_graders = 3
-
-list_of_assignments = [{'id': i, 'name': f'student_{i}'} for i in range(n_assignments)]
-list_of_students = [{'id': i, 'name': f'student_{i}'} for i in range(n_students)]
-list_of_graders = [{'id': i, 'name': f'student_{i}'} for i in range(n_graders)]
+# n_students = 10
+# n_assignments = 5
+# n_graders = 3
+#
+# list_of_assignments = [{'id': i, 'name': f'student_{i}'} for i in range(n_assignments)]
+# list_of_students = [{'id': i, 'name': f'student_{i}'} for i in range(n_students)]
+# list_of_graders = [{'id': i, 'name': f'student_{i}'} for i in range(n_graders)]
 
 
 # ------------------------------------------------------------------------------------------------
 
-def run(config_path: str):
+def run(config_path: str = '../rudaux_config.yml'):
     # config_path = '../rudaux_config.yml'
     course_name = 'course_dsci_100_test'
     course_section_name = 'section_dsci_100_test_01'
@@ -60,8 +60,8 @@ def run(config_path: str):
     selected_assignments = settings.assignments[course_name]
 
     print('course_section_info: ', course_section_info)
-    print('students: ', students)
-    print('assignments: ', assignments)
+    # print('students: ', students)
+    # print('assignments: ', assignments)
     print('course_section_names: ', course_section_names)
     print('selected_assignments: ', selected_assignments)
 
@@ -85,8 +85,8 @@ def run(config_path: str):
     # SubmissionBuilder(watched_assets=[assignments_list_asset, students_list_asset, graders_list_asset])
     # GraderBuilder(watched_assets=[students_list_asset, graders_list_asset])
 
-    for assignment in list_of_assignments:
-        assignment_id = assignment['id']
+    for assignment_id, assignment in assignments.items():
+        print(assignment)
 
         # -----------------------------------------------------------------------------
         # # dependencies: uploaded_grade_asset -> submission_manually_graded_asset
@@ -115,8 +115,8 @@ def run(config_path: str):
 
         # -----------------------------------------------------------------------------
 
-        for student in list_of_students:
-            student_id = student['id']
+        for student_id, student in students.items():
+            print(student)
 
             # -----------------------------------------------------------------------------
             # dependencies: deadline_asset -> []
@@ -124,8 +124,8 @@ def run(config_path: str):
                 key=f"Deadline_A{assignment_id}_S{student_id}",
                 dependencies=[],
                 lms_resource=lms_resource,
-                student=None,
-                assignment=None
+                student=student,
+                assignment=assignment
             )
 
             deadline_assets[f"A{assignment_id}_S{student_id}"] = deadline_asset

@@ -1,6 +1,8 @@
 import fwirl
 import pendulum as plm
 from rudaux.fwirl_components.fwirl_resources import LMSResource
+from rudaux.model.student import Student
+from rudaux.model.assignment import Assignment
 from fwirl.resource import Resource
 from fwirl.worker import GraphWorker
 
@@ -71,7 +73,8 @@ class GradersListAsset(fwirl.ExternalAsset):
 
 # ------------------------------------------------------------------------------------------------
 class DeadlineAsset(fwirl.ExternalAsset):
-    def __init__(self, key, dependencies, lms_resource=None, student=None, assignment=None):
+    def __init__(self, key, dependencies, lms_resource,
+                 student: Student, assignment: Assignment):
         self._built = False
         self._ts = None
         self.lms_resource = lms_resource
