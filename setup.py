@@ -15,5 +15,5 @@ setup(
   packages=find_packages(),
   zip_safe=False,
   install_requires=requirements,
-  scripts=['bin/rudaux']
+  # scripts=['bin/rudaux']
 )

@@ -29,3 +29,4 @@ def run(config_path):
 
 cli.add_command(run)
 
+# python rudaux/cli.py run
