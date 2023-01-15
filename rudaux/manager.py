@@ -22,7 +22,7 @@ from rudaux.tasks import get_learning_management_system, get_submission_system, 
 
 # ------------------------------------------------------------------------------------------------
 
-def run(config_path: str = '../rudaux_config.yml'):
+def manager_run(config_path: str = '../rudaux_config.yml'):
     # config_path = '../rudaux_config.yml'
     course_name = 'course_dsci_100_test'
     course_section_name = 'section_dsci_100_test_01'
@@ -239,4 +239,4 @@ def run(config_path: str = '../rudaux_config.yml'):
 
 
 if __name__ == '__main__':
-    run()
+    manager_run()

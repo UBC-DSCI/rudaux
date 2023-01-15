@@ -3,7 +3,7 @@ from fwirl.api import (
     summarize as api_summarize,
 )
 from fwirl.message import __RABBIT_URL__
-from manager import run
+from manager import manager_run
 
 
 @click.group()
@@ -22,11 +22,15 @@ cli.add_command(summarize)
 
 
 @click.command()
-@click.option("--config_path", default="../rudaux_config.yml")
+@click.option("--config_path", type=click.STRING, default="../rudaux_config.yml")
 def run(config_path):
-    run(config_path)
+    manager_run(config_path)
 
 
 cli.add_command(run)
 
 # python rudaux/cli.py run
+
+if __name__ == '__main__':
+    cli()
+    run()
