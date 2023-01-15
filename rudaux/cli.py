@@ -1,16 +1,9 @@
 import click
 from fwirl.api import (
     summarize as api_summarize,
-    ls as api_ls,
-    refresh as api_refresh,
-    build as api_build,
-    pause as api_pause,
-    unpause as api_unpause,
-    schedule as api_schedule,
-    unschedule as api_unschedule,
-    shutdown as api_shutdown
 )
 from fwirl.message import __RABBIT_URL__
+from manager import run
 
 
 @click.group()
@@ -29,16 +22,10 @@ cli.add_command(summarize)
 
 
 @click.command()
-@click.argument("graph")
-@click.option("--rabbit_url", default=__RABBIT_URL__)
-def shutdown(graph, rabbit_url):
-    api_shutdown(graph, rabbit_url)
+@click.option("--config_path", default="../rudaux_config.yml")
+def run(config_path):
+    run(config_path)
 
 
-cli.add_command(shutdown)
+cli.add_command(run)
 
-
-# run: calls the run from graph and build the grraph and call initialize and run
-# arg: path to the configfile
-
-# summarize: uses fwirl api

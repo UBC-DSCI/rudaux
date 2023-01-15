@@ -1,8 +1,10 @@
 import fwirl
 import pendulum as plm
+from rudaux.fwirl_components.fwirl_assets import AssignmentsListAsset, StudentsListAsset, \
+    GradersListAsset, DeadlineAsset
 
-from fwirl.resource import Resource
-from fwirl.worker import GraphWorker
+from rudaux.fwirl_components.fwirl_resources import LMSResource, SubmissionSystemResource, GradingSystemResource
+from rudaux.fwirl_components.fwirl_workers import SubmissionBuilder, GraderBuilder
 
 from rudaux.flows import load_settings
 from rudaux.model import Settings
@@ -19,359 +21,9 @@ list_of_graders = [{'id': i, 'name': f'student_{i}'} for i in range(n_graders)]
 
 
 # ------------------------------------------------------------------------------------------------
-class AssignmentsListAsset(fwirl.ExternalAsset):
-    def __init__(self, key, dependencies, resources=None, group=None, subgroup=None):
-        self._built = False
-        self._ts = None
-        super().__init__(key, dependencies, resources, group, subgroup)
 
-    async def build(self):
-        self._built = True
-        self._ts = plm.now()
-        return 3
-
-    async def timestamp(self):
-        return self._ts if self._built else fwirl.AssetStatus.Unavailable
-
-    async def get(self):
-        pass
-
-    def diff(self, val):
-        # compare to self._cached_val
-        pass
-
-
-# ------------------------------------------------------------------------------------------------
-class StudentsListAsset(fwirl.ExternalAsset):
-    def __init__(self, key, dependencies, resources=None, group=None, subgroup=None):
-        self._built = False
-        self._ts = None
-        super().__init__(key, dependencies, resources, group, subgroup)
-
-    async def build(self):
-        self._built = True
-        self._ts = plm.now()
-        return 3
-
-    async def timestamp(self):
-        return self._ts if self._built else fwirl.AssetStatus.Unavailable
-
-    async def get(self):
-        pass
-
-    def diff(self, val):
-        # compare to self._cached_val
-        pass
-
-
-# ------------------------------------------------------------------------------------------------
-class GradersListAsset(fwirl.ExternalAsset):
-    def __init__(self, key, dependencies, resources=None, group=None, subgroup=None):
-        self._built = False
-        self._ts = None
-        super().__init__(key, dependencies, resources, group, subgroup)
-
-    async def build(self):
-        self._built = True
-        self._ts = plm.now()
-        return 3
-
-    async def timestamp(self):
-        return self._ts if self._built else fwirl.AssetStatus.Unavailable
-
-    async def get(self):
-        pass
-
-    def diff(self, val):
-        # compare to self._cached_val
-        pass
-
-
-# ------------------------------------------------------------------------------------------------
-class DeadlineAsset(fwirl.ExternalAsset):
-    def __init__(self, key, dependencies, lms=None, student=None, assignment=None):
-        self._built = False
-        self._ts = None
-        resources = [lms]
-        group = 0   # assignment_id
-        subgroup = 0    # student_id
-        super().__init__(key, dependencies, resources, group, subgroup)
-
-    async def get(self):
-        pass
-
-    # collects the value of the resource
-
-    def diff(self, val):
-        # compare to self._cached_val
-        pass
-
-
-# ------------------------------------------------------------------------------------------------
-class SubmissionRawAsset(fwirl.Asset):
-    def __init__(self, key, dependencies, resources=None, group=None, subgroup=None):
-        self._built = False
-        self._ts = None
-        super().__init__(key, dependencies, resources, group, subgroup)
-
-    async def build(self):
-        self._built = True
-        self._ts = plm.now()
-        return 3
-
-    async def timestamp(self):
-        return self._ts if self._built else fwirl.AssetStatus.Unavailable
-
-
-# ------------------------------------------------------------------------------------------------
-class SubmissionCleanedAsset(fwirl.Asset):
-    def __init__(self, key, dependencies, resources=None, group=None, subgroup=None):
-        self._built = False
-        self._ts = None
-        super().__init__(key, dependencies, resources, group, subgroup)
-
-    async def build(self):
-        self._built = True
-        self._ts = plm.now()
-        return 3
-
-    async def timestamp(self):
-        return self._ts if self._built else fwirl.AssetStatus.Unavailable
-
-
-# ------------------------------------------------------------------------------------------------
-class SubmissionAutoGradedAsset(fwirl.Asset):
-    def __init__(self, key, dependencies, resources=None, group=None, subgroup=None):
-        self._built = False
-        self._ts = None
-        super().__init__(key, dependencies, resources, group, subgroup)
-
-    async def build(self):
-        self._built = True
-        self._ts = plm.now()
-        return 3
-
-    async def timestamp(self):
-        return self._ts if self._built else fwirl.AssetStatus.Unavailable
-
-
-# ------------------------------------------------------------------------------------------------
-class SubmissionManuallyGradedAsset(fwirl.ExternalAsset):
-    def __init__(self, key, dependencies, resources=None, group=None, subgroup=None):
-        self._built = False
-        self._ts = None
-        super().__init__(key, dependencies, resources, group, subgroup)
-
-    async def build(self):
-        self._built = True
-        self._ts = plm.now()
-        return 3
-
-    async def timestamp(self):
-        return self._ts if self._built else fwirl.AssetStatus.Unavailable
-
-    async def get(self):
-        pass
-
-    def diff(self, val):
-        # compare to self._cached_val
-        pass
-
-
-# ------------------------------------------------------------------------------------------------
-class GeneratedFeedbackAsset(fwirl.Asset):
-    def __init__(self, key, dependencies, resources=None, group=None, subgroup=None):
-        self._built = False
-        self._ts = None
-        super().__init__(key, dependencies, resources, group, subgroup)
-
-    async def build(self):
-        self._built = True
-        self._ts = plm.now()
-        return 3
-
-    async def timestamp(self):
-        return self._ts if self._built else fwirl.AssetStatus.Unavailable
-
-
-# ------------------------------------------------------------------------------------------------
-class ReturnedFeedbackAsset(fwirl.Asset):
-    def __init__(self, key, dependencies, resources=None, group=None, subgroup=None):
-        self._built = False
-        self._ts = None
-        super().__init__(key, dependencies, resources, group, subgroup)
-
-    async def build(self):
-        self._built = True
-        self._ts = plm.now()
-        return 3
-
-    async def timestamp(self):
-        return self._ts if self._built else fwirl.AssetStatus.Unavailable
-
-
-# ------------------------------------------------------------------------------------------------
-class UploadedGradeAsset(fwirl.ExternalAsset):
-    def __init__(self, key, dependencies, resources=None, group=None, subgroup=None):
-        self._built = False
-        self._ts = None
-        super().__init__(key, dependencies, resources, group, subgroup)
-
-    async def build(self):
-        self._built = True
-        self._ts = plm.now()
-        return 3
-
-    async def timestamp(self):
-        return self._ts if self._built else fwirl.AssetStatus.Unavailable
-
-    async def get(self):
-        pass
-
-    def diff(self, val):
-        # compare to self._cached_val
-        pass
-
-
-# ------------------------------------------------------------------------------------------------
-class SubmittedFractionAsset(fwirl.ExternalAsset):
-    def __init__(self, key, dependencies, resources=None, group=None, subgroup=None):
-        self._built = False
-        self._ts = None
-        super().__init__(key, dependencies, resources, group, subgroup)
-
-    async def build(self):
-        self._built = True
-        self._ts = plm.now()
-        return 3
-
-    async def timestamp(self):
-        return self._ts if self._built else fwirl.AssetStatus.Unavailable
-
-    async def get(self):
-        pass
-
-    def diff(self, val):
-        # compare to self._cached_val
-        pass
-
-
-# ------------------------------------------------------------------------------------------------
-class ReturnedSolutionAsset(fwirl.Asset):
-    def __init__(self, key, dependencies, resources=None, group=None, subgroup=None):
-        self._built = False
-        self._ts = None
-        super().__init__(key, dependencies, resources, group, subgroup)
-
-    async def build(self):
-        self._built = True
-        self._ts = plm.now()
-        return 3
-
-    async def timestamp(self):
-        return self._ts if self._built else fwirl.AssetStatus.Unavailable
-
-
-# ------------------------------------------------------------------------------------------------
-class GraderAccountAsset(fwirl.Asset):
-    def __init__(self, key, dependencies, resources=None, group=None, subgroup=None):
-        self._built = False
-        self._ts = None
-        super().__init__(key, dependencies, resources, group, subgroup)
-
-    async def build(self):
-        self._built = True
-        self._ts = plm.now()
-        return 3
-
-    async def timestamp(self):
-        return self._ts if self._built else fwirl.AssetStatus.Unavailable
-
-
-# ------------------------------------------------------------------------------------------------
-# Resources
-# ------------------------------------------------------------------------------------------------
-class LMSResource(Resource):
-    def __init__(self, key):
-        self.hash = hash(key)
-        self.key = key
-        super().__init__(key)
-
-        self.list_of_students = list_of_students
-        self.list_of_assignments = list_of_assignments
-        self.list_of_graders = list_of_graders
-
-    def init(self):
-        pass
-
-    def close(self):
-        pass
-
-
-# ------------------------------------------------------------------------------------------------
-class GradingSystemResource(Resource):
-    def __init__(self, key):
-        self.hash = hash(key)
-        self.key = key
-        super().__init__(key)
-
-        self.list_of_students = list_of_students
-        self.list_of_assignments = list_of_assignments
-        self.list_of_graders = list_of_graders
-
-    def init(self):
-        pass
-
-    def close(self):
-        pass
-
-
-# ------------------------------------------------------------------------------------------------
-class SubmissionSystemResource(Resource):
-    def __init__(self, key):
-        self.hash = hash(key)
-        self.key = key
-        super().__init__(key)
-
-        self.list_of_students = list_of_students
-        self.list_of_assignments = list_of_assignments
-        self.list_of_graders = list_of_graders
-
-    def init(self):
-        pass
-
-    def close(self):
-        pass
-
-
-# ------------------------------------------------------------------------------------------------
-# Workers
-# ------------------------------------------------------------------------------------------------
-class SubmissionBuilder(GraphWorker):
-
-    def __init__(self, watched_assets):
-        self.watched_assets = watched_assets
-        super().__init__(watched_assets)
-
-    def restructure(self, graph):
-        pass
-
-
-# ------------------------------------------------------------------------------------------------
-class GraderBuilder(GraphWorker):
-
-    def __init__(self, watched_assets):
-        self.watched_assets = watched_assets
-        super().__init__(watched_assets)
-
-    def restructure(self, graph):
-        pass
-
-
-# ------------------------------------------------------------------------------------------------
-
-def run():
-    config_path = '../rudaux_config.yml'
+def run(config_path: str):
+    # config_path = '../rudaux_config.yml'
     course_name = 'course_dsci_100_test'
     course_section_name = 'section_dsci_100_test_01'
     settings = load_settings(config_path)
@@ -380,20 +32,6 @@ def run():
     submission_sys = get_submission_system(settings=settings, group_name=course_name)
     submission_sys.open(course_name=course_name)
     grading_sys = get_grading_system(settings=settings, group_name=course_name)
-
-    course_section_info = get_course_section_info(lms=lms, course_section_name=course_section_name)
-    students = get_students(lms=lms, course_section_name=course_section_name)
-    assignments = get_assignments(lms=lms, course_group_name=course_name,
-                                  course_section_name=course_section_name)
-
-    course_section_names = settings.course_groups[course_name]
-    selected_assignments = settings.assignments[course_name]
-
-    print('course_section_info: ', course_section_info)
-    print('students: ', students)
-    print('assignments: ', assignments)
-    print('course_section_names: ', course_section_names)
-    print('selected_assignments: ', selected_assignments)
 
     # ----------------------------------------------
 
@@ -410,61 +48,70 @@ def run():
     uploaded_grade_assets = dict()
     returned_solution_assets = dict()
 
-    lms_resource = LMSResource(key=0)
-    grading_system_resource = GradingSystemResource(key=0)
-    submission_system_resource = SubmissionSystemResource(key=0)
+    lms_resource = LMSResource(key=0, settings=settings, course_name=course_name)
+    # grading_system_resource = GradingSystemResource(key=0)
+    # submission_system_resource = SubmissionSystemResource(key=0)
+
+    course_section_info = lms_resource.get_course_section_info(course_section_name=course_section_name)
+    students = lms_resource.get_students(course_section_name=course_section_name)
+    assignments = lms_resource.get_assignments(course_section_name=course_section_name)
+
+    course_section_names = settings.course_groups[course_name]
+    selected_assignments = settings.assignments[course_name]
+
+    print('course_section_info: ', course_section_info)
+    print('students: ', students)
+    print('assignments: ', assignments)
+    print('course_section_names: ', course_section_names)
+    print('selected_assignments: ', selected_assignments)
+
+    min_polling_interval = 1
 
     assignments_list_asset = AssignmentsListAsset(
-        key=f"AssignmentsList",
-        dependencies=[],
-        resources=None,
-        group=0,
-        subgroup=0)
+        key=f"AssignmentsList", dependencies=[], lms_resource=lms_resource,
+        min_polling_interval=min_polling_interval, course_section_name=course_section_name)
 
     students_list_asset = StudentsListAsset(
-        key=f"StudentsListAsset",
-        dependencies=[],
-        resources=None,
-        group=0,
-        subgroup=0)
+        key=f"AssignmentsList", dependencies=[], lms_resource=lms_resource,
+        min_polling_interval=min_polling_interval, course_section_name=course_section_name)
 
-    graders_list_asset = GradersListAsset(
-        key=f"GradersListAsset",
-        dependencies=[],
-        resources=[grading_system_resource],
-        group=0,
-        subgroup=0)
+    # graders_list_asset = GradersListAsset(
+    #     key=f"GradersListAsset",
+    #     dependencies=[],
+    #     resources=[grading_system_resource],
+    #     group=0,
+    #     subgroup=0)
 
-    SubmissionBuilder(watched_assets=[assignments_list_asset, students_list_asset, graders_list_asset])
-    GraderBuilder(watched_assets=[students_list_asset, graders_list_asset])
+    # SubmissionBuilder(watched_assets=[assignments_list_asset, students_list_asset, graders_list_asset])
+    # GraderBuilder(watched_assets=[students_list_asset, graders_list_asset])
 
     for assignment in list_of_assignments:
         assignment_id = assignment['id']
 
         # -----------------------------------------------------------------------------
-        # dependencies: uploaded_grade_asset -> submission_manually_graded_asset
-        submitted_fraction_asset = SubmittedFractionAsset(
-            key=f"SubmittedFraction_A{assignment_id}",
-            dependencies=[],
-            resources=[submission_system_resource],
-            group=assignment_id,
-            subgroup=0)
-
-        uploaded_grade_assets[f"A{assignment_id}"] = submitted_fraction_asset
+        # # dependencies: uploaded_grade_asset -> submission_manually_graded_asset
+        # submitted_fraction_asset = SubmittedFractionAsset(
+        #     key=f"SubmittedFraction_A{assignment_id}",
+        #     dependencies=[],
+        #     resources=[submission_system_resource],
+        #     group=assignment_id,
+        #     subgroup=0)
+        #
+        # uploaded_grade_assets[f"A{assignment_id}"] = submitted_fraction_asset
         # -----------------------------------------------------------------------------
 
-        for grader in list_of_graders:
-            grader_id = grader['id']
-
-            # dependencies: grader_account_asset ->
-            grader_account_asset = GraderAccountAsset(
-                key=f"GraderAccount_A{assignment_id}",
-                dependencies=[],
-                resources=None,
-                group=assignment_id,
-                subgroup=grader_id)
-
-            grader_account_assets[f"A{assignment_id}_G{grader_id}"] = grader_account_asset
+        # for grader in list_of_graders:
+        #     grader_id = grader['id']
+        #
+        #     # dependencies: grader_account_asset ->
+        #     grader_account_asset = GraderAccountAsset(
+        #         key=f"GraderAccount_A{assignment_id}",
+        #         dependencies=[],
+        #         resources=None,
+        #         group=assignment_id,
+        #         subgroup=grader_id)
+        #
+        #     grader_account_assets[f"A{assignment_id}_G{grader_id}"] = grader_account_asset
 
         # -----------------------------------------------------------------------------
 
@@ -476,114 +123,115 @@ def run():
             deadline_asset = DeadlineAsset(
                 key=f"Deadline_A{assignment_id}_S{student_id}",
                 dependencies=[],
-                lm=ms_resource,
+                lms_resource=lms_resource,
                 student=None,
-                )
+                assignment=None
+            )
 
             deadline_assets[f"A{assignment_id}_S{student_id}"] = deadline_asset
 
             # -----------------------------------------------------------------------------
-            # dependencies: submission_asset -> deadline_asset
-            submission_raw_asset = SubmissionRawAsset(
-                key=f"SubmissionRaw_A{assignment_id}_S{student_id}",
-                dependencies=[deadline_asset],
-                resources=[submission_system_resource],
-                group=assignment_id,
-                subgroup=student_id)
-
-            submission_raw_assets[f"A{assignment_id}_S{student_id}"] = submission_raw_asset
-
-            # -----------------------------------------------------------------------------
-            # dependencies: submission_cleaned_asset -> submission_asset
-            submission_cleaned_asset = SubmissionCleanedAsset(
-                key=f"SubmissionCleaned_A{assignment_id}_S{student_id}",
-                dependencies=[submission_raw_asset],
-                resources=None,
-                group=assignment_id,
-                subgroup=student_id)
-
-            submission_cleaned_assets[f"A{assignment_id}_S{student_id}"] = submission_cleaned_asset
+            # # dependencies: submission_asset -> deadline_asset
+            # submission_raw_asset = SubmissionRawAsset(
+            #     key=f"SubmissionRaw_A{assignment_id}_S{student_id}",
+            #     dependencies=[deadline_asset],
+            #     resources=[submission_system_resource],
+            #     group=assignment_id,
+            #     subgroup=student_id)
+            #
+            # submission_raw_assets[f"A{assignment_id}_S{student_id}"] = submission_raw_asset
 
             # -----------------------------------------------------------------------------
-            # dependencies: submission_auto_graded_asset -> submission_cleaned_asset
-            submission_auto_graded_asset = SubmissionAutoGradedAsset(
-                key=f"SubmissionAutoGraded_A{assignment_id}_S{student_id}",
-                dependencies=[submission_cleaned_asset],
-                resources=None,
-                group=assignment_id,
-                subgroup=student_id)
-
-            submission_auto_graded_assets[f"A{assignment_id}_S{student_id}"] = submission_auto_graded_asset
-
-            # -----------------------------------------------------------------------------
-            # dependencies: submission_manually_graded_asset -> submission_auto_graded_asset
-            submission_manually_graded_asset = SubmissionManuallyGradedAsset(
-                key=f"SubmissionManuallyGraded_A{assignment_id}_S{student_id}",
-                dependencies=[submission_auto_graded_asset],
-                resources=None,
-                group=assignment_id,
-                subgroup=student_id)
-
-            submission_manually_graded_assets[f"A{assignment_id}_S{student_id}"] = submission_manually_graded_asset
+            # # dependencies: submission_cleaned_asset -> submission_asset
+            # submission_cleaned_asset = SubmissionCleanedAsset(
+            #     key=f"SubmissionCleaned_A{assignment_id}_S{student_id}",
+            #     dependencies=[submission_raw_asset],
+            #     resources=None,
+            #     group=assignment_id,
+            #     subgroup=student_id)
+            #
+            # submission_cleaned_assets[f"A{assignment_id}_S{student_id}"] = submission_cleaned_asset
 
             # -----------------------------------------------------------------------------
-            # dependencies: generated_feedback_asset -> submission_manually_graded_asset
-            generated_feedback_asset = GeneratedFeedbackAsset(
-                key=f"GeneratedFeedback_A{assignment_id}_S{student_id}",
-                dependencies=[submission_manually_graded_asset],
-                resources=None,
-                group=assignment_id,
-                subgroup=student_id)
-
-            generated_feedback_assets[f"A{assignment_id}_S{student_id}"] = generated_feedback_asset
-
-            # -----------------------------------------------------------------------------
-            # dependencies: returned_feedback_asset -> generated_feedback_asset
-            returned_feedback_asset = ReturnedFeedbackAsset(
-                key=f"ReturnedFeedback_A{assignment_id}_S{student_id}",
-                dependencies=[generated_feedback_asset],
-                resources=None,
-                group=assignment_id,
-                subgroup=student_id)
-
-            returned_feedback_assets[f"A{assignment_id}_S{student_id}"] = returned_feedback_asset
+            # # dependencies: submission_auto_graded_asset -> submission_cleaned_asset
+            # submission_auto_graded_asset = SubmissionAutoGradedAsset(
+            #     key=f"SubmissionAutoGraded_A{assignment_id}_S{student_id}",
+            #     dependencies=[submission_cleaned_asset],
+            #     resources=None,
+            #     group=assignment_id,
+            #     subgroup=student_id)
+            #
+            # submission_auto_graded_assets[f"A{assignment_id}_S{student_id}"] = submission_auto_graded_asset
 
             # -----------------------------------------------------------------------------
-            # dependencies: uploaded_grade_asset -> submission_manually_graded_asset
-            uploaded_grade_asset = UploadedGradeAsset(
-                key=f"GeneratedFeedback_A{assignment_id}_S{student_id}",
-                dependencies=[submission_manually_graded_asset],
-                resources=None,
-                group=assignment_id,
-                subgroup=student_id)
-
-            uploaded_grade_assets[f"A{assignment_id}_S{student_id}"] = uploaded_grade_asset
-
-            # -----------------------------------------------------------------------------
-            # dependencies: returned_solution_asset -> [deadline_asset, submitted_fraction_asset]
-            returned_solution_asset = ReturnedSolutionAsset(
-                key=f"ReturnedSolution_A{assignment_id}_S{student_id}",
-                dependencies=[deadline_asset, submitted_fraction_asset],
-                resources=None,
-                group=assignment_id,
-                subgroup=student_id)
-
-            returned_solution_assets[f"A{assignment_id}_S{student_id}"] = returned_solution_asset
+            # # dependencies: submission_manually_graded_asset -> submission_auto_graded_asset
+            # submission_manually_graded_asset = SubmissionManuallyGradedAsset(
+            #     key=f"SubmissionManuallyGraded_A{assignment_id}_S{student_id}",
+            #     dependencies=[submission_auto_graded_asset],
+            #     resources=None,
+            #     group=assignment_id,
+            #     subgroup=student_id)
+            #
+            # submission_manually_graded_assets[f"A{assignment_id}_S{student_id}"] = submission_manually_graded_asset
 
             # -----------------------------------------------------------------------------
+            # # dependencies: generated_feedback_asset -> submission_manually_graded_asset
+            # generated_feedback_asset = GeneratedFeedbackAsset(
+            #     key=f"GeneratedFeedback_A{assignment_id}_S{student_id}",
+            #     dependencies=[submission_manually_graded_asset],
+            #     resources=None,
+            #     group=assignment_id,
+            #     subgroup=student_id)
+            #
+            # generated_feedback_assets[f"A{assignment_id}_S{student_id}"] = generated_feedback_asset
+
+            # -----------------------------------------------------------------------------
+            # # dependencies: returned_feedback_asset -> generated_feedback_asset
+            # returned_feedback_asset = ReturnedFeedbackAsset(
+            #     key=f"ReturnedFeedback_A{assignment_id}_S{student_id}",
+            #     dependencies=[generated_feedback_asset],
+            #     resources=None,
+            #     group=assignment_id,
+            #     subgroup=student_id)
+            #
+            # returned_feedback_assets[f"A{assignment_id}_S{student_id}"] = returned_feedback_asset
+
+            # -----------------------------------------------------------------------------
+            # # dependencies: uploaded_grade_asset -> submission_manually_graded_asset
+            # uploaded_grade_asset = UploadedGradeAsset(
+            #     key=f"GeneratedFeedback_A{assignment_id}_S{student_id}",
+            #     dependencies=[submission_manually_graded_asset],
+            #     resources=None,
+            #     group=assignment_id,
+            #     subgroup=student_id)
+            #
+            # uploaded_grade_assets[f"A{assignment_id}_S{student_id}"] = uploaded_grade_asset
+
+            # -----------------------------------------------------------------------------
+            # # dependencies: returned_solution_asset -> [deadline_asset, submitted_fraction_asset]
+            # returned_solution_asset = ReturnedSolutionAsset(
+            #     key=f"ReturnedSolution_A{assignment_id}_S{student_id}",
+            #     dependencies=[deadline_asset, submitted_fraction_asset],
+            #     resources=None,
+            #     group=assignment_id,
+            #     subgroup=student_id)
+            #
+            # returned_solution_assets[f"A{assignment_id}_S{student_id}"] = returned_solution_asset
 
             # -----------------------------------------------------------------------------
 
-    g.add_assets(list(grader_account_assets.values()))
+            # -----------------------------------------------------------------------------
+
+    # g.add_assets(list(grader_account_assets.values()))
     g.add_assets(list(deadline_assets.values()))
-    g.add_assets(list(submission_raw_assets.values()))
-    g.add_assets(list(submission_cleaned_assets.values()))
-    g.add_assets(list(submission_auto_graded_assets.values()))
-    g.add_assets(list(submission_manually_graded_assets.values()))
-    g.add_assets(list(generated_feedback_assets.values()))
-    g.add_assets(list(returned_feedback_assets.values()))
-    g.add_assets(list(uploaded_grade_assets.values()))
-    g.add_assets(list(returned_solution_assets.values()))
+    # g.add_assets(list(submission_raw_assets.values()))
+    # g.add_assets(list(submission_cleaned_assets.values()))
+    # g.add_assets(list(submission_auto_graded_assets.values()))
+    # g.add_assets(list(submission_manually_graded_assets.values()))
+    # g.add_assets(list(generated_feedback_assets.values()))
+    # g.add_assets(list(returned_feedback_assets.values()))
+    # g.add_assets(list(uploaded_grade_assets.values()))
+    # g.add_assets(list(returned_solution_assets.values()))
 
     g.summarize()
     print("refresh")
