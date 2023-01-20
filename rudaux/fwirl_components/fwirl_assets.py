@@ -78,15 +78,23 @@ class DeadlineAsset(fwirl.ExternalAsset):
         self._built = False
         self._ts = None
         self.lms_resource = lms_resource
-        group = 0  # assignment_id
-        subgroup = 0  # student_id
+        self.student = student
+        self.assignment = assignment
+        group = assignment.lms_id  # assignment_id
+        subgroup = student.lms_id  # student_id
         super().__init__(key=key, dependencies=dependencies,
                          resources=[self.lms_resource],
-                         group=0, subgroup=0, min_polling_interval=1)
+                         group=group, subgroup=subgroup,
+                         min_polling_interval=1)
 
     async def get(self):
-        pass
-
+        self._cached_val = dict()
+        for override_id, override in self.assignment.overrides.items():
+            for student_id, student in override.students.items():
+                if student_id == self.student.lms_id:
+                    self._cached_val['due_at'] = override.due_at
+                    break
+                           
     # collects the value of the resource
 
     def diff(self, val):
