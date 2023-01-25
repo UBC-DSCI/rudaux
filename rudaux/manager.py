@@ -1,15 +1,16 @@
 import fwirl
 import pendulum as plm
-from rudaux.fwirl_components.fwirl_assets import AssignmentsListAsset, StudentsListAsset, \
+from rudaux.fwirl_components.assets import AssignmentsListAsset, StudentsListAsset, \
     GradersListAsset, DeadlineAsset
 
-from rudaux.fwirl_components.fwirl_resources import LMSResource, SubmissionSystemResource, GradingSystemResource
-from rudaux.fwirl_components.fwirl_workers import SubmissionBuilder, GraderBuilder
+from rudaux.fwirl_components.resources import LMSResource, SubmissionSystemResource, GradingSystemResource
+from rudaux.fwirl_components.workers import SubmissionBuilder, GraderBuilder
 
 from rudaux.flows import load_settings
 from rudaux.model import Settings
 from rudaux.task.learning_management_system import get_assignments, get_students, get_course_section_info
 from rudaux.tasks import get_learning_management_system, get_submission_system, get_grading_system
+
 
 # n_students = 10
 # n_assignments = 5
@@ -35,7 +36,7 @@ def manager_run(config_path: str = '../rudaux_config.yml'):
 
     # ----------------------------------------------
 
-    g = fwirl.AssetGraph("rudaux_graph")
+    graph = fwirl.AssetGraph("rudaux_graph")
 
     grader_account_assets = dict()
     deadline_assets = dict()
@@ -48,7 +49,7 @@ def manager_run(config_path: str = '../rudaux_config.yml'):
     uploaded_grade_assets = dict()
     returned_solution_assets = dict()
 
-    lms_resource = LMSResource(key=0, settings=settings, course_name=course_name)
+    lms_resource = LMSResource(key=0, settings=settings, course_name=course_name, min_query_interval=10)
     # grading_system_resource = GradingSystemResource(key=0)
     # submission_system_resource = SubmissionSystemResource(key=0)
 
@@ -74,6 +75,13 @@ def manager_run(config_path: str = '../rudaux_config.yml'):
     students_list_asset = StudentsListAsset(
         key=f"AssignmentsList", dependencies=[], lms_resource=lms_resource,
         min_polling_interval=min_polling_interval, course_section_name=course_section_name)
+
+    submission_builder = SubmissionBuilder(
+        assignments_list_asset=assignments_list_asset,
+        students_list_asset=students_list_asset,
+        lms_resource=lms_resource)
+
+    graph.workers.append(submission_builder)
 
     # graders_list_asset = GradersListAsset(
     #     key=f"GradersListAsset",
@@ -120,15 +128,15 @@ def manager_run(config_path: str = '../rudaux_config.yml'):
 
             # -----------------------------------------------------------------------------
             # dependencies: deadline_asset -> []
-            deadline_asset = DeadlineAsset(
-                key=f"Deadline_A{assignment_id}_S{student_id}",
-                dependencies=[],
-                lms_resource=lms_resource,
-                student=student,
-                assignment=assignment
-            )
-
-            deadline_assets[f"A{assignment_id}_S{student_id}"] = deadline_asset
+            # deadline_asset = DeadlineAsset(
+            #     key=f"Deadline_A{assignment_id}_S{student_id}",
+            #     dependencies=[],
+            #     lms_resource=lms_resource,
+            #     student=student,
+            #     assignment=assignment
+            # )
+            #
+            # deadline_assets[f"A{assignment_id}_S{student_id}"] = deadline_asset
 
             # -----------------------------------------------------------------------------
             # # dependencies: submission_asset -> deadline_asset
@@ -223,7 +231,7 @@ def manager_run(config_path: str = '../rudaux_config.yml'):
             # -----------------------------------------------------------------------------
 
     # g.add_assets(list(grader_account_assets.values()))
-    g.add_assets(list(deadline_assets.values()))
+    # graph.add_assets(list(deadline_assets.values()))
     # g.add_assets(list(submission_raw_assets.values()))
     # g.add_assets(list(submission_cleaned_assets.values()))
     # g.add_assets(list(submission_auto_graded_assets.values()))
@@ -233,7 +241,7 @@ def manager_run(config_path: str = '../rudaux_config.yml'):
     # g.add_assets(list(uploaded_grade_assets.values()))
     # g.add_assets(list(returned_solution_assets.values()))
 
-    g.summarize()
+    graph.summarize()
     print("refresh")
     input()
 

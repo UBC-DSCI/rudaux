@@ -1,6 +1,7 @@
 import fwirl
 import pendulum as plm
-from rudaux.fwirl_components.fwirl_resources import LMSResource
+from typing import Dict
+from rudaux.fwirl_components.resources import LMSResource
 from rudaux.model.student import Student
 from rudaux.model.assignment import Assignment
 from fwirl.resource import Resource
@@ -27,12 +28,13 @@ class AssignmentsListAsset(fwirl.ExternalAsset):
                          group=0, subgroup=0,
                          min_polling_interval=min_polling_interval)
 
-    async def get(self):
-        self._cached_val = self.lms_resource.get_assignments(course_section_name=self.course_section_name)
+    async def get(self) -> Dict[str, Assignment]:
+        return self.lms_resource.get_assignments(course_section_name=self.course_section_name)
 
     def diff(self, val):
         # compare to self._cached_val
-        return self._cached_val == val
+        # make object specific comparison here and return true or false
+        return self._cached_val != val
 
 
 # ------------------------------------------------------------------------------------------------
@@ -94,7 +96,7 @@ class DeadlineAsset(fwirl.ExternalAsset):
                 if student_id == self.student.lms_id:
                     self._cached_val['due_at'] = override.due_at
                     break
-                           
+
     # collects the value of the resource
 
     def diff(self, val):
