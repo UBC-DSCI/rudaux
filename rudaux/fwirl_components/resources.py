@@ -20,7 +20,7 @@ class LMSResource(Resource):
         self.last_request_time = None
         self.result_life_span = None
         self.results_timestamps = dict()
-        self.min_query_interval = min_query_interval    # 10 s
+        self.min_query_interval = min_query_interval  # 10 s
 
     def init(self):
         pass
@@ -32,19 +32,29 @@ class LMSResource(Resource):
         if self.course_section_info is None \
                 or (plm.now() - self.results_timestamps['course_section_info']) > self.result_life_span:
             self.results_timestamps['course_section_info'] = plm.now()
-            self.course_section_info = self.lms.get_course_section_info(course_section_name=course_section_name)
+            self.course_section_info = self.lms.get_course_section_info(
+                course_section_name=course_section_name
+            )
         return self.course_section_info
 
     def get_students(self, course_section_name: str):
-        students = get_students(
-            lms=self.lms, course_section_name=course_section_name)
-        return students
+        if self.list_of_students is None \
+                or (plm.now() - self.results_timestamps['list_of_students']) > self.result_life_span:
+            self.results_timestamps['list_of_students'] = plm.now()
+            self.list_of_students = self.lms.get_students(
+                course_section_name=course_section_name
+            )
+        return self.list_of_students
 
     def get_assignments(self, course_section_name):
-        assignments = get_assignments(
-            lms=self.lms, course_group_name=self.course_name,
-            course_section_name=course_section_name)
-        return assignments
+        if self.list_of_assignments is None \
+                or (plm.now() - self.results_timestamps['list_of_assignments']) > self.result_life_span:
+            self.results_timestamps['list_of_assignments'] = plm.now()
+            self.list_of_assignments = self.lms.get_assignments(
+                course_group_name=self.course_name,
+                course_section_name=course_section_name
+            )
+        return self.list_of_assignments
 
 
 # ------------------------------------------------------------------------------------------------

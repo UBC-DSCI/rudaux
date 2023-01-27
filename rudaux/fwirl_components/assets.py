@@ -1,6 +1,9 @@
 import fwirl
 import pendulum as plm
 from typing import Dict
+
+from fwirl import AssetStatus
+
 from rudaux.fwirl_components.resources import LMSResource
 from rudaux.model.student import Student
 from rudaux.model.assignment import Assignment
@@ -31,10 +34,20 @@ class AssignmentsListAsset(fwirl.ExternalAsset):
     async def get(self) -> Dict[str, Assignment]:
         return self.lms_resource.get_assignments(course_section_name=self.course_section_name)
 
-    def diff(self, val):
-        # compare to self._cached_val
-        # make object specific comparison here and return true or false
-        return self._cached_val != val
+    def diff(self, val: Dict[str, Assignment]):
+        if self._cached_val != AssetStatus.Unavailable:
+            cached_val_copy = self._cached_val.copy()
+            for assignment_id, assignment in val.items():
+                if assignment_id in self._cached_val:
+                    if self._cached_val[assignment_id] == assignment:
+                        del cached_val_copy[assignment_id]
+                    else:
+                        return False
+                else:
+                    return False
+            if len(cached_val_copy) != 0:
+                return False
+            return True
 
 
 # ------------------------------------------------------------------------------------------------
@@ -50,12 +63,23 @@ class StudentsListAsset(fwirl.ExternalAsset):
                          group=0, subgroup=0,
                          min_polling_interval=min_polling_interval)
 
-    async def get(self):
-        self._cached_val = self.lms_resource.get_students(course_section_name=self.course_section_name)
+    async def get(self) -> Dict[str, Student]:
+        return self.lms_resource.get_students(course_section_name=self.course_section_name)
 
-    def diff(self, val):
-        # compare to self._cached_val
-        return self._cached_val == val
+    def diff(self, val: Dict[str, Student]):
+        if self._cached_val != AssetStatus.Unavailable:
+            cached_val_copy = self._cached_val.copy()
+            for student_id, student in val.items():
+                if student_id in self._cached_val:
+                    if self._cached_val[student_id] == student:
+                        del cached_val_copy[student_id]
+                    else:
+                        return False
+                else:
+                    return False
+            if len(cached_val_copy) != 0:
+                return False
+            return True
 
 
 # ------------------------------------------------------------------------------------------------

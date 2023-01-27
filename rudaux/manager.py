@@ -12,15 +12,6 @@ from rudaux.task.learning_management_system import get_assignments, get_students
 from rudaux.tasks import get_learning_management_system, get_submission_system, get_grading_system
 
 
-# n_students = 10
-# n_assignments = 5
-# n_graders = 3
-#
-# list_of_assignments = [{'id': i, 'name': f'student_{i}'} for i in range(n_assignments)]
-# list_of_students = [{'id': i, 'name': f'student_{i}'} for i in range(n_students)]
-# list_of_graders = [{'id': i, 'name': f'student_{i}'} for i in range(n_graders)]
-
-
 # ------------------------------------------------------------------------------------------------
 
 def manager_run(config_path: str = '../rudaux_config.yml'):
@@ -51,7 +42,7 @@ def manager_run(config_path: str = '../rudaux_config.yml'):
 
     lms_resource = LMSResource(key=0, settings=settings, course_name=course_name, min_query_interval=10)
     # grading_system_resource = GradingSystemResource(key=0)
-    # submission_system_resource = SubmissionSystemResource(key=0)
+    submission_system_resource = SubmissionSystemResource(key=0)
 
     course_section_info = lms_resource.get_course_section_info(course_section_name=course_section_name)
     students = lms_resource.get_students(course_section_name=course_section_name)
@@ -79,7 +70,8 @@ def manager_run(config_path: str = '../rudaux_config.yml'):
     submission_builder = SubmissionBuilder(
         assignments_list_asset=assignments_list_asset,
         students_list_asset=students_list_asset,
-        lms_resource=lms_resource)
+        lms_resource=lms_resource,
+        submission_system_resource=submission_system_resource)
 
     graph.workers.append(submission_builder)
 
