@@ -18,7 +18,7 @@ class LMSResource(Resource):
         self.list_of_assignments = None
         self.list_of_graders = None
         self.last_request_time = None
-        self.result_life_span = None
+        self.result_life_span = plm.duration(minutes=15)
         self.results_timestamps = dict()
         self.min_query_interval = min_query_interval  # 10 s
 

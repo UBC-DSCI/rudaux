@@ -57,15 +57,17 @@ def manager_run(config_path: str = '../rudaux_config.yml'):
     print('course_section_names: ', course_section_names)
     print('selected_assignments: ', selected_assignments)
 
-    min_polling_interval = 1
+    min_polling_interval = plm.duration(minutes=1)
 
     assignments_list_asset = AssignmentsListAsset(
         key=f"AssignmentsList", dependencies=[], lms_resource=lms_resource,
         min_polling_interval=min_polling_interval, course_section_name=course_section_name)
 
     students_list_asset = StudentsListAsset(
-        key=f"AssignmentsList", dependencies=[], lms_resource=lms_resource,
+        key=f"StudentsList", dependencies=[], lms_resource=lms_resource,
         min_polling_interval=min_polling_interval, course_section_name=course_section_name)
+
+    graph.add_assets([assignments_list_asset, students_list_asset])
 
     submission_builder = SubmissionBuilder(
         assignments_list_asset=assignments_list_asset,
@@ -74,6 +76,13 @@ def manager_run(config_path: str = '../rudaux_config.yml'):
         submission_system_resource=submission_system_resource)
 
     graph.workers.append(submission_builder)
+    graph.refresh()
+    graph.build()
+
+    graph.schedule(
+        schedule_key='refresh_every_minute',
+        action='refresh',
+        cron_string="* * * * *")
 
     # graders_list_asset = GradersListAsset(
     #     key=f"GradersListAsset",

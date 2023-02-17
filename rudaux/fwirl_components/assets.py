@@ -35,19 +35,21 @@ class AssignmentsListAsset(fwirl.ExternalAsset):
         return self.lms_resource.get_assignments(course_section_name=self.course_section_name)
 
     def diff(self, val: Dict[str, Assignment]):
-        if self._cached_val != AssetStatus.Unavailable:
-            cached_val_copy = self._cached_val.copy()
-            for assignment_id, assignment in val.items():
-                if assignment_id in self._cached_val:
-                    if self._cached_val[assignment_id] == assignment:
-                        del cached_val_copy[assignment_id]
-                    else:
-                        return False
-                else:
-                    return False
-            if len(cached_val_copy) != 0:
-                return False
-            return True
+        # if self._cached_val != AssetStatus.Unavailable:
+        #     cached_val_copy = self._cached_val.copy()
+        #     for assignment_id, assignment in val.items():
+        #         if assignment_id in self._cached_val:
+        #             if self._cached_val[assignment_id] == assignment:
+        #                 del cached_val_copy[assignment_id]
+        #             else:
+        #                 return False
+        #         else:
+        #             return False
+        #     if len(cached_val_copy) != 0:
+        #         return False
+        #     return True
+        # return False
+        return val != self._cached_val
 
 
 # ------------------------------------------------------------------------------------------------
@@ -67,19 +69,7 @@ class StudentsListAsset(fwirl.ExternalAsset):
         return self.lms_resource.get_students(course_section_name=self.course_section_name)
 
     def diff(self, val: Dict[str, Student]):
-        if self._cached_val != AssetStatus.Unavailable:
-            cached_val_copy = self._cached_val.copy()
-            for student_id, student in val.items():
-                if student_id in self._cached_val:
-                    if self._cached_val[student_id] == student:
-                        del cached_val_copy[student_id]
-                    else:
-                        return False
-                else:
-                    return False
-            if len(cached_val_copy) != 0:
-                return False
-            return True
+        return val != self._cached_val
 
 
 # ------------------------------------------------------------------------------------------------

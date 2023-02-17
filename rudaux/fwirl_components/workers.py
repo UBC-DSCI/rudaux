@@ -26,9 +26,9 @@ class SubmissionBuilder(GraphWorker):
         self.submission_system_resource = submission_system_resource
         super().__init__([assignments_list_asset, students_list_asset])
 
-    def restructure(self, graph):
+    async def restructure(self, graph):
         expected_assets = dict()
-        for assignment_id, assignment in self.assignments_list_asset.get().items():
+        for assignment_id, assignment in (await self.assignments_list_asset.get()).items():
 
             # submitted_fraction_asset = SubmittedFractionAsset(
             #     key=f"SubmittedFraction_A{assignment_id}",
@@ -37,7 +37,7 @@ class SubmissionBuilder(GraphWorker):
             #     group=assignment_id,
             #     subgroup=0)
 
-            for student_id, student in self.students_list_asset.get().items():
+            for student_id, student in (await self.students_list_asset.get()).items():
 
                 # ----------------------------------------------------------------
                 deadline_asset = DeadlineAsset(
@@ -109,7 +109,7 @@ class SubmissionBuilder(GraphWorker):
 
         assets_to_add = expected_assets.copy()
         assets_to_remove = dict()
-        for asset in graph:
+        for asset in graph.graph:
             graph_asset_identifier = f"A{asset.group}_S{asset.subgroup}"
             if graph_asset_identifier in expected_assets:
                 # if the asset is expected to remain
@@ -118,7 +118,7 @@ class SubmissionBuilder(GraphWorker):
                 # if the asset is expected to be removed
                 assets_to_remove[graph_asset_identifier] = asset
 
-        graph.remove_asset(list(assets_to_remove.values()))
+        graph.remove_assets(list(assets_to_remove.values()))
         graph.add_assets(list(assets_to_add.values()))
 
 
