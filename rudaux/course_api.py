@@ -93,7 +93,7 @@ def _canvas_get_people_by_type(config, course_id, typ):
                'name' : p['user']['name'],
                'sortable_name' : p['user']['sortable_name'],
                'school_id' : str(p['user']['sis_user_id']),
-               'reg_date' : plm.parse(p['updated_at']) if (plm.parse(p['updated_at']) is not None) else plm.parse(p['created_at']),
+               'reg_date' : plm.parse(p['created_at']) if (plm.parse(p['created_at']) is not None) else plm.parse(p['updated_at']),
                'status' : p['enrollment_state']
               } for p in ppl_typ
            ]
