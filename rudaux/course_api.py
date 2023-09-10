@@ -103,7 +103,13 @@ def _canvas_get_overrides(config, course_id, assignment):
     overs = _canvas_get(config, course_id, 'assignments/'+assignment['id']+'/overrides')
     for over in overs:
         over['id'] = str(over['id'])
-        over['student_ids'] = list(map(str, over['student_ids']))
+
+        # If 'student_ids' does not exist, then it's a course section override.
+        if 'student_ids' in over:
+            over['student_ids'] = list(map(str, over['student_ids']))
+        else:
+            over['course_section_id'] = str(over['course_section_id'])
+
         for key in ['due_at', 'lock_at', 'unlock_at']:
             if over.get(key) is not None:
                 over[key] = plm.parse(over[key])
