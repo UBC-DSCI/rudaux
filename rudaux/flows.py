@@ -403,7 +403,7 @@ def list_course_info(args):
     print()
     print('Students')
     print()
-    print('\n'.join([f"{c[0] : <16}{c[1]['name'] : <32}{c[1]['id'] : <16}{str(c[1]['reg_date'].in_timezone(config.notify_timezone)) : <32}{c[1]['status'] : <16}" for c in studs]))
+    print('\n'.join([f"{c[0] : <16}{c[1]['name'] : <32}{c[1]['id'] : <16}{str(c[1]['reg_date'].in_timezone(config.notify_timezone)) : <32}{c[1]['status'] : <16}{c[1]['course_section_id'] : <16}" for c in studs]))
 
     print()
     print('Teaching Assistants')
