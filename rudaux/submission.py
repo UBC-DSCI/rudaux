@@ -98,19 +98,26 @@ def initialize_submission_sets(config, course_infos, assignments, students, subm
                                         'student' : stu,
                                         'name' : f"{course_name}-{course_info['id']} : {assignment['name']}-{assignment['id']} : {stu['name']}-{stu['id']}"
                                         } for stu in students[i] if stu['status'] == 'active']
+
+            subms_to_remove=[]
+
             for subm in subm_set[course_name]['submissions']:
                 student = subm['student']
 
-                # Add check for SD student, remove submission.
+                # Add check for SD student, save for later removal.
                 if student['id'] not in subm_info[assignment['id']]:
-                    logger.info(f"Removing SD student submission {subm['name']}")
-                    subm_set[course_name]['submissions'].remove(subm)
+                    subms_to_remove.append(subm)
                     continue
 
                 subm['score'] = subm_info[assignment['id']][student['id']]['score']
                 subm['posted_at'] = subm_info[assignment['id']][student['id']]['posted_at']
                 subm['late'] = subm_info[assignment['id']][student['id']]['late']
                 subm['missing'] = subm_info[assignment['id']][student['id']]['missing']
+
+            for subm in subms_to_remove:
+                logger.info(f"Removing SD student submission {subm['name']}")
+                subm_set[course_name]['submissions'].remove(subm)
+
         subm_sets.append(subm_set)
 
     logger.info(f"Built a list of {len(subm_sets)} submission sets")
@@ -209,6 +216,7 @@ def build_submission_set(config, subm_set):
         if course_name == '__name__':
             continue
         #check that all grades are posted
+        print(subm_set[course_name]['submissions'])
         for subm in subm_set[course_name]['submissions']:
             if 'posted_at' not in subm:
                 logger.info("No posted_at for: " + str(subm) + '\n')
