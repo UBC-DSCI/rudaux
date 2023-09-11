@@ -146,7 +146,7 @@ def _get_due_date(assignment, student):
 
     #return the latest date between the basic and override dates
     if basic_date == None or latest_override['due_at'] > basic_date:
-        return latest_override['due_at'], latest_override
+        return latest_override['due_at'], None if 'course_section_id' in latest_override else latest_override
     else:
         return basic_date, None
 
@@ -216,7 +216,6 @@ def build_submission_set(config, subm_set):
         if course_name == '__name__':
             continue
         #check that all grades are posted
-        print(subm_set[course_name]['submissions'])
         for subm in subm_set[course_name]['submissions']:
             if 'posted_at' not in subm:
                 logger.info("No posted_at for: " + str(subm) + '\n')
@@ -250,25 +249,62 @@ def get_latereg_overrides(extension_days, subm_set, config):
         assignment = subm_set[course_name]['assignment']
         course_info = subm_set[course_name]['course_info']
         tz = course_info['time_zone']
+        
+        # Dict for storing course_section_id and unlock_at date key/value pairs.
+        date_dict = {}
+        date_dict['everyone'] = {'unlock_at' : assignment['unlock_at'], 'due_at' : assignment['due_at'], 'lock_at' : assignment['lock_at']}
 
-        # skip the assignment if it isn't unlocked yet
-        if assignment['unlock_at'] > plm.now():
-            raise signals.SKIP(f"Assignment {assignment['name']} ({assignment['id']}) unlock date {assignment['unlock_at']} is in the future. Skipping.")
+        # Process per course section unlock, due, lock dates and add to date_dict
+        section_overrides=[]
+        for over in assignment['overrides']:
+            if 'course_section_id' in over:
+                section_overrides.append(over)
+
+            if len(section_overrides) == 0:
+                break
+
+        #if there was at least one, get the override dates
+        for over in section_overrides:
+            over_dict = {}
+            over_dict['unlock_at'] = over['unlock_at']
+            over_dict['due_at'] = over['due_at']
+            over_dict['lock_at'] = over['lock_at']
+            date_dict[over['course_section_id']] = over_dict
+
+        # Get the earliest unlock date
+        earliest_unlock = None
+        for section in date_dict.values():
+            if earliest_unlock == None or section['unlock_at'] < earliest_unlock:
+                earliest_unlock = section['unlock_at']
+        
+        # skip the assignment if it hasn't been unlocked for anyone
+        if earliest_unlock > plm.now():
+            raise signals.SKIP(f"Assignment {assignment['name']} ({assignment['id']}) unlock date {earliest_unlock} is in the future. Skipping.")
 
         for subm in subm_set[course_name]['submissions']:
             student = subm['student']
             regdate = student['reg_date']
             override = subm['override']
 
+            unlock_date = date_dict[student['course_section_id']]['unlock_at'] if student['course_section_id'] in date_dict else date_dict['everyone']['unlock_at']
+            due_date = date_dict[student['course_section_id']]['due_at'] if student['course_section_id'] in date_dict else date_dict['everyone']['due_at']
+            lock_date = date_dict[student['course_section_id']]['lock_at'] if student['course_section_id'] in date_dict else date_dict['everyone']['lock_at']
+
+            if unlock_date == None or due_date == None or lock_date == None:
+                msg = f"No valid unlock {unlock_date}, due {due_date}, or lock date {lock_date} for student {student['id']} in section {student['course_section_id']} with assignment {assignment['name']}"
+                sig = signals.FAIL(msg)
+                sig.msg = msg
+                raise sig
+
             to_remove = None
             to_create = None
-            if regdate > assignment['unlock_at'] and assignment['unlock_at'] <= plm.from_format(config.registration_deadline, f'YYYY-MM-DD', tz=config.notify_timezone):
+            if regdate > unlock_date and unlock_date <= plm.from_format(config.registration_deadline, f'YYYY-MM-DD', tz=config.notify_timezone):
                 #the late registration due date
                 latereg_date = regdate.add(days=extension_days).in_timezone(tz).end_of('day').set(microsecond=0)
                 if latereg_date > subm['due_at']:
                     logger.info(f"Student {student['name']} needs an extension on assignment {assignment['name']}")
-                    logger.info(f"Student registration date: {regdate}    Status: {student['status']}")
-                    logger.info(f"Assignment unlock: {assignment['unlock_at']}    Assignment deadline: {assignment['due_at']}")
+                    logger.info(f"Student registration date: {regdate.format(fmt)}    Status: {student['status']}")
+                    logger.info(f"Assignment unlock: {unlock_date.in_timezone(tz).format(fmt)}    Assignment deadline: {due_date.in_timezone(tz).format(fmt)}")
                     logger.info("Current student-specific due date: " + subm['due_at'].in_timezone(tz).format(fmt) + " from override: " + str(True if (override is not None) else False))
                     logger.info('Late registration extension date: ' + latereg_date.in_timezone(tz).format(fmt))
                     logger.info('Creating automatic late registration extension.')
@@ -277,8 +313,8 @@ def get_latereg_overrides(extension_days, subm_set, config):
                         to_remove = override
                     to_create = {'student_ids' : [student['id']],
                                  'due_at' : latereg_date,
-                                 'lock_at' : assignment['lock_at'],
-                                 'unlock_at' : assignment['unlock_at'],
+                                 'lock_at' : lock_date,
+                                 'unlock_at' : unlock_date,
                                  'title' : student['name']+'-'+assignment['name']+'-latereg'}
                 else:
                     continue
