@@ -138,7 +138,7 @@ def _get_due_date(assignment, student):
             latest_override = over
 
     #return the latest date between the basic and override dates
-    if latest_override['due_at'] > basic_date:
+    if basic_date == None or latest_override['due_at'] > basic_date:
         return latest_override['due_at'], latest_override
     else:
         return basic_date, None
