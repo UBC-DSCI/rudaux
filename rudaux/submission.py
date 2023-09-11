@@ -113,7 +113,12 @@ def _get_due_date(assignment, student):
     basic_date = assignment['due_at']
 
     #get overrides for the student
-    overrides = [over for over in assignment['overrides'] if student['id'] in over['student_ids'] and (over['due_at'] is not None)]
+    overrides = []
+    for over in assignment['overrides']:
+        student_over = 'student_ids' in over and over['due_at'] is not None and student['id'] in over['student_ids']
+        section_over = 'course_section_id' in over and student['course_section_id'] == over['course_section_id']
+        if student_over or section_over:
+            overrides.append(over)
 
     #if there was no override, return the basic date
     if len(overrides) == 0:
