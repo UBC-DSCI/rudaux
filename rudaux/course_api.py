@@ -229,6 +229,7 @@ def get_assignments(config, course_id, assignment_names):
                'lock_at' : None if a['lock_at'] is None else plm.parse(a['lock_at']),
                'unlock_at' : None if a['unlock_at'] is None else plm.parse(a['unlock_at']),
                'has_overrides' : a['has_overrides'],
+               'only_visible_to_overrides' : a['only_visible_to_overrides'],
                'overrides' : [],
                'published' : a['published']
              } for a in asgns if a['name'] in assignment_names]
@@ -308,9 +309,13 @@ def update_override_flatten(config, course_id, override_update_tuples):
     for override_update_tuple in override_update_tuples:
         assignment, to_create, to_remove = override_update_tuple
         if to_remove is not None:
-            _remove_override(config, course_id, assignment, to_remove)
+            # TODO Remove when done testing.
+            print("Would have removed override: " + str(override_update_tuple))
+            #_remove_override(config, course_id, assignment, to_remove)
         if to_create is not None:
-            _create_override(config, course_id, assignment, to_create)
+            # TODO Remove when done testing.
+            print("Would have added override: " + str(override_update_tuple))
+            #_create_override(config, course_id, assignment, to_create)
 
 def put_grade(config, course_id, student, assignment, score):
     # post the grade

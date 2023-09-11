@@ -158,15 +158,15 @@ def build_submission_set(config, subm_set):
         assignment = subm_set[course_name]['assignment']
         course_info = subm_set[course_name]['course_info']
 
-        # check that assignment due/unlock dates exist
-        if assignment['unlock_at'] is None or assignment['due_at'] is None:
+        # check that assignment due/unlock dates exist (except when overrides are created for all sections)
+        if not assignment['only_visible_to_overrides'] and (assignment['unlock_at'] is None or assignment['due_at'] is None):
             msg = f"Invalid unlock ({assignment['unlock_at']}) and/or due ({assignment['due_at']}) date for assignment {assignment['name']}"
             sig = signals.FAIL(msg)
             sig.msg = msg
             raise sig
 
-        # if assignment dates are prior to course start, error
-        if assignment['unlock_at'] < course_info['start_at'] or assignment['due_at'] < course_info['start_at']:
+        # if assignment dates are prior to course start, error (except when overrides are created for all sections)
+        if not assignment['only_visible_to_overrides'] and (assignment['unlock_at'] < course_info['start_at'] or assignment['due_at'] < course_info['start_at']):
             msg = (f"Assignment {assignment['name']} unlock date ({assignment['unlock_at']}) "+
                   f"and/or due date ({assignment['due_at']}) is prior to the course start date "+
                   f"({course_info['start_at']}). This is often because of an old deadline from "+
