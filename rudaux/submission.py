@@ -100,6 +100,13 @@ def initialize_submission_sets(config, course_infos, assignments, students, subm
                                         } for stu in students[i] if stu['status'] == 'active']
             for subm in subm_set[course_name]['submissions']:
                 student = subm['student']
+
+                # Add check for SD student, remove submission.
+                if student['id'] not in subm_info[assignment['id']]:
+                    logger.info(f"Removing SD student submission {subm['name']}")
+                    subm_set[course_name]['submissions'].pop('name' == subm['name'])
+                    continue
+
                 subm['score'] = subm_info[assignment['id']][student['id']]['score']
                 subm['posted_at'] = subm_info[assignment['id']][student['id']]['posted_at']
                 subm['late'] = subm_info[assignment['id']][student['id']]['late']
