@@ -104,7 +104,7 @@ def initialize_submission_sets(config, course_infos, assignments, students, subm
                 # Add check for SD student, remove submission.
                 if student['id'] not in subm_info[assignment['id']]:
                     logger.info(f"Removing SD student submission {subm['name']}")
-                    subm_set[course_name]['submissions'].pop('name' == subm['name'])
+                    subm_set[course_name]['submissions'].remove(subm)
                     continue
 
                 subm['score'] = subm_info[assignment['id']][student['id']]['score']
@@ -209,6 +209,9 @@ def build_submission_set(config, subm_set):
         if course_name == '__name__':
             continue
         #check that all grades are posted
+        for subm in subm_set[course_name]['submissions']:
+            if 'posted_at' not in subm:
+                logger.info("No posted_at for: " + str(subm) + '\n')
         all_posted = all_posted and all([subm['posted_at'] is not None for subm in subm_set[course_name]['submissions']])
         for subm in subm_set[course_name]['submissions']:
             # only check feedback/soln if student folder exists, i.e., they've logged into JHub
