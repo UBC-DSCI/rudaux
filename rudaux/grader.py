@@ -112,7 +112,7 @@ def build_grading_team(config, course_group, subm_set):
         grader['unix_group'] = config.jupyterhub_group
         grader['unix_quota'] = config.user_quota
         grader['folder'] = os.path.join(config.user_root, grader['name']).rstrip('/')
-        grader['local_source_path'] = os.path.join(config.source_path, asgn_name, asgn_name+'.ipynb')
+        grader['local_source_path'] = os.path.join(os.path.split(config.source_path)[1], asgn_name, asgn_name+'.ipynb')
         grader['submissions_folder'] = os.path.join(grader['folder'], config.submissions_folder)
         grader['autograded_folder'] = os.path.join(grader['folder'], config.autograded_folder)
         grader['feedback_folder'] = os.path.join(grader['folder'], config.feedback_folder)
@@ -170,13 +170,20 @@ def initialize_volumes(config, graders):
 
         # if the assignment hasn't been generated yet, generate it
         # TODO error handling if the container fails
-        generated_asgns = run_container(config, 'nbgrader db assignment list', grader['folder'])
+
+        # Check if source path is deeper than 1 level, construct path to dir containing source dir
+        if len(config.source_path.split('/')) > 1:
+            nbgrader_root = os.path.join(grader['folder'], os.path.split(config.source_path)[0])
+        else:
+            nbgrader_root = grader['folder']
+
+        generated_asgns = run_container(config, 'nbgrader db assignment list', nbgrader_root)
         if aname not in generated_asgns['log']:
             logger.info(f"Assignment {aname} not yet generated for grader {grader['name']}")
-            output = run_container(config, 'nbgrader generate_assignment --force '+aname, grader['folder'])
+            output = run_container(config, 'nbgrader generate_assignment --force '+aname, nbgrader_root)
             logger.info(output['log'])
             if 'ERROR' in output['log']:
-                msg = f"Error generating assignment {aname} for grader {grader['name']} at path {grader['folder']}"
+                msg = f"Error generating assignment {aname} for grader {grader['name']} at path {nbgrader_root}"
                 sig = signals.FAIL(msg)
                 sig.msg = msg
                 raise sig
@@ -184,10 +191,10 @@ def initialize_volumes(config, graders):
         # if the solution hasn't been generated yet, generate it
         if not os.path.exists(grader['soln_path']):
             logger.info(f"Solution for {aname} not yet generated for grader {grader['name']}")
-            output = run_container(config, 'jupyter nbconvert ' + grader['local_source_path'] + ' --output=' + grader['soln_name'] + ' --output-dir=.' + ' --to html', grader['folder'])
+            output = run_container(config, 'jupyter nbconvert ' + grader['local_source_path'] + ' --output=' + grader['soln_name'] + ' --output-dir=.' + ' --to html', nbgrader_root)
             logger.info(output['log'])
             if 'ERROR' in output['log']:
-                msg = f"Error generating solution for {aname} for grader {grader['name']} at path {grader['folder']}"
+                msg = f"Error generating solution for {aname} for grader {grader['name']} at path {nbgrader_root}"
                 sig = signals.FAIL(msg)
                 sig.msg = msg
                 raise sig
