@@ -49,10 +49,37 @@ def build_grading_team(config, course_group, subm_set):
         if course_name == '__name__':
             continue
         assignment = subm_set[course_name]['assignment']
+    
+        # Dict for storing course_section_id and unlock_at date key/value pairs.
+        date_dict = {}
+        date_dict['everyone'] = {'unlock_at' : assignment['unlock_at'], 'due_at' : assignment['due_at'], 'lock_at' : assignment['lock_at']}
 
-        # skip the assignment if it isn't due yet
-        if assignment['due_at'] > plm.now():
-            raise signals.SKIP(f"Assignment {assignment['name']} ({assignment['id']}) due date {assignment['due_at']} is in the future. Skipping.")
+        # Process per course section unlock, due, lock dates and add to date_dict
+        section_overrides=[]
+        for over in assignment['overrides']:
+            if 'course_section_id' in over:
+                section_overrides.append(over)
+
+            if len(section_overrides) == 0:
+                break
+
+        #if there was at least one, get the override dates
+        for over in section_overrides:
+            over_dict = {}
+            over_dict['unlock_at'] = over['unlock_at']
+            over_dict['due_at'] = over['due_at']
+            over_dict['lock_at'] = over['lock_at']
+            date_dict[over['course_section_id']] = over_dict
+
+        # Get the latest due date
+        latest_due = None
+        for section in date_dict.values():
+            if latest_due == None or section['due_at'] > latest_due:
+                latest_due = section['due_at']
+
+        # skip the assignment if the latest due date hasn't passed yet
+        if latest_due > plm.now():
+            raise signals.SKIP(f"Assignment {assignment['name']} ({assignment['id']}) due date {latest_due} is in the future. Skipping.")
 
     # check whether all grades have been posted (assignment is done). If so, skip
     all_posted = True
