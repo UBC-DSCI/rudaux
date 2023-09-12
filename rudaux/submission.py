@@ -605,7 +605,7 @@ def check_manual_grading(config, subm_set):
             if subm['status'] == GradingStatus.AUTOGRADED:
                 # check if the submission needs manual grading
                 try:
-                    gb = Gradebook('sqlite:///'+os.path.join(subm['grader']['folder'], config.nbgrader_path, config.nbgrader_path, 'gradebook.db'))
+                    gb = Gradebook('sqlite:///'+os.path.join(subm['grader']['folder'], config.nbgrader_path, 'gradebook.db'))
                     gb_subm = gb.find_submission(assignment['name'], config.grading_student_folder_prefix+subm['student']['id'])
                     flag = gb_subm.needs_manual_grade
                 except Exception as e:
