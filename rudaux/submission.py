@@ -560,7 +560,7 @@ def autograde(config, subm_set):
                 logger.info(f"Autograding submission {subm['name']}")
                 logger.info('Removing old autograding result from DB if it exists')
                 try:
-                    gb = Gradebook('sqlite:///'+os.path.join(subm['grader']['folder'], 'gradebook.db'))
+                    gb = Gradebook('sqlite:///'+os.path.join(subm['grader']['folder'], config.nbgrader_path, 'gradebook.db'))
                     gb.remove_submission(assignment['name'], config.grading_student_folder_prefix+subm['student']['id'])
                 except MissingEntry as e:
                     pass
@@ -570,7 +570,7 @@ def autograde(config, subm_set):
                 res = run_container(config, 'nbgrader autograde --force '+
                                             '--assignment=' + assignment['name'] +
                                             ' --student='+config.grading_student_folder_prefix+subm['student']['id'],
-                                    subm['grader']['folder'])
+                                    os.path.join(subm['grader']['folder'], config.nbgrader_path))
 
                 # validate the results
                 if 'ERROR' in res['log']:
@@ -605,7 +605,7 @@ def check_manual_grading(config, subm_set):
             if subm['status'] == GradingStatus.AUTOGRADED:
                 # check if the submission needs manual grading
                 try:
-                    gb = Gradebook('sqlite:///'+os.path.join(subm['grader']['folder'], 'gradebook.db'))
+                    gb = Gradebook('sqlite:///'+os.path.join(subm['grader']['folder'], config.nbgrader_path, config.nbgrader_path, 'gradebook.db'))
                     gb_subm = gb.find_submission(assignment['name'], config.grading_student_folder_prefix+subm['student']['id'])
                     flag = gb_subm.needs_manual_grade
                 except Exception as e:
@@ -620,7 +620,7 @@ def check_manual_grading(config, subm_set):
                 # this is a hack to deal with the fact that sometimes nbgrader just thinks an assignment needs manual grading
                 # even when it doesn't, and there's nothing the TA can do to convince it otherwise.
                 # when that happens, we just touch IGNORE_MANUAL_GRADING inside the folder
-                if flag and not os.path.exists(os.path.join(subm['grader']['folder'], 'IGNORE_MANUAL_GRADING')):
+                if flag and not os.path.exists(os.path.join(subm['grader']['folder'], config.nbgrader_path, 'IGNORE_MANUAL_GRADING')):
                     subm['status'] = GradingStatus.NEEDS_MANUAL_GRADE
                 else:
                     subm['status'] = GradingStatus.DONE_GRADING
@@ -700,7 +700,7 @@ def generate_feedback(config, subm_set):
                 res = run_container(config, 'nbgrader generate_feedback --force '+
                                             '--assignment=' + assignment['name'] +
                                             ' --student=' + config.grading_student_folder_prefix+subm['student']['id'],
-                                    subm['grader']['folder'])
+                                    os.path.join(subm['grader']['folder'], config.nbgrader_path))
 
                 # validate the results
                 #if 'ERROR' in res['log']:
@@ -777,7 +777,7 @@ def generate_feedback(config, subm_set):
                 # STEP 2: load grades from gradebook and compare
                 student = subm['student']
                 try:
-                    gb = Gradebook('sqlite:///'+os.path.join(subm['grader']['folder'] , 'gradebook.db'))
+                    gb = Gradebook('sqlite:///'+os.path.join(subm['grader']['folder'], config.nbgrader_path, 'gradebook.db'))
                     gb_subm = gb.find_submission(assignment['name'], config.grading_student_folder_prefix+student['id'])
                     score = gb_subm.score
                 except Exception as e:
@@ -883,7 +883,7 @@ def upload_grades(config, subm_set):
                 logger.info(f"Uploading grade for submission {subm['name']}")
                 logger.info(f"Obtaining score from the gradebook")
                 try:
-                    gb = Gradebook('sqlite:///'+os.path.join(subm['grader']['folder'] , 'gradebook.db'))
+                    gb = Gradebook('sqlite:///'+os.path.join(subm['grader']['folder'], config.nbgrader_path , 'gradebook.db'))
                     gb_subm = gb.find_submission(assignment['name'], config.grading_student_folder_prefix+student['id'])
                     score = gb_subm.score
                 except Exception as e:

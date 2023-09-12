@@ -112,15 +112,15 @@ def build_grading_team(config, course_group, subm_set):
         grader['unix_group'] = config.jupyterhub_group
         grader['unix_quota'] = config.user_quota
         grader['folder'] = os.path.join(config.user_root, grader['name']).rstrip('/')
-        grader['local_source_path'] = os.path.join(os.path.split(config.source_path)[1], asgn_name, asgn_name+'.ipynb')
-        grader['submissions_folder'] = os.path.join(grader['folder'], config.submissions_folder)
-        grader['autograded_folder'] = os.path.join(grader['folder'], config.autograded_folder)
-        grader['feedback_folder'] = os.path.join(grader['folder'], config.feedback_folder)
+        grader['local_source_path'] = os.path.join('source', asgn_name, asgn_name+'.ipynb')
+        grader['submissions_folder'] = os.path.join(grader['folder'], config.nbgrader_path, config.submissions_folder)
+        grader['autograded_folder'] = os.path.join(grader['folder'], config.nbgrader_path, config.autograded_folder)
+        grader['feedback_folder'] = os.path.join(grader['folder'], config.nbgrader_path, config.feedback_folder)
         grader['workload'] = 0
         if os.path.exists(grader['submissions_folder']):
             grader['workload'] = len([f for f in os.listdir(grader['submissions_folder']) if os.path.isdir(f)])
         grader['soln_name'] = asgn_name + '_solution.html'
-        grader['soln_path'] = os.path.join(grader['folder'], grader['soln_name'])
+        grader['soln_path'] = os.path.join(grader['folder'], config.nbgrader_path, grader['soln_name'])
         graders.append(grader)
 
     return graders
@@ -173,7 +173,7 @@ def initialize_volumes(config, graders):
 
         # Check if source path is deeper than 1 level, construct path to dir containing source dir
         if len(config.source_path.split('/')) > 1:
-            nbgrader_root = os.path.join(grader['folder'], os.path.split(config.source_path)[0])
+            nbgrader_root = os.path.join(grader['folder'], nbgrader_path)
         else:
             nbgrader_root = grader['folder']
 
