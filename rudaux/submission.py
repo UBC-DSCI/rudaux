@@ -199,10 +199,14 @@ def build_submission_set(config, subm_set):
             subm['override'] = override
             subm['snap_name'] = _get_snap_name(course_name, assignment, override)
             subm['student_folder'] = os.path.join(config.student_dataset_root, student['id'])
+
             if override is None:
+                subm['zfs_snap_path'] = config.student_dataset_root.strip('/') + '@' + subm['snap_name']
+            else if 'course_section_id' in override:
                 subm['zfs_snap_path'] = config.student_dataset_root.strip('/') + '@' + subm['snap_name']
             else:
                 subm['zfs_snap_path'] = subm['student_folder'].strip('/') + '@' + subm['snap_name']
+
             subm['snapped_assignment_path'] = os.path.join(subm['student_folder'],
                         '.zfs', 'snapshot', subm['snap_name'], config.student_local_assignment_folder,
                         assignment['name'], assignment['name']+'.ipynb')
