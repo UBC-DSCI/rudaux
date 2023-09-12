@@ -182,6 +182,27 @@ def build_submission_set(config, subm_set):
             sig = signals.FAIL(msg)
             sig.msg = msg
             raise sig
+        elif assignment['only_visible_to_overrides']:
+            section_overs=[]
+            for over in assignment['overrides']:
+                if 'course_section_id' in over:
+                    section_overs.append(over)
+            
+            earliest_unlock = None
+            earliest_due = None
+            for over in section_overs:
+                if earliest_unlock == None or over['unlock_at'] < earliest_unlock:
+                    earliest_unlock = over['unlock_at']
+                if earliest_due == None or over['due_at'] < earliest_due:
+                    earliest_due = over['due_at']
+
+            if earliest_unlock < course_info['start_at'] or earliest_due < course_info['start_at']:
+                msg = (f"Section override(s) for assignment {assignment['name']} has/have unlock date ({earliest_unlock}) "+
+                       f"or due date ({earliest_due}) prior to the course start date ({course_info['start_at']}), "+
+                       f"please fix on Canvas before running again.")
+                sig = signals.FAIL(msg)
+                sig.msg = msg
+                raise sig
 
         for subm in subm_set[course_name]['submissions']:
             student = subm['student']
