@@ -179,7 +179,7 @@ def initialize_volumes(config, graders):
 
         # Construct path to nbgrader dir
         if config.nbgrader_path != "":
-            nbgrader_root = os.path.join(grader['folder'], nbgrader_path)
+            nbgrader_root = os.path.join(grader['folder'], config.nbgrader_path)
         else:
             nbgrader_root = grader['folder']
 
