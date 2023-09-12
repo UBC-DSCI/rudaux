@@ -158,6 +158,11 @@ def initialize_volumes(config, graders):
             logger.info(f"{grader['folder']} is not a valid course repo. Cloning course repository from {config.instructor_repo_url}")
             git.Repo.clone_from(config.instructor_repo_url, grader['folder'])
             logger.info("Cloned!")
+        
+        # Create nbgrader config file to point it to the right course directory
+        f = open(os.path.join(grader['folder'], "nbgrader_config.py"), "w")
+        f.writelines(["c = get_config()\n", f"c.CourseDirectory.root = \"{config.nbgrader_path}\""])
+        f.close()
 
         # create the submissions folder
         if not os.path.exists(grader['submissions_folder']):
@@ -171,8 +176,8 @@ def initialize_volumes(config, graders):
         # if the assignment hasn't been generated yet, generate it
         # TODO error handling if the container fails
 
-        # Check if source path is deeper than 1 level, construct path to dir containing source dir
-        if len(config.source_path.split('/')) > 1:
+        # Construct path to nbgrader dir
+        if config.nbgrader_path != "":
             nbgrader_root = os.path.join(grader['folder'], nbgrader_path)
         else:
             nbgrader_root = grader['folder']
