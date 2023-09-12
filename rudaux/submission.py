@@ -146,7 +146,7 @@ def _get_due_date(assignment, student):
 
     #return the latest date between the basic and override dates
     if basic_date == None or latest_override['due_at'] > basic_date:
-        return latest_override['due_at'], None if 'course_section_id' in latest_override else latest_override
+        return latest_override['due_at'], latest_override
     else:
         return basic_date, None
 
@@ -308,7 +308,7 @@ def get_latereg_overrides(extension_days, subm_set, config):
                     logger.info("Current student-specific due date: " + subm['due_at'].in_timezone(tz).format(fmt) + " from override: " + str(True if (override is not None) else False))
                     logger.info('Late registration extension date: ' + latereg_date.in_timezone(tz).format(fmt))
                     logger.info('Creating automatic late registration extension.')
-                    if override is not None:
+                    if override is not None and 'course_section_id' not in override:
                         logger.info("Need to remove old override " + str(override['id']))
                         to_remove = override
                     to_create = {'student_ids' : [student['id']],
