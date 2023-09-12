@@ -152,6 +152,12 @@ def get_all_snapshots(config, course_id, assignments):
                     snaps.append({'due_at': override['due_at'],
                                   'name' : _get_snap_name(config.course_names[course_id], asgn, override),
                                   'student_id' : student_id})
+        if asgn['due_at'] is None and len(asgn['overrides']) == 0:
+            msg = f"Assignment {asgn['name']} has no due date and no overrides."
+            sig = signals.FAIL(msg)
+            sig.msg = msg
+            raise sig
+
     return snaps
 
 @task(checkpoint=False)
