@@ -264,9 +264,6 @@ def get_latereg_overrides(extension_days, subm_set, config):
             if 'course_section_id' in over:
                 section_overrides.append(over)
 
-            if len(section_overrides) == 0:
-                break
-
         #if there was at least one, get the override dates
         for over in section_overrides:
             over_dict = {}

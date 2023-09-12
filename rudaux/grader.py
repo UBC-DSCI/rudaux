@@ -60,9 +60,6 @@ def build_grading_team(config, course_group, subm_set):
             if 'course_section_id' in over:
                 section_overrides.append(over)
 
-            if len(section_overrides) == 0:
-                break
-
         #if there was at least one, get the override dates
         for over in section_overrides:
             over_dict = {}
