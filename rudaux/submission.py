@@ -202,7 +202,7 @@ def build_submission_set(config, subm_set):
 
             if override is None:
                 subm['zfs_snap_path'] = config.student_dataset_root.strip('/') + '@' + subm['snap_name']
-            else if 'course_section_id' in override:
+            elif 'course_section_id' in override:
                 subm['zfs_snap_path'] = config.student_dataset_root.strip('/') + '@' + subm['snap_name']
             else:
                 subm['zfs_snap_path'] = subm['student_folder'].strip('/') + '@' + subm['snap_name']
