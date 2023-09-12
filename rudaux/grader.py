@@ -160,9 +160,10 @@ def initialize_volumes(config, graders):
             logger.info("Cloned!")
         
         # Create nbgrader config file to point it to the right course directory
-        f = open(os.path.join(grader['folder'], "nbgrader_config.py"), "w")
-        f.writelines(["c = get_config()\n", f"c.CourseDirectory.root = \"{config.nbgrader_path}\""])
-        f.close()
+        if config.nbgrader_path != "":
+            f = open(os.path.join(grader['folder'], "nbgrader_config.py"), "w")
+            f.writelines(["c = get_config()\n", f"c.CourseDirectory.root = \"{config.nbgrader_path}\""])
+            f.close()
 
         # create the submissions folder
         if not os.path.exists(grader['submissions_folder']):
