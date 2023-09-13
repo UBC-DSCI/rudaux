@@ -871,7 +871,7 @@ def return_feedback(config, pastdue_frac, subm_set):
     return
 
 
-def _compute_max_score(grader, assignment):
+def _compute_max_score(config, grader, assignment):
   #for some incredibly annoying reason, nbgrader refuses to compute a max_score for anything (so we cannot easily convert scores to percentages)
   #let's compute the max_score from the notebook manually then....
   release_nb_path = os.path.join(grader['folder'], config.nbgrader_path, 'release', assignment['name'], assignment['name']+'.ipynb')
@@ -918,7 +918,7 @@ def upload_grades(config, subm_set):
 
                 logger.info(f"Computing the max score from the release notebook")
                 try:
-                    max_score = _compute_max_score(subm['grader'], assignment)
+                    max_score = _compute_max_score(config, subm['grader'], assignment)
                 except Exception as e:
                     msg = f"Error when trying to compute the max score for submission {subm['name']}; error {str(e)}"
                     sig = signals.FAIL(msg)
