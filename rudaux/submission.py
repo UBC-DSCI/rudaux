@@ -874,7 +874,7 @@ def return_feedback(config, pastdue_frac, subm_set):
 def _compute_max_score(grader, assignment):
   #for some incredibly annoying reason, nbgrader refuses to compute a max_score for anything (so we cannot easily convert scores to percentages)
   #let's compute the max_score from the notebook manually then....
-  release_nb_path = os.path.join(grader['folder'], 'release', assignment['name'], assignment['name']+'.ipynb')
+  release_nb_path = os.path.join(grader['folder'], config.nbgrader_path, 'release', assignment['name'], assignment['name']+'.ipynb')
   f = open(release_nb_path, 'r')
   parsed_json = json.load(f)
   f.close()
