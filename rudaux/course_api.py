@@ -314,27 +314,18 @@ def update_override_flatten(config, course_id, override_update_tuples):
             _create_override(config, course_id, assignment, to_create)
 
 def put_grade(config, course_id, student, assignment, score):
-    try:
-        # post the grade
-        _canvas_put(config, course_id, 'assignments/'+assignment['id']+'/submissions/'+student['id'], {'submission' : {'posted_grade' : score}})
-        # check that it was posted properly
-        canvas_grade = str(_canvas_get(config, course_id, 'assignments/'+assignment['id']+'/submissions/'+student['id'])[0]['score'])
+    # post the grade
+    _canvas_put(config, course_id, 'assignments/'+assignment['id']+'/submissions/'+student['id'], {'submission' : {'posted_grade' : score}})
 
-        if abs(float(score) - float(canvas_grade)) > 0.01:
-            sig = signals.FAIL(f"grade {score} failed to upload for submission {subm['name']} ; grade on canvas is {canvas_grade}")
-            sig.assignment = assignment
-            sig.student = student
-            sig.score = score
-            sig.canvas_score = canvas_grade
-            raise sig
-    except signals.FAIL as sig:
-        try:
-            if sig.resp == 404:
-                logger.warning(f"Error posting/getting grade for student {student['name']} : {student['id']}, 404 Canvas submission not found.")
-            else:
-                raise sig
-        except AttributeError as e:
-            raise sig
+    # check that it was posted properly
+    canvas_grade = str(_canvas_get(config, course_id, 'assignments/'+assignment['id']+'/submissions/'+student['id'])[0]['score'])
+    if abs(float(score) - float(canvas_grade)) > 0.01:
+        sig = signals.FAIL(f"grade {score} failed to upload for submission {subm['name']} ; grade on canvas is {canvas_grade}")
+        sig.assignment = assignment
+        sig.student = student
+        sig.score = score
+        sig.canvas_score = canvas_grade
+        raise sig
 
 # TODO add these in???
 #def get_grades(course, assignment): #???
