@@ -641,7 +641,7 @@ def check_manual_grading(config, subm_set):
                 # this is a hack to deal with the fact that sometimes nbgrader just thinks an assignment needs manual grading
                 # even when it doesn't, and there's nothing the TA can do to convince it otherwise.
                 # when that happens, we just touch IGNORE_MANUAL_GRADING inside the folder
-                if flag and not os.path.exists(os.path.join(subm['grader']['folder'], config.nbgrader_path, 'IGNORE_MANUAL_GRADING')):
+                if flag and not os.path.exists(os.path.join(subm['grader']['folder'], 'IGNORE_MANUAL_GRADING')):
                     subm['status'] = GradingStatus.NEEDS_MANUAL_GRADE
                 else:
                     subm['status'] = GradingStatus.DONE_GRADING
