@@ -98,12 +98,26 @@ def initialize_submission_sets(config, course_infos, assignments, students, subm
                                         'student' : stu,
                                         'name' : f"{course_name}-{course_info['id']} : {assignment['name']}-{assignment['id']} : {stu['name']}-{stu['id']}"
                                         } for stu in students[i] if stu['status'] == 'active']
+
+            subms_to_remove=[]
+
             for subm in subm_set[course_name]['submissions']:
                 student = subm['student']
+
+                # Add check for SD student, save for later removal.
+                if student['id'] not in subm_info[assignment['id']]:
+                    subms_to_remove.append(subm)
+                    continue
+
                 subm['score'] = subm_info[assignment['id']][student['id']]['score']
                 subm['posted_at'] = subm_info[assignment['id']][student['id']]['posted_at']
                 subm['late'] = subm_info[assignment['id']][student['id']]['late']
                 subm['missing'] = subm_info[assignment['id']][student['id']]['missing']
+
+            for subm in subms_to_remove:
+                logger.info(f"Removing SD student submission {subm['name']}")
+                subm_set[course_name]['submissions'].remove(subm)
+
         subm_sets.append(subm_set)
 
     logger.info(f"Built a list of {len(subm_sets)} submission sets")
@@ -113,7 +127,12 @@ def _get_due_date(assignment, student):
     basic_date = assignment['due_at']
 
     #get overrides for the student
-    overrides = [over for over in assignment['overrides'] if student['id'] in over['student_ids'] and (over['due_at'] is not None)]
+    overrides = []
+    for over in assignment['overrides']:
+        student_over = 'student_ids' in over and over['due_at'] is not None and student['id'] in over['student_ids']
+        section_over = 'course_section_id' in over and student['course_section_id'] == over['course_section_id']
+        if student_over or section_over:
+            overrides.append(over)
 
     #if there was no override, return the basic date
     if len(overrides) == 0:
@@ -126,7 +145,7 @@ def _get_due_date(assignment, student):
             latest_override = over
 
     #return the latest date between the basic and override dates
-    if latest_override['due_at'] > basic_date:
+    if basic_date == None or latest_override['due_at'] > basic_date:
         return latest_override['due_at'], latest_override
     else:
         return basic_date, None
@@ -146,15 +165,15 @@ def build_submission_set(config, subm_set):
         assignment = subm_set[course_name]['assignment']
         course_info = subm_set[course_name]['course_info']
 
-        # check that assignment due/unlock dates exist
-        if assignment['unlock_at'] is None or assignment['due_at'] is None:
+        # check that assignment due/unlock dates exist (except when overrides are created for all sections)
+        if not assignment['only_visible_to_overrides'] and (assignment['unlock_at'] is None or assignment['due_at'] is None):
             msg = f"Invalid unlock ({assignment['unlock_at']}) and/or due ({assignment['due_at']}) date for assignment {assignment['name']}"
             sig = signals.FAIL(msg)
             sig.msg = msg
             raise sig
 
-        # if assignment dates are prior to course start, error
-        if assignment['unlock_at'] < course_info['start_at'] or assignment['due_at'] < course_info['start_at']:
+        # if assignment dates are prior to course start, error (except when overrides are created for all sections)
+        if not assignment['only_visible_to_overrides'] and (assignment['unlock_at'] < course_info['start_at'] or assignment['due_at'] < course_info['start_at']):
             msg = (f"Assignment {assignment['name']} unlock date ({assignment['unlock_at']}) "+
                   f"and/or due date ({assignment['due_at']}) is prior to the course start date "+
                   f"({course_info['start_at']}). This is often because of an old deadline from "+
@@ -163,6 +182,27 @@ def build_submission_set(config, subm_set):
             sig = signals.FAIL(msg)
             sig.msg = msg
             raise sig
+        elif assignment['only_visible_to_overrides']:
+            section_overs=[]
+            for over in assignment['overrides']:
+                if 'course_section_id' in over:
+                    section_overs.append(over)
+            
+            earliest_unlock = None
+            earliest_due = None
+            for over in section_overs:
+                if earliest_unlock == None or over['unlock_at'] < earliest_unlock:
+                    earliest_unlock = over['unlock_at']
+                if earliest_due == None or over['due_at'] < earliest_due:
+                    earliest_due = over['due_at']
+
+            if earliest_unlock < course_info['start_at'] or earliest_due < course_info['start_at']:
+                msg = (f"Section override(s) for assignment {assignment['name']} has/have unlock date ({earliest_unlock}) "+
+                       f"or due date ({earliest_due}) prior to the course start date ({course_info['start_at']}), "+
+                       f"please fix on Canvas before running again.")
+                sig = signals.FAIL(msg)
+                sig.msg = msg
+                raise sig
 
         for subm in subm_set[course_name]['submissions']:
             student = subm['student']
@@ -180,10 +220,14 @@ def build_submission_set(config, subm_set):
             subm['override'] = override
             subm['snap_name'] = _get_snap_name(course_name, assignment, override)
             subm['student_folder'] = os.path.join(config.student_dataset_root, student['id'])
+
             if override is None:
+                subm['zfs_snap_path'] = config.student_dataset_root.strip('/') + '@' + subm['snap_name']
+            elif 'course_section_id' in override:
                 subm['zfs_snap_path'] = config.student_dataset_root.strip('/') + '@' + subm['snap_name']
             else:
                 subm['zfs_snap_path'] = subm['student_folder'].strip('/') + '@' + subm['snap_name']
+
             subm['snapped_assignment_path'] = os.path.join(subm['student_folder'],
                         '.zfs', 'snapshot', subm['snap_name'], config.student_local_assignment_folder,
                         assignment['name'], assignment['name']+'.ipynb')
@@ -197,6 +241,9 @@ def build_submission_set(config, subm_set):
         if course_name == '__name__':
             continue
         #check that all grades are posted
+        for subm in subm_set[course_name]['submissions']:
+            if 'posted_at' not in subm:
+                logger.info("No posted_at for: " + str(subm) + '\n')
         all_posted = all_posted and all([subm['posted_at'] is not None for subm in subm_set[course_name]['submissions']])
         for subm in subm_set[course_name]['submissions']:
             # only check feedback/soln if student folder exists, i.e., they've logged into JHub
@@ -227,35 +274,69 @@ def get_latereg_overrides(extension_days, subm_set, config):
         assignment = subm_set[course_name]['assignment']
         course_info = subm_set[course_name]['course_info']
         tz = course_info['time_zone']
+        
+        # Dict for storing course_section_id and unlock_at date key/value pairs.
+        date_dict = {}
+        date_dict['everyone'] = {'unlock_at' : assignment['unlock_at'], 'due_at' : assignment['due_at'], 'lock_at' : assignment['lock_at']}
 
-        # skip the assignment if it isn't unlocked yet
-        if assignment['unlock_at'] > plm.now():
-            raise signals.SKIP(f"Assignment {assignment['name']} ({assignment['id']}) unlock date {assignment['unlock_at']} is in the future. Skipping.")
+        # Process per course section unlock, due, lock dates and add to date_dict
+        section_overrides=[]
+        for over in assignment['overrides']:
+            if 'course_section_id' in over:
+                section_overrides.append(over)
+
+        #if there was at least one, get the override dates
+        for over in section_overrides:
+            over_dict = {}
+            over_dict['unlock_at'] = over['unlock_at']
+            over_dict['due_at'] = over['due_at']
+            over_dict['lock_at'] = over['lock_at']
+            date_dict[over['course_section_id']] = over_dict
+
+        # Get the earliest unlock date
+        earliest_unlock = None
+        for section in date_dict.values():
+            if earliest_unlock == None or section['unlock_at'] < earliest_unlock:
+                earliest_unlock = section['unlock_at']
+        
+        # skip the assignment if it hasn't been unlocked for anyone
+        if earliest_unlock > plm.now():
+            raise signals.SKIP(f"Assignment {assignment['name']} ({assignment['id']}) unlock date {earliest_unlock} is in the future. Skipping.")
 
         for subm in subm_set[course_name]['submissions']:
             student = subm['student']
             regdate = student['reg_date']
             override = subm['override']
 
+            unlock_date = date_dict[student['course_section_id']]['unlock_at'] if student['course_section_id'] in date_dict else date_dict['everyone']['unlock_at']
+            due_date = date_dict[student['course_section_id']]['due_at'] if student['course_section_id'] in date_dict else date_dict['everyone']['due_at']
+            lock_date = date_dict[student['course_section_id']]['lock_at'] if student['course_section_id'] in date_dict else date_dict['everyone']['lock_at']
+
+            if unlock_date == None or due_date == None or lock_date == None:
+                msg = f"No valid unlock {unlock_date}, due {due_date}, or lock date {lock_date} for student {student['id']} in section {student['course_section_id']} with assignment {assignment['name']}"
+                sig = signals.FAIL(msg)
+                sig.msg = msg
+                raise sig
+
             to_remove = None
             to_create = None
-            if regdate > assignment['unlock_at'] and assignment['unlock_at'] <= plm.from_format(config.registration_deadline, f'YYYY-MM-DD', tz=config.notify_timezone):
+            if regdate > unlock_date and unlock_date <= plm.from_format(config.registration_deadline, f'YYYY-MM-DD', tz=config.notify_timezone):
                 #the late registration due date
                 latereg_date = regdate.add(days=extension_days).in_timezone(tz).end_of('day').set(microsecond=0)
                 if latereg_date > subm['due_at']:
                     logger.info(f"Student {student['name']} needs an extension on assignment {assignment['name']}")
-                    logger.info(f"Student registration date: {regdate}    Status: {student['status']}")
-                    logger.info(f"Assignment unlock: {assignment['unlock_at']}    Assignment deadline: {assignment['due_at']}")
+                    logger.info(f"Student registration date: {regdate.format(fmt)}    Status: {student['status']}")
+                    logger.info(f"Assignment unlock: {unlock_date.in_timezone(tz).format(fmt)}    Assignment deadline: {due_date.in_timezone(tz).format(fmt)}")
                     logger.info("Current student-specific due date: " + subm['due_at'].in_timezone(tz).format(fmt) + " from override: " + str(True if (override is not None) else False))
                     logger.info('Late registration extension date: ' + latereg_date.in_timezone(tz).format(fmt))
                     logger.info('Creating automatic late registration extension.')
-                    if override is not None:
+                    if override is not None and 'course_section_id' not in override:
                         logger.info("Need to remove old override " + str(override['id']))
                         to_remove = override
                     to_create = {'student_ids' : [student['id']],
                                  'due_at' : latereg_date,
-                                 'lock_at' : assignment['lock_at'],
-                                 'unlock_at' : assignment['unlock_at'],
+                                 'lock_at' : lock_date,
+                                 'unlock_at' : unlock_date,
                                  'title' : student['name']+'-'+assignment['name']+'-latereg'}
                 else:
                     continue
@@ -500,7 +581,7 @@ def autograde(config, subm_set):
                 logger.info(f"Autograding submission {subm['name']}")
                 logger.info('Removing old autograding result from DB if it exists')
                 try:
-                    gb = Gradebook('sqlite:///'+os.path.join(subm['grader']['folder'], 'gradebook.db'))
+                    gb = Gradebook('sqlite:///'+os.path.join(subm['grader']['folder'], config.nbgrader_path, 'gradebook.db'))
                     gb.remove_submission(assignment['name'], config.grading_student_folder_prefix+subm['student']['id'])
                 except MissingEntry as e:
                     pass
@@ -510,7 +591,7 @@ def autograde(config, subm_set):
                 res = run_container(config, 'nbgrader autograde --force '+
                                             '--assignment=' + assignment['name'] +
                                             ' --student='+config.grading_student_folder_prefix+subm['student']['id'],
-                                    subm['grader']['folder'])
+                                    os.path.join(subm['grader']['folder'], config.nbgrader_path))
 
                 # validate the results
                 if 'ERROR' in res['log']:
@@ -545,7 +626,7 @@ def check_manual_grading(config, subm_set):
             if subm['status'] == GradingStatus.AUTOGRADED:
                 # check if the submission needs manual grading
                 try:
-                    gb = Gradebook('sqlite:///'+os.path.join(subm['grader']['folder'], 'gradebook.db'))
+                    gb = Gradebook('sqlite:///'+os.path.join(subm['grader']['folder'], config.nbgrader_path, 'gradebook.db'))
                     gb_subm = gb.find_submission(assignment['name'], config.grading_student_folder_prefix+subm['student']['id'])
                     flag = gb_subm.needs_manual_grade
                 except Exception as e:
@@ -640,7 +721,7 @@ def generate_feedback(config, subm_set):
                 res = run_container(config, 'nbgrader generate_feedback --force '+
                                             '--assignment=' + assignment['name'] +
                                             ' --student=' + config.grading_student_folder_prefix+subm['student']['id'],
-                                    subm['grader']['folder'])
+                                    os.path.join(subm['grader']['folder'], config.nbgrader_path))
 
                 # validate the results
                 #if 'ERROR' in res['log']:
@@ -717,7 +798,7 @@ def generate_feedback(config, subm_set):
                 # STEP 2: load grades from gradebook and compare
                 student = subm['student']
                 try:
-                    gb = Gradebook('sqlite:///'+os.path.join(subm['grader']['folder'] , 'gradebook.db'))
+                    gb = Gradebook('sqlite:///'+os.path.join(subm['grader']['folder'], config.nbgrader_path, 'gradebook.db'))
                     gb_subm = gb.find_submission(assignment['name'], config.grading_student_folder_prefix+student['id'])
                     score = gb_subm.score
                 except Exception as e:
@@ -790,10 +871,10 @@ def return_feedback(config, pastdue_frac, subm_set):
     return
 
 
-def _compute_max_score(grader, assignment):
+def _compute_max_score(config, grader, assignment):
   #for some incredibly annoying reason, nbgrader refuses to compute a max_score for anything (so we cannot easily convert scores to percentages)
   #let's compute the max_score from the notebook manually then....
-  release_nb_path = os.path.join(grader['folder'], 'release', assignment['name'], assignment['name']+'.ipynb')
+  release_nb_path = os.path.join(grader['folder'], config.nbgrader_path, 'release', assignment['name'], assignment['name']+'.ipynb')
   f = open(release_nb_path, 'r')
   parsed_json = json.load(f)
   f.close()
@@ -823,7 +904,7 @@ def upload_grades(config, subm_set):
                 logger.info(f"Uploading grade for submission {subm['name']}")
                 logger.info(f"Obtaining score from the gradebook")
                 try:
-                    gb = Gradebook('sqlite:///'+os.path.join(subm['grader']['folder'] , 'gradebook.db'))
+                    gb = Gradebook('sqlite:///'+os.path.join(subm['grader']['folder'], config.nbgrader_path , 'gradebook.db'))
                     gb_subm = gb.find_submission(assignment['name'], config.grading_student_folder_prefix+student['id'])
                     score = gb_subm.score
                 except Exception as e:
@@ -837,7 +918,7 @@ def upload_grades(config, subm_set):
 
                 logger.info(f"Computing the max score from the release notebook")
                 try:
-                    max_score = _compute_max_score(subm['grader'], assignment)
+                    max_score = _compute_max_score(config, subm['grader'], assignment)
                 except Exception as e:
                     msg = f"Error when trying to compute the max score for submission {subm['name']}; error {str(e)}"
                     sig = signals.FAIL(msg)

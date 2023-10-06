@@ -138,14 +138,26 @@ def _get_snap_name(course_name, assignment, override):
 def get_all_snapshots(config, course_id, assignments):
     snaps = []
     for asgn in assignments:
-        snaps.append( {'due_at' : asgn['due_at'],
-                       'name' : _get_snap_name(config.course_names[course_id], asgn, None),
-                       'student_id' : None})
+        if asgn['due_at'] is not None:
+            snaps.append( {'due_at' : asgn['due_at'],
+                           'name' : _get_snap_name(config.course_names[course_id], asgn, None),
+                           'student_id' : None})
         for override in asgn['overrides']:
-            for student_id in override['student_ids']:
-                snaps.append({'due_at': override['due_at'],
-                              'name' : _get_snap_name(config.course_names[course_id], asgn, override),
-                              'student_id' : student_id})
+            if 'course_section_id' in override:
+                snaps.append( {'due_at' : override['due_at'],
+                               'name' : _get_snap_name(config.course_names[course_id], asgn, override),
+                               'student_id' : None})
+            else:
+                for student_id in override['student_ids']:
+                    snaps.append({'due_at': override['due_at'],
+                                  'name' : _get_snap_name(config.course_names[course_id], asgn, override),
+                                  'student_id' : student_id})
+        if asgn['due_at'] is None and len(asgn['overrides']) == 0:
+            msg = f"Assignment {asgn['name']} has no due date and no overrides."
+            sig = signals.FAIL(msg)
+            sig.msg = msg
+            raise sig
+
     return snaps
 
 @task(checkpoint=False)

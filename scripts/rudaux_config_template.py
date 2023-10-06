@@ -40,6 +40,10 @@ c.course_tokens = {
 	'canvas_id_2' : 'instructor_token_2',
 }
 
+# tells rudaux the path to the nbgrader_config.py file and source/submitted/feedback/autograded directories 
+# in the instructor repo
+c.nbgrader_path = 'R'
+
 # tells rudaux which assignments to track and who is grading them
 # group_name same as above
 # assignment_name_1/2/3 are assignment names from Canvas
