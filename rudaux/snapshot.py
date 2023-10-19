@@ -65,12 +65,10 @@ def _ssh_command(client, cmd):
     stdout_lines = []
     for line in stdout:
         stdout_lines.append(line)
-    stdout = stdout_lines
 
     stderr_lines = []
     for line in stderr:
         stderr_lines.append(line)
-    stderr = stderr_lines
 
     # get exit status
     out_status = stdout.channel.recv_exit_status()
@@ -87,7 +85,7 @@ def _ssh_command(client, cmd):
         raise sig
 
     # return
-    return stdout, stderr
+    return stdout_lines, stderr_lines
 
 def _ssh_snapshot(config, course_id, snap_path):
     logger = get_logger()
