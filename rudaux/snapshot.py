@@ -39,7 +39,7 @@ def _ssh_open(config, course_id):
     client.set_missing_host_key_policy(pmk.client.AutoAddPolicy())
     client.load_system_host_keys()
     client.connect(stu_ssh['hostname'], stu_ssh['port'], stu_ssh['user'], allow_agent=True)
-    s = client.get_transport().open_session()
+    s = client.get_transport().open_session(window_size=1000000,max_packet_size=65536)
     pmk.agent.AgentRequestHandler(s)
     # TODO error handling
     return client
