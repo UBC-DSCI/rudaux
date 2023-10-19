@@ -50,12 +50,6 @@ def _ssh_command(client, cmd):
     # execute the snapshot command
     stdin, stdout, stderr = client.exec_command(cmd)
 
-    # block on result
-    out_status = stdout.channel.recv_exit_status()
-    err_status = stderr.channel.recv_exit_status()
-
-    logger.info(f"Command exit codes: out = {out_status}  err = {err_status}")
-
     # get output
     stdout_lines = []
     for line in stdout:
@@ -66,6 +60,12 @@ def _ssh_command(client, cmd):
     for line in stderr:
         stderr_lines.append(line)
     stderr = stderr_lines
+
+    # block on result
+    out_status = stdout.channel.recv_exit_status()
+    err_status = stderr.channel.recv_exit_status()
+
+    logger.info(f"Command exit codes: out = {out_status}  err = {err_status}")
 
     if out_status != 0 or err_status != 0:
         msg = f"Paramiko SSH command error: nonzero status.\nstderr\n{stderr}\nstdout\n{stdout}"
