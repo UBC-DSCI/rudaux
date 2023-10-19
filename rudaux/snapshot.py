@@ -54,7 +54,7 @@ def _ssh_command(client, cmd):
     # poll until command has finished executing
     timeout = 900 # seconds
     start_time = time.time()
-    while not stdout.channel.exit_status_ready() and stderr.channel.exit_status_ready():
+    while not exit_status_ready():
         if time.time() - start_time > timeout:
             msg = f"Paramiko SSH command error: Wait for command execution has exceeded timeout"
             sig = RuntimeError(msg)
