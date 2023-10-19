@@ -39,7 +39,7 @@ def _ssh_open(config, course_id):
     client.set_missing_host_key_policy(pmk.client.AutoAddPolicy())
     client.load_system_host_keys()
     client.connect(stu_ssh['hostname'], stu_ssh['port'], stu_ssh['user'], allow_agent=True)
-    s = client.get_transport().open_session()
+    s = client.get_transport().open_session(window_size=1000000,max_packet_size=65536)
     pmk.agent.AgentRequestHandler(s)
     # TODO error handling
     return client
@@ -50,22 +50,20 @@ def _ssh_command(client, cmd):
     # execute the snapshot command
     stdin, stdout, stderr = client.exec_command(cmd)
 
+    # get output
+    stdout_lines = []
+    for line in stdout:
+        stdout_lines.append(line)
+
+    stderr_lines = []
+    for line in stderr:
+        stderr_lines.append(line)
+
     # block on result
     out_status = stdout.channel.recv_exit_status()
     err_status = stderr.channel.recv_exit_status()
 
     logger.info(f"Command exit codes: out = {out_status}  err = {err_status}")
-
-    # get output
-    stdout_lines = []
-    for line in stdout:
-        stdout_lines.append(line)
-    stdout = stdout_lines
-
-    stderr_lines = []
-    for line in stderr:
-        stderr_lines.append(line)
-    stderr = stderr_lines
 
     if out_status != 0 or err_status != 0:
         msg = f"Paramiko SSH command error: nonzero status.\nstderr\n{stderr}\nstdout\n{stdout}"
@@ -76,7 +74,7 @@ def _ssh_command(client, cmd):
         raise sig
 
     # return
-    return stdout, stderr
+    return stdout_lines, stderr_lines
 
 def _ssh_snapshot(config, course_id, snap_path):
     logger = get_logger()
