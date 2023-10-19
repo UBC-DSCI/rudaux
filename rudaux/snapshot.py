@@ -1,6 +1,5 @@
 import os
 import prefect
-import time
 from prefect import task
 from prefect.engine import signals
 import paramiko as pmk
@@ -51,16 +50,6 @@ def _ssh_command(client, cmd):
     # execute the snapshot command
     stdin, stdout, stderr = client.exec_command(cmd)
 
-    # poll until command has finished executing
-    timeout = 900 # seconds
-    start_time = time.time()
-    while not exit_status_ready():
-        if time.time() - start_time > timeout:
-            msg = f"Paramiko SSH command error: Wait for command execution has exceeded timeout"
-            sig = RuntimeError(msg)
-            sig.msg = msg
-            raise sig
-
     # get output
     stdout_lines = []
     for line in stdout:
@@ -70,7 +59,7 @@ def _ssh_command(client, cmd):
     for line in stderr:
         stderr_lines.append(line)
 
-    # get exit status
+    # block on result
     out_status = stdout.channel.recv_exit_status()
     err_status = stderr.channel.recv_exit_status()
 
