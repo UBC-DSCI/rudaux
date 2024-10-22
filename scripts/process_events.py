@@ -42,7 +42,9 @@ for lf in logfiles:
                          ).replace("exec_start: bash", "exec_start"
                          ).replace("exec_start: /bin/bash", "exec_start"
                          ).replace("exec_create: sh -c cp -a /tmp/user-settings/. /home/jupyter/.jupyter/lab/user-settings", "exec_create"
-                         ).replace("exec_start: sh -c cp -a /tmp/user-settings/. /home/jupyter/.jupyter/lab/user-settings", "exec_start") for line in data)
+                         ).replace("exec_start: sh -c cp -a /tmp/user-settings/. /home/jupyter/.jupyter/lab/user-settings", "exec_start"
+			 ).replace("exec_create: /bin/sh -c wget -O- --no-verbose --tries=1 --no-check-certificate     http${GEN_CERT:+s}://localhost:8888${JUPYTERHUB_SERVICE_PREFIX:-/}api || exit 1", "exec_create"
+			) for line in data)
         fo.seek(0)
 
     df_tmp = pd.read_table(fo, delim_whitespace=True, header=None)
