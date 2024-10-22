@@ -21,21 +21,37 @@ for lf in logfiles:
         data2 = []
         for line in data:
             tokens = line.replace('"', '').split()
-            assert tokens[4][-1] == ":", f"didnt work {tokens}"
-            tokens[4] = tokens[4][:-1]
-            data2.append( " ".join(tokens[:5]) + ' "' + " ".join(tokens[5:]) + '"\n' )
+
+            # filter lines to keep only messages with info
+            tokens[4] = tokens[4][:-1] # rm : after jupyterhub
+            if tokens[4] != 'jupyterhub': continue
+            if tokens[5][0] != '[': continue # ignore messages that don't have [xxx] structure
+            if len(tokens) != 15: continue # only desired messages; this ignores "Checking routes" and "removed from proxy" messages
+            if tokens[9] != 'log:174]': continue # messages with activity data from students
+
+            # clean up the lines
+            tokens[5] = tokens[5][1:]  # rm [ before I,W, or E
+            tokens[9] = tokens[9][:-1] # rm ] after message
+            tokens[13] = tokens[13][1:-1] # rm ( before and ) after line
+            tokens[14] = tokens[14][:-2] # rm 'ms' after number
+
+            # join but separate user number from ip address in tokens[13]
+            data2.append(" ".join(tokens) + '\n' )
+        # end for
 
         if len(data2) == 0:
             print(f"No data found in {fn}; skipping")
             continue
- 
+        # end if
+
         fo.writelines(data2)
         fo.seek(0)
+    # end with
 
     # read the table and rename the columns
     df_tmp = pd.read_table(fo, delim_whitespace=True, header=None)
 
-    df_tmp.columns = ["month", "day", "timestamp", "host", "service", "info"]
+    df_tmp.columns = ["month", "day", "timestamp", "host", "service", "msg_type", "date", "timestamp2", "service2", "origin", "request_no", "request_type", "directory", "user_IP", "time"]
 
     # get times
     df_tmp[["hour", "minute", "second"]] = df_tmp["timestamp"].str.strip("[").str.strip("]").str.split(":", expand=True)
@@ -45,8 +61,10 @@ for lf in logfiles:
     df_tmp["month"] = df_tmp["month"].map({"Jan" : 1, "Feb" : 2, "Mar" : 3, "Apr" : 4, "May" : 5, "Jun" : 6, "Jul" : 7, "Aug" : 8, "Sep" : 9, "Oct" : 10, "Nov" : 11, "Dec" : 12})
 
     # remove unused columns
-    df_tmp = df_tmp[["year", "month", "day", "hour", "minute", "second", "service", "info"]]
+    df_tmp = df_tmp[["year", "month", "day", "hour", "minute", "second", "service", "msg_type", "origin", "request_no", "request_type", "directory", "user_IP"]]
 
     # output to file
-    df_tmp.to_csv(f"processed/messages_{itr:03}.csv", index=False)
+    df_tmp.to_csv(f"processed/jh_messages_{itr:03}.csv", index=False)
     itr += 1
+# end for
+print('Done!')
