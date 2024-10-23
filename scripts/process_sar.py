@@ -37,28 +37,38 @@ for lf in logfiles:
         continue
 
     # ignore lines that contain Average or RESTART and process time AM/PM to 24h
+    # some newer sar files are already in 24h time. So we need to check whether token 1 is AM/PM and change processing accordingly
     # add year, month, day data
     data2 = []
-    data2.append("year month day hour minute second " + " ".join(data[0].split()[2:]) + "\n")
+    if data[0].split()[1] in ['AM', 'PM', 'am', 'pm']:
+        data2.append("year month day hour minute second " + " ".join(data[0].split()[2:]) + "\n")
+    else:
+        data2.append("year month day hour minute second " + " ".join(data[0].split()[1:]) + "\n")
     for i in range(1, len(data)):
         if 'RESTART' in data[i] or 'Average' in data[i]:
             continue
         toks = data[i].split()
         if len(toks) > 0:
             tt = [int(t) for t in toks[0].split(':')]
-            if toks[1] == 'PM' and tt[0] != 12:
-                tt[0] += 12
-            if toks[1] == 'AM' and tt[0] == 12:
-                tt[0] = 0
+            # if AM/PM format
+            if toks[1] in ['AM', 'PM', 'am', 'pm']:
+                after_time_idx = 2
+                if toks[1] == 'PM' and tt[0] != 12:
+                    tt[0] += 12
+                if toks[1] == 'AM' and tt[0] == 12:
+                    tt[0] = 0
+            else: #24h format
+                after_time_idx = 1
             if len(data2[-1].strip()) == 0:
                 # this is a header line
-                data2.append(f"year month day hour minute second " + " ".join(toks[2:]) + "\n")
+                data2.append(f"year month day hour minute second " + " ".join(toks[after_time_idx:]) + "\n")
             else:
-                data2.append(f"{year} {month} {day} {tt[0]:02} {tt[1]:02} {tt[2]:02} " + " ".join(toks[2:]) + "\n")
+                data2.append(f"{year} {month} {day} {tt[0]:02} {tt[1]:02} {tt[2]:02} " + " ".join(toks[after_time_idx:]) + "\n")
         else:
             # this line is empty, only add the line if the previous one wasn't empty (no need for multiple empty in a row)
             if len(data2[-1].split()) > 0:
                 data2.append(data[i])
+
 
     # now different dataframes are split by a single empty line
     # create sublists for each header, and go line by line through data2 and use the headers to switch state
@@ -89,8 +99,10 @@ for lf in logfiles:
             # read the table and rename the columns
             df = pd.read_table(fo, sep='\s+')
             prefix = ""
-            if "CPU" in header:
+            if "CPU" in header and "%usr" in header:
                 prefix = "sar_cpu"
+            elif "CPU" in header and "total/s" in header:
+                prefix = "sar_cpupersec"
             elif "TTY" in header:
                 prefix = "sar_tty"
             elif "DEV" in header:
@@ -99,6 +111,10 @@ for lf in logfiles:
                 prefix = "sar_iface_pck"
             elif "IFACE" in header and "rxerr" in header:
                 prefix = "sar_iface_err"
+            elif "kbmemfree" in header:
+                prefix = "sar_mem"
+            elif "kbswpfree" in header:
+                prefix = "sar_swp"
             else:
                 none_dfs.append(df)
                 continue
