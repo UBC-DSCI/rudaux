@@ -17,19 +17,21 @@ for lf in logfiles:
     df_tmp = df_tmp.drop(columns = 'on').rename(columns = {df_tmp.columns[0] : "timestamp"})
     # filter rows to only those for jhub user folders
     df_tmp = df_tmp[ df_tmp["Filesystem"].str.contains("tank/home/dsci100/") & ~df_tmp["Filesystem"].str.contains("@") ]
-    # extract the date from the filename
-    df_tmp["year"] = lf[6:10]
-    df_tmp["month"] = lf[11:13]
-    df_tmp["day"] = lf[14:16]
-    # extract the time from the timestamp
-    df_tmp[["hour", "minute", "second"]] = df_tmp["timestamp"].str.strip("[").str.strip("]").str.split(":", expand=True)
-    # extract user number from filesystem
-    df_tmp["user"] = df_tmp["Filesystem"].str.split("/").str[-1]
-    # extract numerical bytes from human-friendly sizes
-    df_tmp["size_mb"] = df_tmp["Size"].apply(hf.parse_size)/1000000
-    df_tmp["used_mb"] = df_tmp["Used"].apply(hf.parse_size)/1000000
-    # remove unused columns
-    df_tmp = df_tmp[["year", "month", "day", "hour", "minute", "second", "user", "size_mb", "used_mb"]]
+    # if the dataframe is empty, just append and move on
+    if df_tmp.shape[0] > 0:
+        # extract the date from the filename
+        df_tmp["year"] = lf[6:10]
+        df_tmp["month"] = lf[11:13]
+        df_tmp["day"] = lf[14:16]
+        # extract the time from the timestamp
+        df_tmp[["hour", "minute", "second"]] = df_tmp["timestamp"].str.strip("[").str.strip("]").str.split(":", expand=True)
+        # extract user number from filesystem
+        df_tmp["user"] = df_tmp["Filesystem"].str.split("/").str[-1]
+        # extract numerical bytes from human-friendly sizes
+        df_tmp["size_mb"] = df_tmp["Size"].apply(hf.parse_size)/1000000
+        df_tmp["used_mb"] = df_tmp["Used"].apply(hf.parse_size)/1000000
+        # remove unused columns
+        df_tmp = df_tmp[["year", "month", "day", "hour", "minute", "second", "user", "size_mb", "used_mb"]]
     # append to the list of dataframes
     dfs.append(df_tmp)
 
