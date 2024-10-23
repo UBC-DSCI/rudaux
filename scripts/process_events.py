@@ -38,6 +38,7 @@ for lf in logfiles:
         fo.writelines(line.replace('(', '"'
                          ).replace(')', '"'
                          ).replace("health_status: healthy", "health_healthy"
+		 	 ).replace("health_status: unhealthy", "health_unhealthy"
                          ).replace("exec_create: bash", "exec_create"
                          ).replace("exec_create: /bin/bash", "exec_create"
                          ).replace("exec_start: bash", "exec_start"
