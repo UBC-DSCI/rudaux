@@ -6,7 +6,7 @@ import humanfriendly as hf
 
 
 dfs = []
-logfiles = os.listdir("hdusage")
+logfiles = sorted(os.listdir("hdusage"))
 itr = 0
 for lf in logfiles:
     fn = os.path.join("hdusage", lf)

@@ -7,7 +7,7 @@ import io
 import re
 import functools
 
-logfiles = os.listdir("sar")
+logfiles = sorted(os.listdir("sar"))
 itr = 0
 file_itr = 0
 datadict = {}
@@ -82,7 +82,7 @@ for lf in logfiles:
 
     if (itr+1) % 7 == 0:
         none_dfs = []
-        for header, data in datadict.items(): 
+        for header, data in datadict.items():
             fo = io.StringIO()
             fo.writelines(data)
             fo.seek(0)

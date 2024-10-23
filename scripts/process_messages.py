@@ -6,7 +6,7 @@ import humanfriendly as hf
 import io
 import re
 
-logfiles = os.listdir("messages")
+logfiles = sorted(os.listdir("messages"))
 itr = 0
 for lf in logfiles:
     fn = os.path.join("messages", lf)

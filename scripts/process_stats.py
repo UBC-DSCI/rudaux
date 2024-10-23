@@ -20,7 +20,7 @@ def get_date_time(tstmp):
     return pd.Series({"year": dt.year, "month": dt.month, "day": dt.day, "hour": dt.hour, "minute" : dt.minute, "second": dt.second})
 
 dfs = []
-logfiles = os.listdir("docker-stats")
+logfiles = sorted(os.listdir("docker-stats"))
 itr = 0
 for lf in logfiles:
     fn = os.path.join("docker-stats", lf)
@@ -30,7 +30,7 @@ for lf in logfiles:
     with open(fn, "r") as f:
         fo = io.StringIO()
         data = f.readlines()
-        
+
         # clean up the lines a bit
         data2 = [line.replace(" / ", " ").replace("1e+03", "1000") for line in data if "--" not in line]
         # a common error in the stat files is that you get a timestamp for one line, then the full next line, then the remainder of the first; so fix that here
@@ -52,7 +52,7 @@ for lf in logfiles:
         if len(data4) == 0:
             print(f"No data found in {fn}; skipping")
             continue
- 
+
         fo.writelines(data4)
         fo.seek(0)
 
