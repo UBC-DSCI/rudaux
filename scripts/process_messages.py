@@ -49,7 +49,7 @@ for lf in logfiles:
     # end with
 
     # read the table and rename the columns
-    df_tmp = pd.read_table(fo, delim_whitespace=True, header=None)
+    df_tmp = pd.read_table(fo, sep='\s+', header=None)
 
     df_tmp.columns = ["month", "day", "timestamp", "host", "service", "msg_type", "date", "timestamp2", "service2", "origin", "request_no", "request_type", "directory", "user_IP", "time"]
 

@@ -12,7 +12,7 @@ for lf in logfiles:
     fn = os.path.join("hdusage", lf)
     print(f"Filling hd_{itr:03}.csv -- Processing {fn}")
     # read with whitespace delim
-    df_tmp = pd.read_table(fn, delim_whitespace=True)
+    df_tmp = pd.read_table(fn, sep='\s+')
     # remove empty "on" column, rename first to timestamp
     df_tmp = df_tmp.drop(columns = 'on').rename(columns = {df_tmp.columns[0] : "timestamp"})
     # filter rows to only those for jhub user folders

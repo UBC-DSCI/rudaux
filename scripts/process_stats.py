@@ -57,7 +57,7 @@ for lf in logfiles:
         fo.seek(0)
 
     # read the table and rename the columns
-    df_tmp = pd.read_table(fo, delim_whitespace=True, header=None)
+    df_tmp = pd.read_table(fo, sep='\s+', header=None)
 
     df_tmp.columns = ["timestamp", "container", "name", "cpu_pct", "mem_usage", "mem_limit", "mem_pct", "net_in", "net_out", "block_in", "block_out", "pids"]
 

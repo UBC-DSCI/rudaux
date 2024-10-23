@@ -47,7 +47,7 @@ for lf in logfiles:
 			) for line in data)
         fo.seek(0)
 
-    df_tmp = pd.read_table(fo, delim_whitespace=True, header=None)
+    df_tmp = pd.read_table(fo, sep='\s+', header=None)
 
     # rename columns
     df_tmp.columns = ['timestamp', 'type', 'action', 'container', 'info']

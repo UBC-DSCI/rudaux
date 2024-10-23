@@ -87,7 +87,7 @@ for lf in logfiles:
             fo.writelines(data)
             fo.seek(0)
             # read the table and rename the columns
-            df = pd.read_table(fo, delim_whitespace=True)
+            df = pd.read_table(fo, sep='\s+')
             prefix = ""
             if "CPU" in header:
                 prefix = "sar_cpu"
