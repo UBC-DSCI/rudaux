@@ -1,12 +1,12 @@
 import pendulum as plm
+import os
 from typing import Optional, List, Dict
 from pydantic import BaseModel
 from .override import Override
 from .student import Student
 from .assignment import Assignment
 
-
-def parse_snapshot_from_name(snap_name: str, assignments: Dict[str, Assignment]):
+def parse_snapshot_from_name(snap_name: str, assignments: Dict[str, Assignment], students: Dict[str, Student], volume=None):
     # snap_name format = '{course_name}-{section_number}-{assignment_name}-{student_lms_is}-{override_lms_id}'
     # example: tank/home/stat301/868424@stat301-101-worksheet_01-1338692-242114
 
@@ -38,7 +38,13 @@ def parse_snapshot_from_name(snap_name: str, assignments: Dict[str, Assignment])
 
             info["override"] = assignments[assignment_lms_id].overrides[override_lms_id]
             info["student"] = assignments[assignment_lms_id].overrides[override_lms_id].students[student_lms_id]
-
+        elif len(tokens) == 4 and volume is not None:
+            student_lms_id = os.path.basename(os.path.normpath(volume))
+            try:
+                info["student"] = students[student_lms_id]
+            except KeyError:
+                pass
+        
         snapshot = Snapshot.parse_obj(info)
         return snapshot
 

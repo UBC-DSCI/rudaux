@@ -17,11 +17,6 @@ class GradingSystem(ABC, BaseModel):
         pass
 
     # -----------------------------------------------------------------------------------------
-    @abstractmethod
-    def initialize(self):
-        pass
-
-    # -----------------------------------------------------------------------------------------
     def generate_assignment(self, grader: Grader):
         pass
 
@@ -59,30 +54,37 @@ class GradingSystem(ABC, BaseModel):
     #     pass
 
     # -----------------------------------------------------------------------------------------
+    @abstractmethod
     def initialize_graders(self, graders: List[Grader]) -> List[Grader]:
         pass
 
     # -----------------------------------------------------------------------------------------
+    @abstractmethod
     def assign_submission_to_grader(self, graders: List[Grader], submission: Submission):
         pass
 
     # -----------------------------------------------------------------------------------------
+    @abstractmethod
     def collect_grader_submissions(self, submission: Submission):
         pass
 
     # -----------------------------------------------------------------------------------------
+    @abstractmethod
     def clean_grader_submission(self, submission: Submission):
         pass
 
     # -----------------------------------------------------------------------------------------
+    @abstractmethod
     def return_solution(self, submission: Submission):
         pass
 
     # -----------------------------------------------------------------------------------------
+    @abstractmethod
     def return_feedback(self, submission: Submission):
         pass
 
     # -----------------------------------------------------------------------------------------
+    @abstractmethod
     def compute_submission_percent_grade(self, submission: Submission) -> str:
         pass
 

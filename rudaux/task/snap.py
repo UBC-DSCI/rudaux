@@ -1,6 +1,6 @@
 from typing import List, Dict
-from prefect import task, get_run_logger
-from prefect.exceptions import PrefectSignal
+#from prefect import task, get_run_logger
+#from prefect.exceptions import PrefectSignal
 
 from rudaux.interface import SubmissionSystem
 # from prefect.engine import signals
@@ -13,7 +13,7 @@ from rudaux.model.assignment import Assignment
 from rudaux.model.course_section_info import CourseSectionInfo
 
 
-@task
+#@task
 def get_pastdue_snapshots(course_name: str, course_info: CourseSectionInfo,
                           assignments: Dict[str, Assignment]) -> Dict[str, Snapshot]:
     """
@@ -84,7 +84,7 @@ def get_pastdue_snapshots(course_name: str, course_info: CourseSectionInfo,
 
 
 # -----------------------------------------------------------------------------------------------
-@task
+#@task
 def get_existing_snapshots(course_name: str, assignments: Dict[str, Assignment], students: Dict[str, Student],
                            subs: SubmissionSystem) -> Dict[str, Snapshot]:
     """
@@ -111,7 +111,7 @@ def get_existing_snapshots(course_name: str, assignments: Dict[str, Assignment],
 
 
 # -----------------------------------------------------------------------------------------------
-@task
+#@task
 def get_snapshots_to_take(pastdue_snaps: Dict[str, Snapshot],
                           existing_snaps: Dict[str, Snapshot]) -> Dict[str, Snapshot]:
     """
@@ -136,7 +136,7 @@ def get_snapshots_to_take(pastdue_snaps: Dict[str, Snapshot],
 
 
 # -----------------------------------------------------------------------------------------------
-@task
+#@task
 def take_snapshots(course_name: str, snaps_to_take: Dict[str, Snapshot], subs: SubmissionSystem):
     logger = get_run_logger()
     for snap_name, snap in snaps_to_take.items():
@@ -145,7 +145,7 @@ def take_snapshots(course_name: str, snaps_to_take: Dict[str, Snapshot], subs: S
 
 
 # -----------------------------------------------------------------------------------------------
-@task
+#@task
 def verify_snapshots(snaps_to_take: Dict[str, Snapshot], new_existing_snaps: Dict[str, Snapshot]):
 
     missing_snaps = []

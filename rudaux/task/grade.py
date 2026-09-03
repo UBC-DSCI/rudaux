@@ -1,8 +1,8 @@
 from typing import List, Tuple
 import pendulum as plm
 import getpass
-import prefect
-from prefect import task, get_run_logger
+#import prefect
+#from prefect import task, get_run_logger
 from rudaux.interface import GradingSystem, LearningManagementSystem
 from rudaux.interface.base.submission_system import SubmissionGradingStatus
 from rudaux.model import Settings
@@ -12,8 +12,8 @@ from rudaux.model.grader import Grader
 from rudaux.util.util import signal, State
 
 
-@task(name='build_grading_team')
-@signal
+##@task(name='build_grading_team')
+##@signal
 def build_grading_team(state: State, settings: Settings, grading_system: GradingSystem,
                        course_group: str, assignment_name: str,
                        assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]]
@@ -58,8 +58,8 @@ def build_grading_team(state: State, settings: Settings, grading_system: Grading
 
 
 # ----------------------------------------------------------------------------------------------------------
-@task(name='generate_assignments')
-@signal
+##@task(name='generate_assignments')
+##@signal
 def generate_assignments(state: State, grading_system: GradingSystem, grader: Grader):
     # if not grader.skip:
     grading_system.generate_assignment(grader=grader)
@@ -67,8 +67,8 @@ def generate_assignments(state: State, grading_system: GradingSystem, grader: Gr
 
 
 # ----------------------------------------------------------------------------------------------------------
-@task(name='generate_solutions')
-@signal
+##@task(name='generate_solutions')
+#@signal
 def generate_solutions(state: State, grading_system: GradingSystem, grader: Grader):
     # logger = get_run_logger()
     # if not grader.skip:
@@ -77,8 +77,8 @@ def generate_solutions(state: State, grading_system: GradingSystem, grader: Grad
 
 
 # ----------------------------------------------------------------------------------------------------------
-@task(name='initialize_graders')
-@signal
+##@task(name='initialize_graders')
+#@signal
 def initialize_graders(state: State, grading_system: GradingSystem, graders: List[Grader]):
     # logger = get_run_logger()
     graders = [grader for grader in graders if not grader.skip]
@@ -89,8 +89,8 @@ def initialize_graders(state: State, grading_system: GradingSystem, graders: Lis
 # ----------------------------------------------------------------------------------------------------------
 # submission tasks
 # ----------------------------------------------------------------------------------------------------------
-@task(name='assign_graders')
-@signal
+##@task(name='assign_graders')
+#@signal
 def assign_graders(state: State, grading_system: GradingSystem, graders: List[Grader],
                    assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]]):
     for section_assignment, section_submissions in assignment_submissions_pairs:
@@ -103,8 +103,8 @@ def assign_graders(state: State, grading_system: GradingSystem, graders: List[Gr
 
 
 # ----------------------------------------------------------------------------------------------------------
-@task(name='return_solutions')
-@signal
+##@task(name='return_solutions')
+#@signal
 def return_solutions(state: State,
                      grading_system: GradingSystem,
                      pastdue_fraction: float,
@@ -136,8 +136,8 @@ def return_solutions(state: State,
 
 
 # ----------------------------------------------------------------------------------------------------------
-@task(name='collect_submissions')
-@signal
+#@task(name='collect_submissions')
+#@signal
 def collect_submissions(state: State, grading_system: GradingSystem,
                         assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]],
                         lms: LearningManagementSystem):
@@ -165,8 +165,8 @@ def collect_submissions(state: State, grading_system: GradingSystem,
 
 
 # ----------------------------------------------------------------------------------------------------------
-@task(name='clean_submissions')
-@signal
+#@task(name='clean_submissions')
+#@signal
 def clean_submissions(state: State, grading_system: GradingSystem,
                       assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]]):
     # logger = get_run_logger()
@@ -183,8 +183,8 @@ def clean_submissions(state: State, grading_system: GradingSystem,
 
 
 # ----------------------------------------------------------------------------------------------------------
-@task(name='autograde')
-@signal
+#@task(name='autograde')
+#@signal
 def autograde(state: State, grading_system: GradingSystem,
               assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]]):
     # logger = get_run_logger()
@@ -198,8 +198,8 @@ def autograde(state: State, grading_system: GradingSystem,
 
 # ----------------------------------------------------------------------------------------------------------
 
-@task(name='check_manual_grading')
-@signal
+#@task(name='check_manual_grading')
+#@signal
 def check_manual_grading(state: State, grading_system: GradingSystem,
                          assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]]):
     # logger = get_run_logger()
@@ -215,8 +215,8 @@ def check_manual_grading(state: State, grading_system: GradingSystem,
 # feedback tasks
 # ----------------------------------------------------------------------------------------------------------
 
-@task(name='generate_feedback')
-@signal
+#@task(name='generate_feedback')
+#@signal
 def generate_feedback(state: State, grading_system: GradingSystem,
                       assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]]):
     # logger = get_run_logger()
@@ -229,8 +229,8 @@ def generate_feedback(state: State, grading_system: GradingSystem,
 
 
 # ----------------------------------------------------------------------------------------------------------
-@task(name='return_feedback')
-@signal
+#@task(name='return_feedback')
+#@signal
 def return_feedback(state: State, settings: Settings, grading_system: GradingSystem,
                     pastdue_fraction: float,
                     assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]]):
@@ -261,8 +261,8 @@ def return_feedback(state: State, settings: Settings, grading_system: GradingSys
 
 
 # ----------------------------------------------------------------------------------------------------------
-@task(name='get_pastdue_fraction')
-@signal
+#@task(name='get_pastdue_fraction')
+#@signal
 def get_pastdue_fraction(
         state: State,
         assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]]) -> float:
@@ -276,8 +276,8 @@ def get_pastdue_fraction(
 
 
 # ----------------------------------------------------------------------------------------------------------
-@task(name='collect_grading_notifications')
-@signal
+#@task(name='collect_grading_notifications')
+#@signal
 def collect_grading_notifications(
         state: State, assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]]):
     # logger = get_run_logger()
@@ -300,8 +300,8 @@ def collect_grading_notifications(
 
 
 # ----------------------------------------------------------------------------------------------------------
-@task(name='await_completion')
-@signal
+#@task(name='await_completion')
+#@signal
 def await_completion(
         state: State, assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]]):
     all_done = True
@@ -321,8 +321,8 @@ def await_completion(
 
 
 # ----------------------------------------------------------------------------------------------------------
-@task(name='upload_grades')
-@signal
+#@task(name='upload_grades')
+#@signal
 def upload_grades(state: State, grading_system: GradingSystem, lms: LearningManagementSystem,
                   assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]]):
     logger = get_run_logger()
@@ -344,8 +344,8 @@ def upload_grades(state: State, grading_system: GradingSystem, lms: LearningMana
 
 
 # ----------------------------------------------------------------------------------------------------------
-@task(name='collect_posting_notifications')
-@signal
+#@task(name='collect_posting_notifications')
+#@signal
 def collect_posting_notifications(
         state: State, assignment_submissions_pairs: List[Tuple[Assignment, List[Submission]]]):
     # logger = get_run_logger()

@@ -1,9 +1,9 @@
 from typing import List, Tuple, Dict
 
-from prefect import task, unmapped
+#from prefect import task, unmapped
 # from prefect.engine import signals
 import pendulum as plm
-import prefect
+#import prefect
 from rudaux.model.course_section_info import CourseSectionInfo
 from rudaux.model.assignment import Assignment
 from rudaux.model.student import Student
@@ -11,7 +11,7 @@ from rudaux.model.instructor import Instructor
 from rudaux.model.submission import Submission
 from rudaux.model.override import Override
 from rudaux.model.settings import Settings
-from prefect import get_run_logger
+#from prefect import get_run_logger
 
 
 # ----------------------------------------------------------------------------------------------------------
@@ -62,7 +62,7 @@ def _get_due_date(assignment: Assignment, student: Student) -> Tuple[plm.DateTim
 
 
 # ----------------------------------------------------------------------------------------------------------
-@task(name="compute_autoextension_override_updates")
+#@task(name="compute_autoextension_override_updates")
 def compute_autoextension_override_updates(settings: Settings, course_name: str, section_name: str,
                                            course_info: CourseSectionInfo, students: Dict[str, Student],
                                            assignments: Dict[str, Assignment]

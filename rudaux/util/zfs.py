@@ -5,11 +5,12 @@ from pendulum import DateTime
 from scp import SCPClient
 import pendulum as plm
 import re
-from prefect import get_run_logger
+#from prefect import get_run_logger
 from logging import getLogger as get_run_logger
 import os
 import tempfile
 import subprocess
+from loguru import logger
 
 
 # ====================================================================================================================
@@ -80,7 +81,7 @@ class ZFS:
     # ----------------------------------------------------------------------------------------------------------------
     def get_snapshots(self, volume: str) -> List[Dict]:
         # send the list snapshot command
-        std_out, std_err = self._command(f"sudo {self.zfs_path} list -r -t snapshot -o name,creation {volume}")
+        std_out, std_err = self._command(f"{self.zfs_path} list -r -t snapshot -o name,creation {volume}")
         # parse the unique snapshot names
         snaps = _parse_zfs_snaps(std_out)
         logger = get_run_logger()
@@ -135,7 +136,7 @@ class ZFS:
         self._command(f"sudo chgrp -R {group} {path}")
 
     # ----------------------------------------------------------------------------------------------------------------
-    def read(self, volume: str, relative_path: str, snapshot=None) -> Tuple[List[AnyStr], DateTime]:
+    def read(self, volume: str, relative_path: str) -> Tuple[List[AnyStr], DateTime]:
         """
         reads volume
 
@@ -143,17 +144,13 @@ class ZFS:
         ----------
         volume: str
         relative_path: str
-        snapshot:
 
         Returns
         -------
         (lines, modified_datetime): Tuple[List[AnyStr], DateTime]
 
         """
-        if snapshot:
-            read_path = os.path.join("/", volume.strip("/"), f".zfs/snapshot/{snapshot}", relative_path)
-        else:
-            read_path = os.path.join("/", volume.strip("/"), relative_path)
+        read_path = os.path.join("/", volume.strip("/"), relative_path)
 
         # create a temporary file
         tnf = tempfile.NamedTemporaryFile()
@@ -177,7 +174,7 @@ class ZFS:
         write_volume_root = os.path.join("/", volume.strip("/"))
 
         # get user + group for the volume
-        std_out, std_err = self._command(f"sudo ls -ld {write_volume_root}", status_fail=False)
+        std_out, std_err = self._command(f"ls -ld {write_volume_root}", status_fail=False)
         if "No such file" in std_out:
             raise Exception(f"Cannot write to {volume}, no such directory at {write_volume_root}")
         line = std_out.split('\n')[0].split(' ')
@@ -189,11 +186,11 @@ class ZFS:
         write_dir = os.path.dirname(write_path)
 
         # make directories required to put the file if needed
-        self._command('sudo mkdir -p {write_dir}')
+        self._command(f'mkdir -p {write_dir}')
 
         # change ownership of the volume to unix_user, unix_group
-        self._command(f"sudo chown -R {user} {write_volume_root}")
-        self._command(f"sudo chgrp -R {group} {write_volume_root}")
+        # self._command(f"sudo chown -R {user} {write_volume_root}")
+        # self._command(f"sudo chgrp -R {group} {write_volume_root}")
 
         # save the lines to a temporary file
         tnf = tempfile.NamedTemporaryFile()
@@ -207,12 +204,12 @@ class ZFS:
         tnf.close()
 
         # change ownership of the file to the correct user,group for the volume
-        self._command(f"sudo chown {user} {write_path}")
-        self._command(f"sudo chgrp {group} {write_path}")
+        # self._command(f"sudo chown {user} {write_path}")
+        # self._command(f"sudo chgrp {group} {write_path}")
 
         # check if the file was written
-        std_out, std_err = self._command(f"sudo ls {write_path}", status_fail=False)
-        if "No such file" in stdout:
+        std_out, std_err = self._command(f"ls {write_path}", status_fail=False)
+        if "No such file" in std_out:
             raise Exception(f"Failed to write file to storage: {write_path}")
 
 
@@ -294,28 +291,19 @@ class LocalZFS(ZFS):
 
 class RemoteZFS(ZFS):
     # ----------------------------------------------------------------------------------------------------------------
-    def __init__(self, zfs_path="/usr/sbin/zfs", tz="UTC", info=None):
-        self.scp = None
-        self.ssh = None
+    def __init__(self, client, zfs_path="/usr/sbin/zfs", tz="UTC", info=None):
+        self.sftp = client.open_sftp()
+        self.ssh = client
         super().__init__(zfs_path, tz, info)
 
     # ----------------------------------------------------------------------------------------------------------------
     def open(self):
-        logger = get_run_logger()
-        logger.info(f"Opening ssh connection to {self.info}")
-        # open an ssh connection to the student machine
-        self.ssh = pmk.client.SSHClient()
-        self.ssh.set_missing_host_key_policy(pmk.client.AutoAddPolicy())
-        self.ssh.load_system_host_keys()
-        self.ssh.connect(self.info['host'], self.info['port'], self.info['user'], allow_agent=True)
-        s = self.ssh.get_transport().open_session()
-        pmk.agent.AgentRequestHandler(s)
-        self.scp = SCPClient(self.ssh.get_transport())
+        pass
 
     # ----------------------------------------------------------------------------------------------------------------
     def close(self):
-        self.ssh.close()
-
+        pass
+        
     # ----------------------------------------------------------------------------------------------------------------
     def _command(self, cmd: str, status_fail=True) -> Tuple[str, str]:
         """
@@ -362,10 +350,18 @@ class RemoteZFS(ZFS):
 
     # ----------------------------------------------------------------------------------------------------------------
     def _read(self, source_path: str, dest_path: str, preserve_times=True):
-        self.scp.get(source_path, dest_path, preserve_times=preserve_times)
+        self.sftp.get(source_path, dest_path)
+        if preserve_times:
+            stat = self.sftp.stat(source_path)
+            os.utime(dest_path, (stat.st_atime, stat.st_mtime))
 
     # ----------------------------------------------------------------------------------------------------------------
     def _write(self, source_path: str, dest_path: str):
-        self.scp.put(source_path, recursive=False, remote_path=dest_path)
+        try: 
+            if self.sftp.stat(dest_path):
+                logger.info(f'Did not write to remote, file already exists: {dest_path}')
+        except FileNotFoundError:
+            self.sftp.put(source_path, dest_path)
+            logger.info(f'Wrote file to remote {dest_path}')
 
     # ----------------------------------------------------------------------------------------------------------------

@@ -1,29 +1,17 @@
-traitlets>=4.3.2
-tqdm>=4.45.0
-terminaltables>=3.1.0
-editdistance>=0.5.3
-pendulum>=2.1.2
-requests>=2.23.0
-urllib3>=1.25.9
-prefect==2.2.0
-pyfiglet>=0.8.post1
-termcolor>=1.1.0
+canvasapi
+click
+kombu
+loguru
+nbgrader
+notifiers
 paramiko>=2.7.2
-docker-compose>=1.29.2
-gitpython>=3.1.18
-PyYAML>=5.4.1
-scp==0.14.4
-nbgrader==0.8.1
-tabulate
-jupyterhub
+pendulum>=2.1.2
+pydantic
+requests>=2.23.0
+scp
+urllib3>=1.25.9
+gitpython
+docker
 # git+https://github.com/trevorcampbell/fwirl@main
 # git+https://github.com/ubc-dsci/dictauth@main
-
-loguru
-networkx
-notifiers
-kombu
-crontab
-click
-
 

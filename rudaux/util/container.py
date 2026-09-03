@@ -1,6 +1,6 @@
 import docker
 import time
-from prefect import get_run_logger
+#from prefect import get_run_logger
 # from logging import getLogger as get_run_logger
 
 
@@ -9,7 +9,7 @@ def run_container(command: str, docker_image: str, docker_memory='2g',
                   work_dir=None, ctr_bind_dir=None, n_tries=5):
 
     client = docker.from_env()
-    logger = get_run_logger()
+    #logger = get_run_logger()
     ctr = None
     result = {}
     # try to start the container a few times
@@ -34,10 +34,10 @@ def run_container(command: str, docker_image: str, docker_memory='2g',
             ctr = None
             time.sleep(10.)
             if n_tries > 0:
-                logger.info(
+                print(
                     f"Docker APIError exception encountered when starting docker container. "
                     f"command {command} work_dir {work_dir}. error message {str(e)}")
-                logger.info(f"Failed to start container. Attempting again; {n_tries} attempts remaining.")
+                print(f"Failed to start container. Attempting again; {n_tries} attempts remaining.")
         except docker.errors.ImageNotFound as e:
             ctr = None
             raise Exception(
@@ -51,10 +51,10 @@ def run_container(command: str, docker_image: str, docker_memory='2g',
             ctr = None
             time.sleep(10.)
             if n_tries > 0:
-                logger.info(
+                print(
                     f"Docker unknown exception encountered when starting docker container. "
                     f"command {command} work_dir {work_dir}. error message {str(e)}")
-                logger.info(f"Failed to start container. Attempting again; {n_tries} attempts remaining.")
+                print(f"Failed to start container. Attempting again; {n_tries} attempts remaining.")
 
     # if the container started successfully, poll until it is finished
     if ctr:

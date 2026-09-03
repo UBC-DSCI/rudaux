@@ -3,13 +3,15 @@ import os
 import shutil
 from collections import namedtuple
 from json import JSONDecodeError
-from logging import Logger
+import logging 
 from subprocess import check_output, CalledProcessError, STDOUT
-from typing import Optional, List, Callable
+from typing import Optional, List, Callable, Any
+from pydantic import PrivateAttr
+from dictauth.users import get_users
 import pendulum as plm
 from bs4 import BeautifulSoup
 from dictauth.users import add_user, remove_user, get_users
-from prefect.exceptions import PrefectSignal
+#from prefect.exceptions import PrefectSignal
 import git
 from rudaux.interface.base.grading_system import GradingSystem
 from rudaux.interface.base.submission_system import SubmissionGradingStatus
@@ -17,9 +19,11 @@ from rudaux.model import Submission
 from rudaux.model.grader import Grader
 from rudaux.util.container import run_container
 from nbgrader.api import Gradebook, MissingEntry
-from prefect import get_run_logger
+#from prefect import get_run_logger
 from rudaux.util.util import grader_account_name, recursive_chown
 
+#logger = logging.getLogger(__name__)
+from loguru import logger
 
 def _create_submission_folder(grader: Grader):
     # create the submissions folder
@@ -51,6 +55,7 @@ def _compute_max_score(submission: Submission):
 
 
 class NBGrader(GradingSystem):
+    _users: List[str] = PrivateAttr(default=None)
     nbgrader_docker_image: str
     nbgrader_docker_memory: str
     nbgrader_docker_bind_folder: str
@@ -61,6 +66,7 @@ class NBGrader(GradingSystem):
     nbgrader_jupyterhub_group: str
     nbgrader_user_quota: str
     nbgrader_user_root: str
+    nbgrader_path: str
     nbgrader_submissions_folder: Optional[str] = 'submitted'
     nbgrader_feedback_folder: Optional[str] = 'feedback'
     nbgrader_autograded_folder: Optional[str] = 'autograded'
@@ -76,15 +82,15 @@ class NBGrader(GradingSystem):
         pass
 
     # -----------------------------------------------------------------------------------------
-    def initialize(self):
+    def model_post_init(self, context: Any) -> None:
         # get list of users from dictauth
-        self.users = self._get_users()
+        self._users = self._get_users()
 
     # -----------------------------------------------------------------------------------------
     def _get_generated_assignments(self, work_dir: str) -> dict:
         generated_assignments = run_container(
             command='nbgrader db assignment list', docker_image=self.nbgrader_docker_image,
-            docker_memory=self.nbgrader_docker_memory, work_dir=work_dir)
+            docker_memory=self.nbgrader_docker_memory, work_dir=work_dir, ctr_bind_dir=self.nbgrader_docker_bind_folder)
         return generated_assignments
 
     # -----------------------------------------------------------------------------------------
@@ -101,30 +107,30 @@ class NBGrader(GradingSystem):
 
         """
 
-        logger = get_run_logger()
+        ##logger = get_run_logger()
 
         assignment_name = grader.info['assignment_name']
-        work_dir = grader.info['folder']
-        grader_name = grader.info['name']
+        work_dir = os.path.join(grader.info['folder'], self.nbgrader_path)
+        grader_name = grader.name
 
         # if the assignment hasn't been generated yet, generate it
         generated_assignments = self._get_generated_assignments(work_dir=work_dir)
 
         if assignment_name not in generated_assignments['log']:
-            logger.info(f"Assignment {assignment_name} not yet generated for grader {grader_name}")
+            print(f"Assignment {assignment_name} not yet generated for grader {grader_name}")
 
             output = run_container(
                 command=f"nbgrader generate_assignment --force {assignment_name}",
                 docker_image=self.nbgrader_docker_image,
-                docker_memory=self.nbgrader_docker_memory, work_dir=work_dir)
+                docker_memory=self.nbgrader_docker_memory,
+                work_dir=work_dir, 
+                ctr_bind_dir=self.nbgrader_docker_bind_folder)
 
-            logger.info(output['log'])
+            print(output['log'])
 
             if 'ERROR' in output['log']:
-                msg = f"Error generating assignment {assignment_name} for grader " \
-                      f"{grader.info['name']} at path {work_dir}"
-                logger.error(msg)
-                raise PrefectSignal
+                print(f"Error generating assignment {assignment_name} for grader {grader.name} at path {work_dir}")
+                
 
     # -----------------------------------------------------------------------------------------
     def generate_solution(self, grader: Grader):
@@ -141,20 +147,23 @@ class NBGrader(GradingSystem):
 
         """
 
-        logger = get_run_logger()
+        ##logger = get_run_logger()
         assignment_name = grader.info['assignment_name']
         local_source_path = grader.info['local_source_path']
         solution_name = grader.info['solution_name']
-        work_dir = grader.info['folder']
+        work_dir = os.path.join(grader.info['folder'], self.nbgrader_path)
 
         # if the solution hasn't been generated yet, generate it
         if not os.path.exists(grader.info['solution_path']):
             logger.info(f"Solution for {assignment_name} not yet generated for grader {grader.info['name']}")
 
-            command = f"jupyter nbconvert {local_source_path} --output={solution_name} --output-dir=."
+            command = f"jupyter nbconvert {local_source_path} --to html --output={solution_name} --output-dir=."
             output = run_container(
-                command=command, docker_image=self.nbgrader_docker_image,
-                docker_memory=self.nbgrader_docker_memory, work_dir=work_dir)
+                command=command,
+                docker_image=self.nbgrader_docker_image,
+                docker_memory=self.nbgrader_docker_memory,
+                work_dir=work_dir,
+                ctr_bind_dir=self.nbgrader_docker_bind_folder)
 
             logger.info(output['log'])
 
@@ -162,7 +171,7 @@ class NBGrader(GradingSystem):
                 msg = f"Error generating solution for {assignment_name} for grader " \
                       f"{grader.info['name']} at path {grader.info['folder']}"
                 logger.error(msg)
-                raise PrefectSignal
+                #
 
         # transfer ownership to the jupyterhub user
         recursive_chown(grader.info['folder'],
@@ -172,7 +181,7 @@ class NBGrader(GradingSystem):
     # -----------------------------------------------------------------------------------------
     def generate_feedback(self, submission: Submission):
 
-        logger = get_run_logger()
+        ##logger = get_run_logger()
 
         grader = submission.grader
         student = submission.student
@@ -193,20 +202,20 @@ class NBGrader(GradingSystem):
                       f"--student={self.nbgrader_student_folder_prefix}{submission.student.lms_id}"
 
             output = run_container(command=command, docker_image=self.nbgrader_docker_image,
-                                   docker_memory=self.nbgrader_docker_memory, work_dir=work_dir)
+                                   docker_memory=self.nbgrader_docker_memory, work_dir=work_dir,ctr_bind_dir=self.nbgrader_docker_bind_folder)
 
             if not os.path.exists(grader.info['generated_feedback_path']):
                 logger.info(
                     f"Docker error generating feedback for submission {submission.lms_id}: "
-                    f"did not generate expected file at {grader.info['generated_feedback_path']}")
+                    f"did not generate expected file at {grader.info['generated_feedback_path']} {output}")
                 if attempt < attempts - 1:
                     logger.info("Trying again...")
                     continue
                 else:
                     msg = f"Docker error generating feedback for submission {submission.lms_id}: " \
-                          f"did not generate expected file at {grader.info['generated_feedback_path']}"
+                          f"did not generate expected file at {grader.info['generated_feedback_path']} {output}"
                     logger.error(msg)
-                    raise PrefectSignal
+                    #
 
             # open the feedback form that was just generated and make sure the final grade lines up with the DB grade
 
@@ -263,7 +272,7 @@ class NBGrader(GradingSystem):
                           f"grade does not line up within feedback file!"
                     os.remove(grader.info['generated_feedback_path'])
                     logger.error(msg)
-                    raise PrefectSignal
+                    
 
             # if assignment max doesn't equal sum of question maxes,
             # warning; this can occur if student deleted test cell
@@ -293,7 +302,7 @@ class NBGrader(GradingSystem):
                       f"{submission.lms_id}; error {str(e)}"
                 os.remove(grader.info['generated_feedback_path'])
                 logger.error(msg)
-                raise PrefectSignal
+                
             else:
                 gb.close()
 
@@ -321,13 +330,13 @@ class NBGrader(GradingSystem):
                           f"grade does not line up with DB!; docker container log: \n {output['log']}"
                     os.remove(grader.info['generated_feedback_path'])
                     logger.error(msg)
-                    raise PrefectSignal
+                    
             break
 
     # -----------------------------------------------------------------------------------------
     def get_needs_manual_grading(self, submission: Submission):
 
-        logger = get_run_logger()
+        #logger = get_run_logger()
 
         grader = submission.grader
         student = submission.student
@@ -342,7 +351,7 @@ class NBGrader(GradingSystem):
         except Exception as e:
             msg = f"Error when checking whether submission {submission.lms_id} needs manual grading; error {str(e)}"
             logger.error(msg)
-            raise PrefectSignal
+            
         else:
             gb.close()
 
@@ -359,7 +368,7 @@ class NBGrader(GradingSystem):
     # -----------------------------------------------------------------------------------------
     def autograde(self, submission: Submission):
 
-        logger = get_run_logger()
+        #logger = get_run_logger()
 
         grader = submission.grader
         student = submission.student
@@ -387,8 +396,11 @@ class NBGrader(GradingSystem):
                   f"--assignment={assignment.name} " \
                   f"--student={self.nbgrader_student_folder_prefix}{student.lms_id}"
 
-        output = run_container(command=command, docker_image=self.nbgrader_docker_image,
-                               docker_memory=self.nbgrader_docker_memory, work_dir=work_dir)
+        output = run_container(command=command, 
+                               docker_image=self.nbgrader_docker_image,
+                               docker_memory=self.nbgrader_docker_memory, 
+                               work_dir=work_dir, 
+                               ctr_bind_dir=self.nbgrader_docker_bind_folder)
 
         # validate the results
         if 'ERROR' in output['log']:
@@ -403,7 +415,7 @@ class NBGrader(GradingSystem):
             msg = f"Docker error autograding submission {submission.lms_id}: " \
                   f"did not generate expected file at {grader.info['autograded_assignment_path']}"
             logger.error(msg)
-            raise PrefectSignal
+            
 
         submission.status = SubmissionGradingStatus.AUTOGRADED
 
@@ -425,16 +437,16 @@ class NBGrader(GradingSystem):
 
         """
 
-        logger = get_run_logger()
+        #logger = get_run_logger()
 
         # users = self.get_users()
         # ensure user exists
-        if username not in self.users:
-            msg = f"User account {username} listed in rudaux_config does not exist in dictauth: {self.users} . " \
+        if username not in self._users:
+            msg = f"User account {username} listed in rudaux_config does not exist in dictauth: {self._users} . " \
                   f"Make sure to use dictauth to create a grader account for each of the " \
                   f"TA/instructors listed in config.assignments"
             logger.error(msg)
-            raise PrefectSignal
+            
 
         grader_name = grader_account_name(course_name, assignment_name, username)
         info = dict()
@@ -443,16 +455,17 @@ class NBGrader(GradingSystem):
         info['assignment_name'] = assignment_name
         info['unix_user'] = self.nbgrader_jupyterhub_user
         info['unix_group'] = self.nbgrader_jupyterhub_group
+        info['unix_quota'] = self.nbgrader_user_quota
         info['folder'] = os.path.join(self.nbgrader_user_root, grader_name).rstrip('/')
         info['local_source_path'] = os.path.join('source', assignment_name, assignment_name + '.ipynb')
-        info['submissions_folder'] = os.path.join(info['folder'], self.nbgrader_submissions_folder)
-        info['autograded_folder'] = os.path.join(info['folder'], self.nbgrader_autograded_folder)
-        info['feedback_folder'] = os.path.join(info['folder'], self.nbgrader_feedback_folder)
+        info['submissions_folder'] = os.path.join(info['folder'], self.nbgrader_path, self.nbgrader_submissions_folder)
+        info['autograded_folder'] = os.path.join(info['folder'], self.nbgrader_path, self.nbgrader_autograded_folder)
+        info['feedback_folder'] = os.path.join(info['folder'], self.nbgrader_path, self.nbgrader_feedback_folder)
         info['workload'] = 0  # how many submissions they have to grade
         if os.path.exists(info['submissions_folder']):
             info['workload'] = len([f for f in os.listdir(info['submissions_folder']) if os.path.isdir(f)])
         info['solution_name'] = assignment_name + '_solution.html'
-        info['solution_path'] = os.path.join(info['folder'], info['solution_name'])
+        info['solution_path'] = os.path.join(info['folder'], self.nbgrader_path, info['solution_name'])
 
         grader = Grader(name=grader_name, info=info, skip=skip)
         return grader
@@ -493,8 +506,8 @@ class NBGrader(GradingSystem):
                     salt=None,
                     digest=None)
         add_user(args)
-        check_output(['systemctl', 'stop', 'jupyterhub'])
-        check_output(['systemctl', 'start', 'jupyterhub'])
+        check_output(['sudo', 'systemctl', 'stop', 'jupyterhub'])
+        check_output(['sudo', 'systemctl', 'start', 'jupyterhub'])
 
     # -----------------------------------------------------------------------------------------
     def _create_grading_volume(self, grader: Grader):
@@ -509,7 +522,7 @@ class NBGrader(GradingSystem):
         -------
         """
 
-        logger = get_run_logger()
+        #logger = get_run_logger()
         # create the zfs volume
         if not os.path.exists(grader.info['folder']):
             logger.info(f"Grader folder {grader.info['folder']} doesn't exist, creating...")
@@ -517,11 +530,13 @@ class NBGrader(GradingSystem):
                 # zfs_path = "/usr/sbin/zfs"
                 check_output(['sudo', self.nbgrader_zfs_path, 'create', "-o", "refquota=" + grader.info['unix_quota'],
                               grader.info['folder'].lstrip('/')], stderr=STDOUT)
+                # update permissions
+                recursive_chown(grader.info['folder'], self.nbgrader_jupyterhub_user, self.nbgrader_jupyterhub_group)
             except CalledProcessError as e:
                 msg = f"Error running command {e.cmd}. return_code {e.returncode}. " \
                       f"output {e.output}. stdout {e.stdout}. stderr {e.stderr}"
                 logger.error(msg)
-                raise PrefectSignal
+                
             logger.info("Created!")
 
     # ----------------------------------------------------------------------------------------------------------
@@ -537,7 +552,7 @@ class NBGrader(GradingSystem):
         -------
         """
 
-        logger = get_run_logger()
+        #logger = get_run_logger()
         # clone the git repository
         # TODO if there's an error cloning the repo or an unknown error when doing the initial test repo create
         # email instructor and print a message to tell the user to create a deploy key
@@ -572,9 +587,9 @@ class NBGrader(GradingSystem):
         grader: Grader
         """
 
-        logger = get_run_logger()
+        #logger = get_run_logger()
         # users = self._get_users()
-        if grader.name not in self.users:
+        if grader.name not in self._users:
             logger.info(f"User {grader.name} does not exist; creating")
             self._add_grader_account(grader=grader)
         return grader
@@ -623,7 +638,7 @@ class NBGrader(GradingSystem):
         # if not assigned to anyone, choose the worker with the minimum current workload
         if not found:
             # sort graders in place and assign
-            graders.sort(key=lambda g: g['workload'])
+            graders.sort(key=lambda g: g.info['workload'])
             min_grader = graders[0]
             min_grader.info['workload'] += 1
             submission.grader = min_grader
@@ -649,8 +664,8 @@ class NBGrader(GradingSystem):
             assignment_name, assignment_name + '.html')
 
     # ----------------------------------------------------------------------------------------------------------
-    def collect_grader_submissions(self, submission: Submission):
-        logger = get_run_logger()
+    def collect_grader_submission(self, submission: Submission):
+        #logger = get_run_logger()
         grader = submission.grader
         if not os.path.exists(grader.info['collected_assignment_path']):
             if not os.path.exists(grader.info['snapped_assignment_path']):
@@ -673,7 +688,7 @@ class NBGrader(GradingSystem):
     # ----------------------------------------------------------------------------------------------------------
     def clean_grader_submission(self, submission: Submission):
 
-        logger = get_run_logger()
+        #logger = get_run_logger()
 
         # need to check for duplicate cell ids, see
         # https://github.com/jupyter/nbgrader/issues/1083
@@ -688,8 +703,7 @@ class NBGrader(GradingSystem):
 
         # open the student's notebook
         try:
-            collected_assignment_path = grader.info['collected_assignment_path']
-            f = open(collected_assignment_path, 'r')
+            f = open(grader.info['collected_assignment_path'], 'r')
             nb = json.load(f)
             f.close()
 
@@ -703,8 +717,8 @@ class NBGrader(GradingSystem):
                    "please inspect the file and fix the issue" +
                    "(typically by manually re-copying the student work into the grader/submitted folder")
 
-            logger.error(msg)
-            raise PrefectSignal
+            raise Exception(msg)
+            
 
         # go through and
         # 1) make sure cell type agrees with nbgrader cell type
@@ -758,7 +772,7 @@ class NBGrader(GradingSystem):
                 cell_ids.add(cell_id)
 
         # write the sanitized notebook back to the submitted folder
-        f = open(collected_assignment_path, 'w')
+        f = open(grader.info['collected_assignment_path'], 'w')
         json.dump(nb, f)
         f.close()
 
@@ -766,7 +780,7 @@ class NBGrader(GradingSystem):
 
     # ----------------------------------------------------------------------------------------------------------
     def return_solution(self, submission: Submission):
-        logger = get_run_logger()
+        #logger = get_run_logger()
         student = submission.student
         assignment = submission.assignment
         grader = submission.grader
@@ -788,7 +802,7 @@ class NBGrader(GradingSystem):
     # ----------------------------------------------------------------------------------------------------------
     def return_feedback(self, submission: Submission):
 
-        logger = get_run_logger()
+        #logger = get_run_logger()
 
         student = submission.student
         assignment = submission.assignment
@@ -815,7 +829,7 @@ class NBGrader(GradingSystem):
     # ----------------------------------------------------------------------------------------------------------
     def compute_submission_percent_grade(self, submission: Submission) -> str:
 
-        logger = get_run_logger()
+        #logger = get_run_logger()
 
         student = submission.student
         assignment = submission.assignment
@@ -832,7 +846,7 @@ class NBGrader(GradingSystem):
         except Exception as e:
             msg = f"Error when accessing the gradebook score for submission {submission.lms_id}; error {str(e)}"
             logger.error(msg)
-            raise PrefectSignal
+            
         else:
             gb.close()
 
@@ -844,7 +858,7 @@ class NBGrader(GradingSystem):
         except Exception as e:
             msg = f"Error when trying to compute the max score for submission {submission.lms_id}; error {str(e)}"
             logger.error(msg)
-            raise PrefectSignal
+            
         logger.info(f"Max Score: {max_score}")
 
         # pct = "{:.2f}".format(100 * score / max_score)

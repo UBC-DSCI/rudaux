@@ -1,0 +1,144 @@
+# =========================================================================
+#                       GENERAL CONFIG
+# =========================================================================
+
+course_groups:
+  course_dsci_100_test:
+  - section_dsci_100_test_01
+
+# =========================================================================
+lms_classes:
+  course_dsci_100_test: rudaux.interface.Canvas
+
+# =========================================================================
+gs_classes:
+  course_dsci_100_test: rudaux.interface.NBGrader
+
+# =========================================================================
+ss_classes:
+  course_dsci_100_test: rudaux.interface.remote_zfs.RemoteZFSSubmissions
+
+# =========================================================================
+#                       CANVAS CONFIG
+# =========================================================================
+
+canvas_base_domain: https://canvas.ubc.ca
+# =========================================================================
+# Provide a key, value pair where the key is the course section name, and the value is
+# the canvas id of that course section
+# EXAMPLE: COURSE_SECTION_NAME_01": "12345"
+
+canvas_course_lms_ids:
+  section_dsci_100_test_01: '177129'
+
+# =========================================================================
+canvas_registration_deadlines:
+  # YYYY-MM-DD
+  section_dsci_100_test_01: '2022-10-30'
+
+# =========================================================================
+canvas_api_tokens:
+  section_dsci_100_test_01: 'canvas_api_key'
+
+# =========================================================================
+#                       SSH CONFIG
+# =========================================================================
+
+ssh_config:
+  section_dsci_100_test_01: 
+    hostname: dsci-200-student.stat.ubc.ca
+    port: 22
+    superuser: stty2u
+    user: jovyan
+    zfs_path: /usr/sbin/zfs
+    student_root: /tank/home/dsci200
+    max_tries: 3
+    timezone: UTC
+
+# =========================================================================
+#                       NBGRADER CONFIG
+# =========================================================================
+
+# specify which user is the instructor (who to notify to post grades)
+nbgrader_instructor_user: 'grader_jupyterhub_username_A'
+# specify where to find the jupyterhub config directory (rudaux manages grading jupyterhub accounts)
+nbgrader_jupyterhub_config_dir: '/srv/jupyterhub/'
+
+# specify where the nbgrader base directory resides (e.g '', 'R', or 'python')
+nbgrader_path: 'R'
+
+# specify the quota to give grading accounts
+# defaults to 5 gigabytes, but you can make this larger/smaller as needed
+nbgrader_user_quota: '5g'
+# specify where to create new grading folders (path to the directory where the jupyterhub user folders are stored)
+#nbgrader_user_root: '/path/to/jhub/user/folder/dir'
+
+nbgrader_zfs_path: "/usr/sbin/zfs"
+
+# the ssh-access git repository URL (the root of this directory should be an 'nbgrader' dir)
+instructor_repo_url: 'git@github.com:UBC-DSCI/dsci-100-instructor.git'
+# the path in each student's JHub directory to look for their assignment folders
+# e.g. if assignment_name_1's folder is located at dsci-100-student/materials/assignment_name_1/...
+# within each student's jhub user folder (and similar for the other assignments),
+# this would be "dsci-100-student/materials"
+student_local_assignment_folder: 'dsci-200/worksheets'
+
+# specify the names of submitted/feedback/autograded folders
+# you probably don't need to change these
+nbgrader_submissions_folder: 'submitted'
+nbgrader_feedback_folder: 'feedback'
+nbgrader_autograded_folder: 'autograded'
+
+nbgrader_user_root: '/tank/home/testdsci100'
+
+# the amount of memory to give each autograding container
+nbgrader_docker_memory: '2g'
+
+# the image to use for nbgrader operations
+nbgrader_docker_image: 'ubcdsci/r-dsci-100-grading:686e5c519e01'
+
+nbgrader_jupyterhub_user: 'jovyan'
+nbgrader_jupyterhub_group: 'stty2u'
+
+# the name of the directory in the container to bind to the grader's jhub folder
+nbgrader_docker_bind_folder: '/home/jovyan/work'
+
+nbgrader_student_folder_prefix: 'student-'
+
+# the fraction of deadlines that must be passed before solutions are returned (useful for early weeks in a semester with lots of auto late extensions)
+return_solution_threshold: 0.93
+# the earliest date to return solutions to anything regardless of the return thresholds
+earliest_solution_return_date: '2021-09-26'
+
+# =========================================================================
+assignments:
+  course_dsci_100_test:
+    worksheet_data-privacy:
+    - mockgrader
+    worksheet_data-acquisition:
+    - mockgrader
+    worksheet_outliers:
+    - mockgrader
+    worksheet_missing-data:
+    - mockgrader
+    worksheet_simulations:
+    - mockgrader
+    worksheet_sampling-variability:
+    - mockgrader
+    worksheet_EDA:
+    - mockgrader
+
+# =========================================================================
+latereg_extension_days:
+  course_dsci_100_test: 7
+
+# =========================================================================
+notify_timezone:
+    course_dsci_100_test: America/Vancouver
+
+# =========================================================================
+autoext_cron_string: "* * * * *"
+snap_cron_string: "* * * * *"
+grade_cron_string: "* * * * *"
+
+# =========================================================================

@@ -5,3 +5,4 @@ from .assignment import Assignment
 from .override import Override
 from .course_section_info import CourseSectionInfo
 from .submission import Submission
+from .grader import Grader
